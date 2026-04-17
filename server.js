@@ -4,6 +4,8 @@ const helmet     = require('helmet');
 const rateLimit  = require('express-rate-limit');
 const { ethers } = require('ethers');
 const Database   = require('better-sqlite3');
+const fs         = require('fs');
+const path       = require('path');
 
 const app = express();
 const db  = new Database('snake.db');
@@ -61,6 +63,16 @@ const DISCORD_WEBHOOK  = process.env.DISCORD_WEBHOOK || '';
 const MIN_SESSION_SEC  = parseInt(process.env.MIN_SESSION_SEC || '3', 10);   // <3s = bot
 const MAX_PTS_PER_SEC  = parseFloat(process.env.MAX_PTS_PER_SEC || '5');     // humain pro = 3-4
 const MIN_SESSION_GAP  = parseInt(process.env.MIN_SESSION_GAP || '2', 10);   // 2s entre sessions/wallet
+
+// ─── ADMIN ───────────────────────────────────────────────────────────────────
+const ADMIN_TOKEN      = process.env.ADMIN_TOKEN || '';
+function adminAuth(req, res, next) {
+  if (!ADMIN_TOKEN) return res.status(503).json({ error: 'Admin disabled (no token)' });
+  const header = req.get('Authorization') || '';
+  const token  = header.replace(/^Bearer\s+/i, '');
+  if (token !== ADMIN_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+}
 
 if (!SIGNER_PK) { console.error('❌ SIGNER_PK manquant dans .env'); process.exit(1); }
 
@@ -330,8 +342,43 @@ app.get('/api/player/:address', (req, res) => {
   res.json({ ...row, rank });
 });
 
+// ─── ADMIN ROUTES ─────────────────────────────────────────────────────────────
+app.get('/api/admin/backup', adminAuth, (req, res) => {
+  const tmpPath = `/tmp/snake-backup-${Date.now()}.db`;
+  try {
+    db.exec(`VACUUM INTO '${tmpPath}'`);
+    const stat = fs.statSync(tmpPath);
+    const date = new Date().toISOString().slice(0,10);
+    res.download(tmpPath, `snake-${date}.db`, (err) => {
+      try { fs.unlinkSync(tmpPath); } catch (_) {}
+      if (err) console.error('backup download error:', err.message);
+    });
+    console.log(`[BACKUP] served ${stat.size} bytes to ${req.ip}`);
+  } catch (e) {
+    try { fs.unlinkSync(tmpPath); } catch (_) {}
+    console.error('backup failed:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/stats', adminAuth, (req, res) => {
+  const sessions24h = db.prepare(`SELECT COUNT(*) as c FROM score_history WHERE created_at > strftime('%s','now','-1 day')`).get().c;
+  const cheatAttempts = db.prepare(`SELECT COUNT(*) as c FROM sessions WHERE validated=1 AND reward=0 AND score=0`).get().c;
+  const topWallets  = db.prepare(`SELECT address, best_score, total_claimed, games_played FROM leaderboard ORDER BY total_claimed DESC LIMIT 20`).all();
+  const recentClaims = db.prepare(`SELECT address, amount, claimed_at FROM claims ORDER BY claimed_at DESC LIMIT 50`).all();
+  const totalDistributed = db.prepare('SELECT COALESCE(SUM(total_claimed),0) as s FROM leaderboard').get().s;
+  res.json({
+    sessions24h,
+    cheatAttempts,
+    totalDistributed,
+    topWallets,
+    recentClaims,
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`🐍 SnakeCoin backend running on port ${PORT}`);
   console.log(`💼 Contract: ${CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ'}`);
   if (DISCORD_WEBHOOK) console.log('🤖 Discord webhook enabled');
+  if (ADMIN_TOKEN)     console.log('🔐 Admin token configured');
 });

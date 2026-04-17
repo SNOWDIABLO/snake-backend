@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SnakeCoin 🐍 - Crypto Snake Game</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 2rem;
+    background: linear-gradient(90deg, #00ff88, #00ccff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .subtitle { color: #888; font-size: 0.85rem; margin-bottom: 12px; }
+
+  /* Language selector */
+  .lang-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 14px;
+    max-width: 520px;
+  }
+  .lang-btn {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    color: #aaa;
+    padding: 4px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+    font-family: 'Courier New', monospace;
+  }
+  .lang-btn:hover { border-color: #00ff88; color: #fff; }
+  .lang-btn.active { background: #00ff8822; border-color: #00ff88; color: #00ff88; }
+
+  .top-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .stat-box {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 8px;
+    padding: 7px 14px;
+    text-align: center;
+    min-width: 110px;
+  }
+  .stat-box .label { font-size: 0.65rem; color: #666; text-transform: uppercase; }
+  .stat-box .value { font-size: 1.1rem; color: #00ff88; font-weight: bold; }
+  #wallet-address { font-size: 0.75rem; color: #888; }
+
+  button {
+    background: linear-gradient(135deg, #00ff88, #00cc66);
+    color: #000;
+    border: none;
+    padding: 9px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    font-size: 0.88rem;
+    transition: all 0.2s;
+  }
+  button:hover { opacity: 0.85; transform: scale(1.03); }
+  button:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; transform: none; }
+  #claim-btn {
+    background: linear-gradient(135deg, #ff8800, #ffcc00);
+    font-size: 0.95rem;
+    padding: 10px 24px;
+  }
+
+  canvas {
+    border: 2px solid #00ff8833;
+    border-radius: 8px;
+    box-shadow: 0 0 30px #00ff8811;
+    display: block;
+    max-width: 100%;
+  }
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .info-box {
+    background: #111;
+    border: 1px solid #1a1a2e;
+    border-radius: 10px;
+    padding: 14px 22px;
+    margin-top: 12px;
+    max-width: 500px;
+    font-size: 0.8rem;
+    color: #888;
+    text-align: center;
+    line-height: 1.7;
+  }
+  .info-box span { color: #00ff88; }
+  .info-box .warn { color: #ffcc00; }
+  #status {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: #ffcc00;
+    min-height: 20px;
+    text-align: center;
+    max-width: 500px;
+  }
+  .arrow-keys {
+    display: grid;
+    grid-template-columns: repeat(3, 42px);
+    grid-template-rows: repeat(2, 42px);
+    gap: 4px;
+    margin-top: 10px;
+  }
+  .arrow-keys button {
+    padding: 0;
+    width: 42px;
+    height: 42px;
+    font-size: 1.1rem;
+    background: #1a1a2e;
+    color: #00ff88;
+    border: 1px solid #333;
+    border-radius: 6px;
+  }
+  .arrow-keys button:hover { background: #252545; transform: none; }
+
+  @media (max-width: 520px) {
+    canvas { width: 340px; height: 340px; }
+    h1 { font-size: 1.5rem; }
+  }
+
+  /* Wallet picker modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #111;
+    border: 1px solid #00ff8844;
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 400px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal h3 {
+    color: #00ff88;
+    margin-bottom: 14px;
+    font-size: 1rem;
+    text-align: center;
+  }
+  .wallet-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    margin: 6px 0;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #fff;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+  }
+  .wallet-option:hover {
+    border-color: #00ff88;
+    background: #1a2a3e;
+  }
+  .wallet-option img { width: 28px; height: 28px; border-radius: 6px; }
+  .modal-close {
+    margin-top: 10px;
+    width: 100%;
+    background: #2a2a2a;
+    color: #aaa;
+    padding: 8px;
+  }
+  .modal-close:hover { background: #3a3a3a; transform: none; }
+  .no-wallet {
+    color: #888;
+    text-align: center;
+    padding: 20px;
+    font-size: 0.85rem;
+  }
+  .no-wallet a { color: #00ff88; text-decoration: none; }
+
+  /* ─── V2 upgrades ─────────────────────────────────────────── */
+
+  /* Canvas glow when running */
+  canvas.running { box-shadow: 0 0 40px #00ff8855, 0 0 80px #00ff8822; }
+  canvas.shake   { animation: shake 0.3s ease-in-out; }
+  @keyframes shake {
+    0%,100% { transform: translate(0,0); }
+    20% { transform: translate(-4px, 2px); }
+    40% { transform: translate(3px, -3px); }
+    60% { transform: translate(-2px, 3px); }
+    80% { transform: translate(2px, -1px); }
+  }
+
+  /* Combo badge */
+  #combo-badge {
+    position: absolute;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, #ff8800, #ffcc00);
+    color: #000;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.25s ease;
+    box-shadow: 0 0 20px #ffcc00aa;
+    z-index: 5;
+  }
+  #combo-badge.show { opacity: 1; transform: scale(1); }
+  #combo-badge.x3   { background: linear-gradient(135deg, #ff00cc, #ffcc00); box-shadow: 0 0 25px #ff00ccaa; }
+
+  /* Leaderboard button */
+  #leaderboard-btn {
+    background: linear-gradient(135deg, #00ccff, #0088cc);
+    color: #000;
+  }
+
+  /* Leaderboard modal */
+  .lb-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    justify-content: center;
+  }
+  .lb-tab {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    color: #888;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+  }
+  .lb-tab.active { background: #00ff8822; border-color: #00ff88; color: #00ff88; }
+
+  .lb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  .lb-table th, .lb-table td {
+    padding: 7px 4px;
+    text-align: left;
+    border-bottom: 1px solid #222;
+  }
+  .lb-table th { color: #666; font-weight: normal; text-transform: uppercase; font-size: 0.7rem; }
+  .lb-table td.rank { color: #00ff88; font-weight: bold; width: 32px; text-align: center; }
+  .lb-table td.rank.gold   { color: #ffd700; }
+  .lb-table td.rank.silver { color: #c0c0c0; }
+  .lb-table td.rank.bronze { color: #cd7f32; }
+  .lb-table td.addr  { color: #aaa; font-family: 'Courier New', monospace; }
+  .lb-table td.score { color: #00ff88; text-align: right; font-weight: bold; }
+  .lb-table tr.me td { background: #00ff8811; }
+  .lb-loading { text-align: center; padding: 30px; color: #666; }
+
+  /* Mobile touch zone hint */
+  @media (max-width: 768px) {
+    .arrow-keys { display: none; }
+    .touch-hint {
+      color: #555;
+      font-size: 0.7rem;
+      margin-top: 8px;
+      text-align: center;
+    }
+  }
+  @media (min-width: 769px) {
+    .touch-hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🐍 SnakeCoin</h1>
+<p class="subtitle">Play-to-Earn · Polygon · MetaMask</p>
+
+<!-- Language Selector -->
+<div class="lang-bar" id="lang-bar"></div>
+
+<div class="top-bar">
+  <div class="stat-box">
+    <div class="label" data-i18n="score">SCORE</div>
+    <div class="value" id="score-display">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="label" data-i18n="earned">$SNAKE GAGNÉ</div>
+    <div class="value" id="tokens-display">0.00</div>
+  </div>
+  <div class="stat-box">
+    <div class="label" data-i18n="highscore">MEILLEUR</div>
+    <div class="value" id="highscore-display">0</div>
+  </div>
+</div>
+
+<div class="top-bar">
+  <button id="connect-btn" onclick="openWalletPicker()">🦊 <span data-i18n="connect">Connecter Wallet</span></button>
+  <div id="wallet-address" data-i18n="not_connected">Non connecté</div>
+</div>
+
+<!-- Wallet picker modal -->
+<div class="modal-overlay" id="wallet-modal">
+  <div class="modal">
+    <h3 data-i18n="choose_wallet">Choisis ton wallet</h3>
+    <div id="wallet-list"></div>
+    <button class="modal-close" onclick="closeWalletPicker()" data-i18n="cancel">Annuler</button>
+  </div>
+</div>
+
+<div style="position:relative">
+  <canvas id="gameCanvas" width="480" height="480"></canvas>
+  <div id="combo-badge">COMBO x2 🔥</div>
+</div>
+
+<div class="controls">
+  <button onclick="startGame()" id="start-btn">▶ <span data-i18n="new_game">Nouvelle Partie</span></button>
+  <button onclick="claimTokens()" id="claim-btn" disabled>💰 <span data-i18n="claim">Claim $SNAKE</span></button>
+  <button onclick="openLeaderboard()" id="leaderboard-btn">🏆 <span data-i18n="leaderboard">Leaderboard</span></button>
+</div>
+
+<div class="touch-hint" data-i18n="touch_hint">Swipe sur l'écran pour diriger le serpent</div>
+
+<!-- Leaderboard modal -->
+<div class="modal-overlay" id="lb-modal">
+  <div class="modal" style="max-width:480px">
+    <h3>🏆 <span data-i18n="leaderboard">Leaderboard</span></h3>
+    <div class="lb-tabs">
+      <div class="lb-tab active" data-period="day"  data-i18n="lb_day">Jour</div>
+      <div class="lb-tab" data-period="week"       data-i18n="lb_week">Semaine</div>
+      <div class="lb-tab" data-period="all"        data-i18n="lb_alltime">All-Time</div>
+    </div>
+    <div id="lb-content" class="lb-loading" data-i18n="loading">Chargement...</div>
+    <button class="modal-close" onclick="closeLeaderboard()" data-i18n="close">Fermer</button>
+  </div>
+</div>
+
+<div class="arrow-keys">
+  <div></div>
+  <button onclick="setDir(0,-1)">▲</button>
+  <div></div>
+  <button onclick="setDir(-1,0)">◄</button>
+  <button onclick="setDir(0,1)">▼</button>
+  <button onclick="setDir(1,0)">►</button>
+</div>
+
+<div id="status"></div>
+
+<div class="info-box">
+  <b style="color:#fff" data-i18n="how_title">Comment gagner des $SNAKE ?</b><br><br>
+  <span data-i18n="how_1">Mange les pommes 🍎 → +1 point</span><br>
+  <span data-i18n="how_2">Chaque 10 points = 1 $SNAKE claimable</span><br>
+  <span data-i18n="how_3">Limite journalière : 100 $SNAKE / wallet</span><br><br>
+  <span class="warn" data-i18n="demo_mode">⚠️ Mode démo — Backend requis pour le vrai claim</span>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  TRANSLATIONS
+// ═══════════════════════════════════════════════════
+const LANGS = {
+  fr: { flag:'🇫🇷', name:'Français', t:{
+    score:'SCORE', earned:'$SNAKE GAGNÉ', highscore:'MEILLEUR',
+    connect:'Connecter Wallet', not_connected:'Non connecté',
+    choose_wallet:'Choisis ton wallet', cancel:'Annuler',
+    new_game:'Nouvelle Partie', claim:'Claim $SNAKE',
+    how_title:'Comment gagner des $SNAKE ?',
+    how_1:'Mange les pommes 🍎 → +1 point',
+    how_2:'Chaque 10 points = 1 $SNAKE claimable',
+    how_3:'Limite journalière : 100 $SNAKE / wallet',
+    demo_mode:'⚠️ Mode démo — Backend requis pour le vrai claim',
+    connected:'✅ Connecté',
+    go:'Appuie ESPACE ou "Nouvelle Partie"',
+    gameover:'GAME OVER',
+    press_start:'Appuie sur "Nouvelle Partie"',
+    status_claim:'🎉 Partie terminée ! Tu peux claim',
+    status_minscore:'Game Over. Min 10 pts pour claim.',
+    status_demo:'✅ [DEMO] $SNAKE simulés ! Configure le backend pour le vrai claim.',
+    status_connecting:'⏳ Connexion wallet...',
+    status_metamask:'MetaMask non détecté ! Installe MetaMask sur metamask.io',
+    status_sign:'⏳ Demande signature serveur...',
+    status_tx:'⏳ Transaction Polygon en cours...',
+    status_confirm:'⏳ Confirmation blockchain...',
+    status_success:'✅ Claim réussi !',
+    leaderboard:'Leaderboard', lb_day:'Jour', lb_week:'Semaine', lb_alltime:'All-Time',
+    loading:'Chargement...', close:'Fermer',
+    lb_empty:'Personne n\'a encore joué sur cette période',
+    touch_hint:'Swipe sur l\'écran pour diriger le serpent',
+    combo_label:'COMBO', golden:'POMME DORÉE',
+  }},
+  en: { flag:'🇬🇧', name:'English', t:{
+    score:'SCORE', earned:'$SNAKE EARNED', highscore:'BEST',
+    connect:'Connect Wallet', not_connected:'Not connected',
+    choose_wallet:'Choose your wallet', cancel:'Cancel',
+    new_game:'New Game', claim:'Claim $SNAKE',
+    how_title:'How to earn $SNAKE?',
+    how_1:'Eat apples 🍎 → +1 point',
+    how_2:'Every 10 points = 1 $SNAKE to claim',
+    how_3:'Daily limit: 100 $SNAKE / wallet',
+    demo_mode:'⚠️ Demo mode — Backend required for real claim',
+    connected:'✅ Connected',
+    go:'Press SPACE or "New Game"',
+    gameover:'GAME OVER',
+    press_start:'Press "New Game"',
+    status_claim:'🎉 Game over! You can claim',
+    status_minscore:'Game Over. Min 10 pts to claim.',
+    status_demo:'✅ [DEMO] $SNAKE simulated! Set up backend for real claim.',
+    status_connecting:'⏳ Connecting wallet...',
+    status_metamask:'MetaMask not detected! Install at metamask.io',
+    status_sign:'⏳ Requesting server signature...',
+    status_tx:'⏳ Polygon transaction sending...',
+    status_confirm:'⏳ Blockchain confirmation...',
+    status_success:'✅ Claim successful!',
+    leaderboard:'Leaderboard', lb_day:'Day', lb_week:'Week', lb_alltime:'All-Time',
+    loading:'Loading...', close:'Close',
+    lb_empty:'Nobody played during this period yet',
+    touch_hint:'Swipe on the screen to move the snake',
+    combo_label:'COMBO', golden:'GOLDEN APPLE',
+  }},
+  es: { flag:'🇪🇸', name:'Español', t:{
+    score:'PUNTOS', earned:'$SNAKE GANADO', highscore:'RÉCORD',
+    connect:'Conectar MetaMask', not_connected:'No conectado',
+    new_game:'Nueva Partida', claim:'Reclamar $SNAKE',
+    how_title:'¿Cómo ganar $SNAKE?',
+    how_1:'Come manzanas 🍎 → +1 punto',
+    how_2:'Cada 10 puntos = 1 $SNAKE reclamable',
+    how_3:'Límite diario: 100 $SNAKE / wallet',
+    demo_mode:'⚠️ Modo demo — Servidor requerido para reclamar real',
+    connected:'✅ Conectado',
+    go:'Presiona ESPACIO o "Nueva Partida"',
+    gameover:'FIN DEL JUEGO',
+    press_start:'Presiona "Nueva Partida"',
+    status_claim:'🎉 ¡Juego terminado! Puedes reclamar',
+    status_minscore:'Fin del juego. Mínimo 10 pts para reclamar.',
+    status_demo:'✅ [DEMO] ¡$SNAKE simulados! Configura el backend.',
+    status_connecting:'⏳ Conectando wallet...',
+    status_metamask:'¡MetaMask no detectado! Instala en metamask.io',
+    status_sign:'⏳ Solicitando firma del servidor...',
+    status_tx:'⏳ Enviando transacción Polygon...',
+    status_confirm:'⏳ Confirmación blockchain...',
+    status_success:'✅ ¡Reclamo exitoso!',
+  }},
+  pt: { flag:'🇧🇷', name:'Português', t:{
+    score:'PONTOS', earned:'$SNAKE GANHO', highscore:'RECORDE',
+    connect:'Conectar MetaMask', not_connected:'Não conectado',
+    new_game:'Nova Partida', claim:'Resgatar $SNAKE',
+    how_title:'Como ganhar $SNAKE?',
+    how_1:'Coma maçãs 🍎 → +1 ponto',
+    how_2:'A cada 10 pontos = 1 $SNAKE resgatável',
+    how_3:'Limite diário: 100 $SNAKE / carteira',
+    demo_mode:'⚠️ Modo demo — Servidor necessário para resgate real',
+    connected:'✅ Conectado',
+    go:'Pressione ESPAÇO ou "Nova Partida"',
+    gameover:'FIM DE JOGO',
+    press_start:'Pressione "Nova Partida"',
+    status_claim:'🎉 Jogo encerrado! Você pode resgatar',
+    status_minscore:'Fim de jogo. Mín. 10 pts para resgatar.',
+    status_demo:'✅ [DEMO] $SNAKE simulados! Configure o backend.',
+    status_connecting:'⏳ Conectando carteira...',
+    status_metamask:'MetaMask não detectado! Instale em metamask.io',
+    status_sign:'⏳ Solicitando assinatura do servidor...',
+    status_tx:'⏳ Enviando transação Polygon...',
+    status_confirm:'⏳ Confirmação blockchain...',
+    status_success:'✅ Resgate realizado com sucesso!',
+  }},
+  de: { flag:'🇩🇪', name:'Deutsch', t:{
+    score:'PUNKTE', earned:'$SNAKE VERDIENT', highscore:'REKORD',
+    connect:'MetaMask verbinden', not_connected:'Nicht verbunden',
+    new_game:'Neues Spiel', claim:'$SNAKE abholen',
+    how_title:'Wie $SNAKE verdienen?',
+    how_1:'Äpfel essen 🍎 → +1 Punkt',
+    how_2:'Je 10 Punkte = 1 $SNAKE abholen',
+    how_3:'Tageslimit: 100 $SNAKE / Wallet',
+    demo_mode:'⚠️ Demo-Modus — Server für echten Claim nötig',
+    connected:'✅ Verbunden',
+    go:'Drücke LEERTASTE oder "Neues Spiel"',
+    gameover:'SPIEL VORBEI',
+    press_start:'Drücke "Neues Spiel"',
+    status_claim:'🎉 Spiel beendet! Du kannst abholen',
+    status_minscore:'Spiel vorbei. Min. 10 Pkt. zum Abholen.',
+    status_demo:'✅ [DEMO] $SNAKE simuliert! Backend konfigurieren.',
+    status_connecting:'⏳ Wallet verbinden...',
+    status_metamask:'MetaMask nicht gefunden! Auf metamask.io installieren',
+    status_sign:'⏳ Server-Signatur anfordern...',
+    status_tx:'⏳ Polygon-Transaktion senden...',
+    status_confirm:'⏳ Blockchain-Bestätigung...',
+    status_success:'✅ Claim erfolgreich!',
+  }},
+  it: { flag:'🇮🇹', name:'Italiano', t:{
+    score:'PUNTEGGIO', earned:'$SNAKE GUADAGNATO', highscore:'RECORD',
+    connect:'Connetti MetaMask', not_connected:'Non connesso',
+    new_game:'Nuova Partita', claim:'Preleva $SNAKE',
+    how_title:'Come guadagnare $SNAKE?',
+    how_1:'Mangia le mele 🍎 → +1 punto',
+    how_2:'Ogni 10 punti = 1 $SNAKE prelevabile',
+    how_3:'Limite giornaliero: 100 $SNAKE / wallet',
+    demo_mode:'⚠️ Modalità demo — Server richiesto per prelievo reale',
+    connected:'✅ Connesso',
+    go:'Premi SPAZIO o "Nuova Partita"',
+    gameover:'GAME OVER',
+    press_start:'Premi "Nuova Partita"',
+    status_claim:'🎉 Partita finita! Puoi prelevare',
+    status_minscore:'Game Over. Min. 10 pt per prelevare.',
+    status_demo:'✅ [DEMO] $SNAKE simulati! Configura il backend.',
+    status_connecting:'⏳ Connessione wallet...',
+    status_metamask:'MetaMask non trovato! Installa su metamask.io',
+    status_sign:'⏳ Richiesta firma server...',
+    status_tx:'⏳ Transazione Polygon in corso...',
+    status_confirm:'⏳ Conferma blockchain...',
+    status_success:'✅ Prelievo riuscito!',
+  }},
+  ru: { flag:'🇷🇺', name:'Русский', t:{
+    score:'ОЧКИ', earned:'$SNAKE ЗАРАБОТАНО', highscore:'РЕКОРД',
+    connect:'Подключить MetaMask', not_connected:'Не подключен',
+    new_game:'Новая Игра', claim:'Получить $SNAKE',
+    how_title:'Как заработать $SNAKE?',
+    how_1:'Ешь яблоки 🍎 → +1 очко',
+    how_2:'Каждые 10 очков = 1 $SNAKE',
+    how_3:'Дневной лимит: 100 $SNAKE / кошелёк',
+    demo_mode:'⚠️ Демо-режим — Сервер нужен для реального вывода',
+    connected:'✅ Подключен',
+    go:'Нажми ПРОБЕЛ или "Новая Игра"',
+    gameover:'ИГРА ОКОНЧЕНА',
+    press_start:'Нажми "Новая Игра"',
+    status_claim:'🎉 Игра окончена! Можно получить',
+    status_minscore:'Игра окончена. Мин. 10 очков для вывода.',
+    status_demo:'✅ [ДЕМО] $SNAKE симулированы! Настрой бэкенд.',
+    status_connecting:'⏳ Подключение кошелька...',
+    status_metamask:'MetaMask не найден! Установи на metamask.io',
+    status_sign:'⏳ Запрос подписи сервера...',
+    status_tx:'⏳ Отправка транзакции Polygon...',
+    status_confirm:'⏳ Подтверждение блокчейна...',
+    status_success:'✅ Вывод выполнен!',
+  }},
+  zh: { flag:'🇨🇳', name:'中文', t:{
+    score:'分数', earned:'$SNAKE 已赚', highscore:'最高分',
+    connect:'连接 MetaMask', not_connected:'未连接',
+    new_game:'新游戏', claim:'领取 $SNAKE',
+    how_title:'如何赚取 $SNAKE？',
+    how_1:'吃苹果 🍎 → +1 分',
+    how_2:'每 10 分 = 1 $SNAKE 可领取',
+    how_3:'每日上限：100 $SNAKE / 钱包',
+    demo_mode:'⚠️ 演示模式 — 需要后端才能真正领取',
+    connected:'✅ 已连接',
+    go:'按空格键或"新游戏"开始',
+    gameover:'游戏结束',
+    press_start:'按"新游戏"',
+    status_claim:'🎉 游戏结束！可以领取',
+    status_minscore:'游戏结束。最少 10 分才能领取。',
+    status_demo:'✅ [演示] $SNAKE 已模拟！配置后端以真实领取。',
+    status_connecting:'⏳ 连接钱包中...',
+    status_metamask:'未检测到 MetaMask！请在 metamask.io 安装',
+    status_sign:'⏳ 请求服务器签名...',
+    status_tx:'⏳ 发送 Polygon 交易...',
+    status_confirm:'⏳ 区块链确认中...',
+    status_success:'✅ 领取成功！',
+  }},
+  ja: { flag:'🇯🇵', name:'日本語', t:{
+    score:'スコア', earned:'$SNAKE 獲得', highscore:'最高記録',
+    connect:'MetaMask 接続', not_connected:'未接続',
+    new_game:'新しいゲーム', claim:'$SNAKE を受け取る',
+    how_title:'$SNAKE の稼ぎ方',
+    how_1:'りんごを食べる 🍎 → +1ポイント',
+    how_2:'10ポイントごとに $SNAKE 1枚獲得',
+    how_3:'1日の上限：100 $SNAKE / ウォレット',
+    demo_mode:'⚠️ デモモード — 実際の請求にはバックエンドが必要',
+    connected:'✅ 接続済み',
+    go:'スペースまたは「新しいゲーム」を押してください',
+    gameover:'ゲームオーバー',
+    press_start:'「新しいゲーム」を押してください',
+    status_claim:'🎉 ゲーム終了！受け取り可能:',
+    status_minscore:'ゲームオーバー。請求には最低10ポイント必要。',
+    status_demo:'✅ [デモ] $SNAKE がシミュレートされました！',
+    status_connecting:'⏳ ウォレット接続中...',
+    status_metamask:'MetaMask が見つかりません！metamask.io でインストール',
+    status_sign:'⏳ サーバー署名をリクエスト中...',
+    status_tx:'⏳ Polygon トランザクション送信中...',
+    status_confirm:'⏳ ブロックチェーン確認中...',
+    status_success:'✅ 請求成功！',
+  }},
+  ko: { flag:'🇰🇷', name:'한국어', t:{
+    score:'점수', earned:'$SNAKE 획득', highscore:'최고점수',
+    connect:'MetaMask 연결', not_connected:'연결 안됨',
+    new_game:'새 게임', claim:'$SNAKE 받기',
+    how_title:'$SNAKE 버는 방법',
+    how_1:'사과 먹기 🍎 → +1 점',
+    how_2:'10점마다 $SNAKE 1개 획득',
+    how_3:'일일 한도: 100 $SNAKE / 지갑',
+    demo_mode:'⚠️ 데모 모드 — 실제 청구는 백엔드 필요',
+    connected:'✅ 연결됨',
+    go:'스페이스 또는 "새 게임" 누르기',
+    gameover:'게임 오버',
+    press_start:'"새 게임" 누르기',
+    status_claim:'🎉 게임 종료! 청구 가능:',
+    status_minscore:'게임 오버. 청구하려면 최소 10점 필요.',
+    status_demo:'✅ [데모] $SNAKE 시뮬레이션됨! 백엔드를 설정하세요.',
+    status_connecting:'⏳ 지갑 연결 중...',
+    status_metamask:'MetaMask가 없습니다! metamask.io에서 설치하세요',
+    status_sign:'⏳ 서버 서명 요청 중...',
+    status_tx:'⏳ Polygon 트랜잭션 전송 중...',
+    status_confirm:'⏳ 블록체인 확인 중...',
+    status_success:'✅ 청구 성공!',
+  }},
+  ar: { flag:'🇸🇦', name:'العربية', t:{
+    score:'النقاط', earned:'$SNAKE المكتسب', highscore:'أعلى نقطة',
+    connect:'ربط MetaMask', not_connected:'غير متصل',
+    new_game:'لعبة جديدة', claim:'اطلب $SNAKE',
+    how_title:'كيف تكسب $SNAKE؟',
+    how_1:'كُل التفاح 🍎 → +1 نقطة',
+    how_2:'كل 10 نقاط = 1 $SNAKE قابل للطلب',
+    how_3:'الحد اليومي: 100 $SNAKE / محفظة',
+    demo_mode:'⚠️ وضع تجريبي — الخادم مطلوب للطلب الحقيقي',
+    connected:'✅ متصل',
+    go:'اضغط مسافة أو "لعبة جديدة"',
+    gameover:'انتهت اللعبة',
+    press_start:'اضغط "لعبة جديدة"',
+    status_claim:'🎉 انتهت اللعبة! يمكنك الطلب',
+    status_minscore:'انتهت اللعبة. الحد الأدنى 10 نقاط للطلب.',
+    status_demo:'✅ [تجريبي] تم محاكاة $SNAKE! قم بإعداد الخادم.',
+    status_connecting:'⏳ جارٍ ربط المحفظة...',
+    status_metamask:'MetaMask غير موجود! ثبّته من metamask.io',
+    status_sign:'⏳ طلب توقيع الخادم...',
+    status_tx:'⏳ جارٍ إرسال معاملة Polygon...',
+    status_confirm:'⏳ تأكيد البلوكتشين...',
+    status_success:'✅ تم الطلب بنجاح!',
+  }},
+  tr: { flag:'🇹🇷', name:'Türkçe', t:{
+    score:'PUAN', earned:'$SNAKE KAZANILAN', highscore:'EN YÜKSEK',
+    connect:'MetaMask Bağla', not_connected:'Bağlı değil',
+    new_game:'Yeni Oyun', claim:'$SNAKE Al',
+    how_title:'$SNAKE nasıl kazanılır?',
+    how_1:'Elma ye 🍎 → +1 puan',
+    how_2:'Her 10 puan = 1 $SNAKE alınabilir',
+    how_3:'Günlük limit: 100 $SNAKE / cüzdan',
+    demo_mode:'⚠️ Demo modu — Gerçek talep için sunucu gerekli',
+    connected:'✅ Bağlandı',
+    go:'BOŞLUK veya "Yeni Oyun" bas',
+    gameover:'OYUN BİTTİ',
+    press_start:'"Yeni Oyun" bas',
+    status_claim:'🎉 Oyun bitti! Alabilirsin',
+    status_minscore:'Oyun bitti. Almak için min. 10 puan lazım.',
+    status_demo:'✅ [DEMO] $SNAKE simüle edildi! Backend\'i kur.',
+    status_connecting:'⏳ Cüzdan bağlanıyor...',
+    status_metamask:'MetaMask bulunamadı! metamask.io\'dan yükle',
+    status_sign:'⏳ Sunucu imzası isteniyor...',
+    status_tx:'⏳ Polygon işlemi gönderiliyor...',
+    status_confirm:'⏳ Blockchain onayı...',
+    status_success:'✅ Talep başarılı!',
+  }},
+};
+
+// ─── LANG INIT ───────────────────────────────────────────────────────────────
+let currentLang = localStorage.getItem('snakeLang') || 'fr';
+
+function t(key) {
+  return LANGS[currentLang]?.t[key] || LANGS['en'].t[key] || key;
+}
+
+function applyLang() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+  document.querySelectorAll('#lang-bar .lang-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.lang === currentLang);
+  });
+  // Update RTL for Arabic
+  document.body.style.direction = currentLang === 'ar' ? 'rtl' : 'ltr';
+  // Re-draw welcome if not running
+  if (!running) drawWelcome();
+}
+
+function buildLangBar() {
+  const bar = document.getElementById('lang-bar');
+  Object.entries(LANGS).forEach(([code, lang]) => {
+    const btn = document.createElement('button');
+    btn.className = 'lang-btn' + (code === currentLang ? ' active' : '');
+    btn.dataset.lang = code;
+    btn.textContent = lang.flag + ' ' + lang.name;
+    btn.onclick = () => {
+      currentLang = code;
+      localStorage.setItem('snakeLang', code);
+      applyLang();
+    };
+    bar.appendChild(btn);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  GAME CONFIG
+// ═══════════════════════════════════════════════════
+const BACKEND_URL      = 'https://snake-backend-production-e5e8.up.railway.app';
+const CONTRACT_ADDRESS = '0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1';
+const CONTRACT_ABI = [
+  "function claimReward(uint256 amount, bytes32 nonce, bytes calldata sig) external",
+  "function balanceOf(address account) view returns (uint256)"
+];
+
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+const GRID   = 20;
+const COLS   = canvas.width  / GRID;
+const ROWS   = canvas.height / GRID;
+
+let snake, dir, nextDir, food, score, gameLoop, running, tokensEarned, highScore, sessionId;
+let particles = [], combo = 0, lastEatTime = 0, goldenActive = false;
+
+const COMBO_WINDOW_MS = 5000;
+const GOLDEN_CHANCE   = 0.10;   // 10%
+const GOLDEN_MULT     = 3;
+
+function initState() {
+  snake        = [{x:12,y:12},{x:11,y:12},{x:10,y:12}];
+  dir          = {x:1,y:0};
+  nextDir      = {x:1,y:0};
+  food         = randomFood();
+  score        = 0;
+  tokensEarned = 0;
+  running      = false;
+  particles    = [];
+  combo        = 0;
+  lastEatTime  = 0;
+  highScore    = parseInt(localStorage.getItem('snakeHS') || '0');
+  updateUI();
+}
+
+function randomFood() {
+  let f;
+  do { f = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)}; }
+  while (snake.some(s => s.x===f.x && s.y===f.y));
+  f.golden = Math.random() < GOLDEN_CHANCE;
+  return f;
+}
+
+// ─── PARTICLES ──────────────────────────────────────────────
+function spawnParticles(cx, cy, color, count=14) {
+  for (let i=0; i<count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.5 + Math.random() * 3;
+    particles.push({
+      x: cx, y: cy,
+      vx: Math.cos(angle)*speed,
+      vy: Math.sin(angle)*speed,
+      life: 1.0,
+      color,
+      size: 2 + Math.random()*2,
+    });
+  }
+}
+function updateParticles() {
+  particles = particles.filter(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.1; // gravity
+    p.vx *= 0.96; p.vy *= 0.96;
+    p.life -= 0.04;
+    return p.life > 0;
+  });
+}
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function shakeCanvas() {
+  canvas.classList.remove('shake');
+  void canvas.offsetWidth; // trigger reflow
+  canvas.classList.add('shake');
+}
+
+function showComboBadge(mult, isGolden) {
+  const b = document.getElementById('combo-badge');
+  const rect = canvas.getBoundingClientRect();
+  const parent = canvas.parentElement.getBoundingClientRect();
+  b.style.left = (canvas.offsetWidth/2 - 60) + 'px';
+  b.style.top  = '20px';
+  b.textContent = isGolden ? ('🌟 ' + t('golden') + ' x3') : (t('combo_label') + ' x' + mult + ' 🔥');
+  b.classList.toggle('x3', isGolden);
+  b.classList.add('show');
+  clearTimeout(showComboBadge._to);
+  showComboBadge._to = setTimeout(() => b.classList.remove('show'), 1200);
+}
+
+async function startGame() {
+  if (gameLoop) clearInterval(gameLoop);
+  initState();
+  sessionId = null;
+  if (walletAddress && BACKEND_URL) {
+    try {
+      const r = await fetch(BACKEND_URL+'/api/session/start',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({address: walletAddress})
+      });
+      const d = await r.json();
+      sessionId = d.sessionId || null;
+    } catch(e) { console.log('session start:', e); }
+  }
+  running = true;
+  canvas.classList.add('running');
+  draw();
+  gameLoop = setInterval(tick, 130);
+  document.getElementById('claim-btn').disabled = true;
+  setStatus('');
+}
+
+function setDir(dx, dy) {
+  if (dx === -dir.x && dy === -dir.y) return;
+  nextDir = {x:dx, y:dy};
+}
+
+function tick() {
+  dir = nextDir;
+  const head = {x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+  if (head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS) return gameOver();
+  if (snake.some(s=>s.x===head.x&&s.y===head.y)) return gameOver();
+  snake.unshift(head);
+  if (head.x===food.x && head.y===food.y) {
+    const now = Date.now();
+    const wasGolden = !!food.golden;
+
+    // Combo logic
+    if (lastEatTime && (now - lastEatTime) < COMBO_WINDOW_MS) {
+      combo = Math.min(combo + 1, 5);
+    } else {
+      combo = 1;
+    }
+    lastEatTime = now;
+
+    let pts = 1;
+    if (wasGolden)   pts *= GOLDEN_MULT;
+    if (combo >= 3)  pts *= 2; // x2 combo multiplier from 3 in a row
+
+    score += pts;
+    tokensEarned = Math.floor(score/10);
+
+    // Visual FX
+    const cx = food.x*GRID + GRID/2;
+    const cy = food.y*GRID + GRID/2;
+    const color = wasGolden ? '#ffd700' : '#00ff88';
+    spawnParticles(cx, cy, color, wasGolden ? 28 : 14);
+    if (wasGolden) shakeCanvas();
+    if (combo >= 3 || wasGolden) showComboBadge(combo>=3?2:1, wasGolden);
+
+    food = randomFood();
+    updateUI();
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('snakeHS', highScore);
+      document.getElementById('highscore-display').textContent = highScore;
+    }
+  } else {
+    snake.pop();
+    // Reset combo if 5s passed without eating
+    if (lastEatTime && Date.now() - lastEatTime > COMBO_WINDOW_MS) {
+      combo = 0;
+    }
+  }
+  updateParticles();
+  draw();
+}
+
+async function gameOver() {
+  clearInterval(gameLoop);
+  running = false;
+  shakeCanvas();
+  canvas.classList.remove('running');
+  drawGameOver();
+  if (sessionId && walletAddress && BACKEND_URL) {
+    try {
+      await fetch(BACKEND_URL+'/api/session/end',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({sessionId, score, address: walletAddress})
+      });
+    } catch(e) { console.log('session end:', e); }
+  }
+  if (tokensEarned > 0) {
+    document.getElementById('claim-btn').disabled = false;
+    setStatus(t('status_claim') + ' ' + tokensEarned.toFixed(2) + ' $SNAKE');
+  } else {
+    setStatus(t('status_minscore'));
+  }
+}
+
+function updateUI() {
+  document.getElementById('score-display').textContent = score;
+  document.getElementById('tokens-display').textContent = tokensEarned.toFixed(2);
+  document.getElementById('highscore-display').textContent = highScore;
+}
+
+// ─── DRAW ────────────────────────────────────────────────────────────────────
+function draw() {
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 0.5;
+  for(let x=0;x<=canvas.width;x+=GRID){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+  for(let y=0;y<=canvas.height;y+=GRID){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+
+  // Food (golden apple has pulsing glow)
+  const fx = food.x*GRID+GRID/2, fy = food.y*GRID+GRID/2;
+  if (food.golden) {
+    const pulse = 1 + 0.2 * Math.sin(Date.now()/150);
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 15 * pulse;
+    ctx.font = `${(GRID-2)*pulse}px serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🌟', fx, fy);
+    ctx.shadowBlur = 0;
+  } else {
+    ctx.font = `${GRID-2}px serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🍎', fx, fy);
+  }
+
+  // Snake with neon glow
+  ctx.shadowColor = '#00ff88';
+  snake.forEach((seg,i) => {
+    const ratio = 1-(i/snake.length)*0.5;
+    ctx.shadowBlur = i===0 ? 15 : 6;
+    ctx.fillStyle = `rgb(0,${Math.floor(255*ratio)},${Math.floor(136*ratio)})`;
+    ctx.beginPath();
+    ctx.roundRect(seg.x*GRID+1, seg.y*GRID+1, GRID-2, GRID-2, 4);
+    ctx.fill();
+    if(i===0){
+      ctx.shadowBlur = 0;
+      ctx.fillStyle='#000';
+      const ex = dir.x===0?[GRID*0.3,GRID*0.7]:(dir.x>0?[GRID*0.7,GRID*0.7]:[GRID*0.3,GRID*0.3]);
+      const ey = dir.y===0?[GRID*0.3,GRID*0.7]:(dir.y>0?[GRID*0.7,GRID*0.7]:[GRID*0.3,GRID*0.3]);
+      ctx.beginPath();ctx.arc(seg.x*GRID+ex[0],seg.y*GRID+ey[0],2,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(seg.x*GRID+ex[1],seg.y*GRID+ey[1],2,0,Math.PI*2);ctx.fill();
+    }
+  });
+  ctx.shadowBlur = 0;
+
+  // Particles
+  drawParticles();
+
+  // HUD
+  ctx.fillStyle='#ffffff22'; ctx.font='13px Courier New';
+  ctx.textAlign='left';  ctx.fillText('Score: '+score, 8, 20);
+  ctx.textAlign='right'; ctx.fillText('$SNAKE: '+tokensEarned.toFixed(2), canvas.width-8, 20);
+  if (combo >= 2) {
+    ctx.fillStyle = combo>=3 ? '#ffcc00' : '#00ff88';
+    ctx.textAlign='center'; ctx.fillText('🔥 x'+combo, canvas.width/2, 20);
+  }
+}
+
+function drawWelcome() {
+  initState();
+  draw();
+  ctx.fillStyle='rgba(0,0,0,0.78)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#00ff88'; ctx.font='bold 28px Courier New'; ctx.textAlign='center';
+  ctx.fillText('🐍 SnakeCoin', canvas.width/2, canvas.height/2-40);
+  ctx.fillStyle='#fff'; ctx.font='16px Courier New';
+  ctx.fillText(t('connect'), canvas.width/2, canvas.height/2);
+  ctx.fillStyle='#888'; ctx.font='13px Courier New';
+  ctx.fillText(t('go'), canvas.width/2, canvas.height/2+35);
+}
+
+function drawGameOver() {
+  draw();
+  ctx.fillStyle='rgba(0,0,0,0.72)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#fff'; ctx.font='bold 32px Courier New'; ctx.textAlign='center';
+  ctx.fillText(t('gameover'), canvas.width/2, canvas.height/2-30);
+  ctx.font='20px Courier New'; ctx.fillStyle='#00ff88';
+  ctx.fillText('Score: '+score, canvas.width/2, canvas.height/2+10);
+  ctx.fillStyle='#ffcc00';
+  ctx.fillText('$SNAKE: '+tokensEarned.toFixed(2), canvas.width/2, canvas.height/2+40);
+  ctx.fillStyle='#888'; ctx.font='13px Courier New';
+  ctx.fillText(t('press_start'), canvas.width/2, canvas.height/2+72);
+}
+
+// ─── KEYBOARD ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  switch(e.key){
+    case 'ArrowUp':   case 'w': e.preventDefault(); setDir(0,-1); break;
+    case 'ArrowDown': case 's': e.preventDefault(); setDir(0, 1); break;
+    case 'ArrowLeft': case 'a': e.preventDefault(); setDir(-1,0); break;
+    case 'ArrowRight':case 'd': e.preventDefault(); setDir(1, 0); break;
+    case ' ': e.preventDefault(); if(!running) startGame(); break;
+  }
+});
+
+// ─── MOBILE TOUCH (swipe) ────────────────────────────────────────────────────
+let touchStartX = 0, touchStartY = 0;
+canvas.addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  touchStartX = t.clientX; touchStartY = t.clientY;
+}, { passive: true });
+canvas.addEventListener('touchmove', (e) => {
+  if (!running) return;
+  e.preventDefault(); // prevent page scroll while playing
+}, { passive: false });
+canvas.addEventListener('touchend', (e) => {
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return; // tap, not swipe
+  if (Math.abs(dx) > Math.abs(dy)) {
+    setDir(dx > 0 ? 1 : -1, 0);
+  } else {
+    setDir(0, dy > 0 ? 1 : -1);
+  }
+});
+
+// ─── LEADERBOARD ─────────────────────────────────────────────────────────────
+let lbCurrentPeriod = 'day';
+
+function openLeaderboard() {
+  document.getElementById('lb-modal').classList.add('active');
+  loadLeaderboard(lbCurrentPeriod);
+}
+function closeLeaderboard() {
+  document.getElementById('lb-modal').classList.remove('active');
+}
+document.querySelectorAll('.lb-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.lb-tab').forEach(x => x.classList.remove('active'));
+    tab.classList.add('active');
+    lbCurrentPeriod = tab.dataset.period;
+    loadLeaderboard(lbCurrentPeriod);
+  });
+});
+
+async function loadLeaderboard(period) {
+  const c = document.getElementById('lb-content');
+  c.className = 'lb-loading';
+  c.textContent = t('loading');
+  try {
+    const r = await fetch(`${BACKEND_URL}/api/leaderboard?period=${period}&limit=20`);
+    const d = await r.json();
+    if (!d.leaderboard || d.leaderboard.length === 0) {
+      c.className = 'lb-loading';
+      c.textContent = t('lb_empty');
+      return;
+    }
+    const me = walletAddress ? walletAddress.toLowerCase() : null;
+    const rows = d.leaderboard.map((row, i) => {
+      const rank = i + 1;
+      const rankClass = rank===1?'gold':rank===2?'silver':rank===3?'bronze':'';
+      const short = row.address.slice(0,6) + '…' + row.address.slice(-4);
+      const isMe = me && row.address.toLowerCase() === me;
+      return `
+        <tr class="${isMe?'me':''}">
+          <td class="rank ${rankClass}">#${rank}</td>
+          <td class="addr">${short}${isMe?' <span style="color:#00ff88">(you)</span>':''}</td>
+          <td class="score">${row.best_score}</td>
+        </tr>`;
+    }).join('');
+    c.className = '';
+    c.innerHTML = `
+      <table class="lb-table">
+        <thead><tr><th>#</th><th>Wallet</th><th style="text-align:right">${t('score')}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } catch (e) {
+    c.className = 'lb-loading';
+    c.textContent = '❌ ' + e.message;
+  }
+}
+
+// ─── WEB3 / EIP-6963 MULTI-WALLET ───────────────────────────────────────────
+let provider, signer, walletAddress;
+const discoveredWallets = []; // { info:{uuid,name,icon,rdns}, provider:EIP1193Provider }
+
+// Listen for EIP-6963 wallet announcements
+window.addEventListener('eip6963:announceProvider', (event) => {
+  const { info, provider: walletProvider } = event.detail;
+  // Avoid duplicates
+  if (!discoveredWallets.some(w => w.info.uuid === info.uuid)) {
+    discoveredWallets.push({ info, provider: walletProvider });
+  }
+});
+// Request announcements from all installed wallets
+window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+function openWalletPicker() {
+  // Re-request in case new wallets were injected after page load
+  window.dispatchEvent(new Event('eip6963:requestProvider'));
+  const list = document.getElementById('wallet-list');
+  list.innerHTML = '';
+
+  if (discoveredWallets.length === 0) {
+    // Fallback to legacy window.ethereum if no EIP-6963
+    if (window.ethereum) {
+      const btn = document.createElement('div');
+      btn.className = 'wallet-option';
+      btn.innerHTML = '<span style="font-size:1.5rem">🦊</span><span>Wallet injecté</span>';
+      btn.onclick = () => connectWithProvider(window.ethereum, 'Wallet');
+      list.appendChild(btn);
+    } else {
+      list.innerHTML = '<div class="no-wallet">❌ Aucun wallet détecté.<br><br>Installe un wallet : <a href="https://metamask.io" target="_blank">MetaMask</a> · <a href="https://rabby.io" target="_blank">Rabby</a> · <a href="https://www.okx.com/web3" target="_blank">OKX</a></div>';
+    }
+  } else {
+    discoveredWallets.forEach(w => {
+      const btn = document.createElement('div');
+      btn.className = 'wallet-option';
+      btn.innerHTML = `
+        <img src="${w.info.icon}" alt="${w.info.name}" onerror="this.style.display='none'">
+        <span>${w.info.name}</span>
+      `;
+      btn.onclick = () => connectWithProvider(w.provider, w.info.name);
+      list.appendChild(btn);
+    });
+  }
+
+  document.getElementById('wallet-modal').classList.add('active');
+}
+
+function closeWalletPicker() {
+  document.getElementById('wallet-modal').classList.remove('active');
+}
+
+async function connectWithProvider(eip1193Provider, walletName) {
+  closeWalletPicker();
+  try {
+    setStatus(t('status_connecting'));
+    provider = new ethers.BrowserProvider(eip1193Provider);
+    await provider.send('eth_requestAccounts', []);
+    try {
+      await provider.send('wallet_switchEthereumChain', [{ chainId: '0x89' }]);
+    } catch (se) {
+      if (se.code === 4902) {
+        await provider.send('wallet_addEthereumChain', [{
+          chainId: '0x89', chainName: 'Polygon Mainnet',
+          nativeCurrency: { name: 'POL', symbol: 'POL', decimals: 18 },
+          rpcUrls: ['https://polygon-rpc.com'],
+          blockExplorerUrls: ['https://polygonscan.com']
+        }]);
+      }
+    }
+    signer = await provider.getSigner();
+    walletAddress = await signer.getAddress();
+    const short = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
+    document.getElementById('wallet-address').textContent = t('connected') + ' ' + short;
+    document.getElementById('connect-btn').textContent = '🟢 ' + walletName + ' · ' + short;
+    document.getElementById('connect-btn').disabled = true;
+    setStatus('');
+  } catch (e) { setStatus('❌ ' + e.message); }
+}
+
+// Backward-compat alias (in case other code calls it)
+async function connectWallet() { openWalletPicker(); }
+
+async function claimTokens() {
+  if(!walletAddress){ setStatus('⚠️ '+t('connect')); return; }
+  if(tokensEarned<=0){ setStatus('⚠️ '+t('status_minscore')); return; }
+
+  if(BACKEND_URL && CONTRACT_ADDRESS) {
+    try {
+      setStatus(t('status_sign'));
+      document.getElementById('claim-btn').disabled=true;
+      if (!sessionId) { setStatus('❌ Lance une partie d\'abord !'); document.getElementById('claim-btn').disabled=false; return; }
+      const res = await fetch(BACKEND_URL+'/api/claim',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({address:walletAddress, sessionId})
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error||'Server error');
+      setStatus(t('status_tx'));
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      const tx = await contract.claimReward(data.amount, data.nonce, data.sig);
+      setStatus(t('status_confirm'));
+      await tx.wait();
+      setStatus(t('status_success')+' '+tokensEarned.toFixed(2)+' $SNAKE!');
+      tokensEarned=0; sessionId=null; updateUI();
+    } catch(e) {
+      setStatus('❌ '+e.message);
+      document.getElementById('claim-btn').disabled=false;
+    }
+  } else {
+    setStatus(t('status_demo').replace('$SNAKE', tokensEarned.toFixed(2)+' $SNAKE'));
+    tokensEarned=0; updateUI();
+    document.getElementById('claim-btn').disabled=true;
+  }
+}
+
+function setStatus(msg){ document.getElementById('status').textContent=msg; }
+
+// ─── BOOT ────────────────────────────────────────────────────────────────────
+buildLangBar();
+applyLang();
+drawWelcome();
+</script>
+</body>
+</html>

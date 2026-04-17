@@ -59,6 +59,36 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_leaderboard_score ON leaderboard(best_score DESC);
 `);
 
+// ─── MIGRATION : seasons (idempotent) ────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS seasons (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    started_at  INTEGER NOT NULL,
+    ended_at    INTEGER,
+    stats_json  TEXT
+  );
+  CREATE TABLE IF NOT EXISTS season_results (
+    season_id      INTEGER NOT NULL,
+    address        TEXT NOT NULL,
+    rank           INTEGER NOT NULL,
+    best_score     INTEGER NOT NULL,
+    games_played   INTEGER NOT NULL,
+    total_claimed  REAL NOT NULL,
+    max_streak     INTEGER DEFAULT 0,
+    PRIMARY KEY (season_id, address)
+  );
+  CREATE INDEX IF NOT EXISTS idx_season_results_rank ON season_results(season_id, rank);
+`);
+
+// Seed initial season if none exists
+const seasonCount = db.prepare('SELECT COUNT(*) as c FROM seasons').get().c;
+if (seasonCount === 0) {
+  const now = Math.floor(Date.now() / 1000);
+  db.prepare('INSERT INTO seasons (name, started_at) VALUES (?, ?)').run('Season 1', now);
+  console.log('🏆 Initial season "Season 1" created');
+}
+
 // ─── MIGRATION : streak columns (idempotent) ──────────────────────────────────
 const hasStreakCol = db.prepare(
   `SELECT COUNT(*) as c FROM pragma_table_info('leaderboard') WHERE name='streak_count'`
@@ -647,6 +677,305 @@ app.get('/api/admin/backup', adminAuth, (req, res) => {
     console.error('backup failed:', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ─── SEASONS (task #21) ────────────────────────────────────────────────────
+app.get('/api/seasons', (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, name, started_at, ended_at, stats_json
+    FROM seasons
+    ORDER BY id DESC
+  `).all();
+  res.json(rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    started_at: r.started_at,
+    ended_at: r.ended_at,
+    active: r.ended_at === null,
+    stats: r.stats_json ? JSON.parse(r.stats_json) : null,
+  })));
+});
+
+app.get('/api/seasons/current', (req, res) => {
+  const row = db.prepare(`
+    SELECT id, name, started_at FROM seasons
+    WHERE ended_at IS NULL
+    ORDER BY id DESC LIMIT 1
+  `).get();
+  if (!row) return res.json({ active: false });
+
+  // Live top 10 of current season (score_history filtered by started_at)
+  const top = db.prepare(`
+    SELECT address, MAX(score) as best_score, COUNT(*) as games_played
+    FROM score_history
+    WHERE created_at >= ?
+    GROUP BY address
+    ORDER BY best_score DESC, games_played DESC
+    LIMIT 10
+  `).all(row.started_at);
+  const elapsedSec = Math.floor(Date.now() / 1000) - row.started_at;
+  const elapsedDays = Math.floor(elapsedSec / 86400);
+
+  res.json({
+    active: true,
+    id: row.id,
+    name: row.name,
+    started_at: row.started_at,
+    elapsed_days: elapsedDays,
+    top10: top,
+  });
+});
+
+app.get('/api/seasons/:id/leaderboard', (req, res) => {
+  const sid = parseInt(req.params.id, 10);
+  if (isNaN(sid)) return res.status(400).json({ error: 'Invalid season id' });
+  const limit = Math.min(parseInt(req.query.limit || '100', 10), 500);
+  const season = db.prepare('SELECT * FROM seasons WHERE id=?').get(sid);
+  if (!season) return res.status(404).json({ error: 'Season not found' });
+  const rows = db.prepare(`
+    SELECT rank, address, best_score, games_played, total_claimed, max_streak
+    FROM season_results
+    WHERE season_id = ?
+    ORDER BY rank ASC
+    LIMIT ?
+  `).all(sid, limit);
+  res.json({
+    season: { id: season.id, name: season.name, started_at: season.started_at, ended_at: season.ended_at },
+    results: rows,
+  });
+});
+
+// Admin: close current season + snapshot + start new one
+app.post('/api/admin/seasons/close', adminAuth, express.json(), (req, res) => {
+  const newName = (req.body && req.body.new_name) || `Season ${db.prepare('SELECT COUNT(*) as c FROM seasons').get().c + 1}`;
+  try {
+    const current = db.prepare(`SELECT * FROM seasons WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1`).get();
+    if (!current) return res.status(400).json({ error: 'No active season to close' });
+
+    const now = Math.floor(Date.now() / 1000);
+    // Snapshot : top 500 joueurs de la saison (par best_score dans score_history depuis started_at)
+    const snapshot = db.prepare(`
+      SELECT sh.address,
+             MAX(sh.score) as best_score,
+             COUNT(*) as games_played,
+             COALESCE(l.total_claimed, 0) as total_claimed,
+             COALESCE(l.max_streak, 0) as max_streak
+      FROM score_history sh
+      LEFT JOIN leaderboard l ON l.address = sh.address
+      WHERE sh.created_at >= ?
+      GROUP BY sh.address
+      ORDER BY best_score DESC, games_played DESC
+      LIMIT 500
+    `).all(current.started_at);
+
+    const stats = {
+      total_players: snapshot.length,
+      total_sessions: db.prepare(`SELECT COUNT(*) as c FROM score_history WHERE created_at >= ?`).get(current.started_at).c,
+      total_snake: db.prepare(`SELECT COALESCE(SUM(CAST(amount AS REAL)),0) as s FROM claims WHERE claimed_at >= ?`).get(current.started_at).s,
+      duration_days: Math.floor((now - current.started_at) / 86400),
+    };
+
+    const closeTxn = db.transaction(() => {
+      // Insert snapshot rows
+      const ins = db.prepare(`INSERT INTO season_results (season_id, address, rank, best_score, games_played, total_claimed, max_streak) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+      snapshot.forEach((r, i) => {
+        ins.run(current.id, r.address, i + 1, r.best_score, r.games_played, r.total_claimed, r.max_streak);
+      });
+      // Mark season closed + stats
+      db.prepare(`UPDATE seasons SET ended_at=?, stats_json=? WHERE id=?`).run(now, JSON.stringify(stats), current.id);
+      // Start new season
+      db.prepare(`INSERT INTO seasons (name, started_at) VALUES (?, ?)`).run(newName, now);
+    });
+    closeTxn();
+
+    console.log(`🏆 Season ${current.id} "${current.name}" closed → ${snapshot.length} results archived. New: ${newName}`);
+    // Discord staff notification
+    discordNotify({
+      title: `🏆 Saison clôturée : ${current.name}`,
+      description: `**${snapshot.length}** joueurs · **${stats.total_sessions}** sessions · **${stats.total_snake.toFixed(2)} SNAKE** distribués sur ${stats.duration_days}j\n➡️ Nouvelle saison : **${newName}**`,
+      color: 0xFFD700,
+      timestamp: new Date().toISOString(),
+    });
+    res.json({
+      closed: { id: current.id, name: current.name, stats, results_archived: snapshot.length },
+      new_season: { name: newName, started_at: now },
+    });
+  } catch (e) {
+    console.error('season close failed:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── DAILY QUESTS (task #19) ───────────────────────────────────────────────
+// 3 quêtes dérivées live depuis la DB — pas de table dédiée, reset auto à minuit UTC.
+// Récompense = pure gamification (badges visuels). Le streak gère déjà le multiplier reward.
+const DAILY_QUESTS = [
+  { id: 'play_3',   name: '3 parties aujourd\'hui',    icon: '🎮', goal: 3,  type: 'games_count',  reward_msg: 'Warrior' },
+  { id: 'score_25', name: 'Atteindre score ≥ 25',          icon: '🎯', goal: 25, type: 'max_score',    reward_msg: 'Sharpshooter' },
+  { id: 'earn_5',   name: 'Gagner 5 SNAKE',             icon: '💰', goal: 5,  type: 'snake_earned', reward_msg: 'Collector' },
+];
+
+function computeQuestsForAddress(addr) {
+  // cutoff = début du jour UTC
+  const now = new Date();
+  now.setUTCHours(0, 0, 0, 0);
+  const dayStart = Math.floor(now.getTime() / 1000);
+
+  // games_count : nb de parties aujourd'hui (score_history)
+  const gamesCount = db.prepare(`
+    SELECT COUNT(*) as c FROM score_history WHERE address=? AND created_at >= ?
+  `).get(addr, dayStart).c;
+
+  // max_score : meilleur score aujourd'hui
+  const maxScore = db.prepare(`
+    SELECT COALESCE(MAX(score), 0) as m FROM score_history WHERE address=? AND created_at >= ?
+  `).get(addr, dayStart).m;
+
+  // snake_earned : somme des rewards validés aujourd'hui
+  const snakeEarned = db.prepare(`
+    SELECT COALESCE(SUM(reward), 0) as s FROM sessions WHERE address=? AND validated=1 AND created_at >= ?
+  `).get(addr, dayStart).s;
+
+  const progressMap = {
+    games_count:  gamesCount,
+    max_score:    maxScore,
+    snake_earned: snakeEarned,
+  };
+
+  let completedCount = 0;
+  const quests = DAILY_QUESTS.map(q => {
+    const progress = Math.min(progressMap[q.type] || 0, q.goal);
+    const done = progress >= q.goal;
+    if (done) completedCount++;
+    return {
+      id: q.id, name: q.name, icon: q.icon,
+      goal: q.goal, progress, done,
+      reward_msg: q.reward_msg,
+      percent: Math.round((progress / q.goal) * 100),
+    };
+  });
+
+  // next reset in seconds (midnight UTC)
+  const tomorrow = new Date();
+  tomorrow.setUTCHours(24, 0, 0, 0);
+  const resetIn = Math.floor((tomorrow.getTime() - Date.now()) / 1000);
+
+  return {
+    quests,
+    completed: completedCount,
+    total: DAILY_QUESTS.length,
+    all_done: completedCount === DAILY_QUESTS.length,
+    reset_in_seconds: resetIn,
+    day_utc: new Date(dayStart * 1000).toISOString().slice(0, 10),
+  };
+}
+
+app.get('/api/quests/:address', (req, res) => {
+  const addr = (req.params.address || '').toLowerCase();
+  if (!ethers.isAddress(addr)) {
+    // Pas d'address fournie → retourne les templates seulement
+    return res.json({
+      quests: DAILY_QUESTS.map(q => ({
+        id: q.id, name: q.name, icon: q.icon, goal: q.goal,
+        progress: 0, done: false, percent: 0, reward_msg: q.reward_msg,
+      })),
+      completed: 0, total: DAILY_QUESTS.length, all_done: false,
+      reset_in_seconds: 86400, day_utc: new Date().toISOString().slice(0, 10),
+    });
+  }
+  res.json(computeQuestsForAddress(addr));
+});
+
+// ─── CSV EXPORT (task #28) ─────────────────────────────────────────────────
+function toCsv(rows, cols) {
+  // RFC 4180: double-quote fields + escape internal quotes, CRLF
+  const esc = (v) => {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const header = cols.join(',');
+  const body = rows.map(r => cols.map(c => esc(r[c])).join(',')).join('\r\n');
+  return header + '\r\n' + body + '\r\n';
+}
+
+app.get('/api/admin/export/claims.csv', adminAuth, (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '10000', 10), 100000);
+  const rows = db.prepare(`
+    SELECT nonce, address, amount, claimed_at
+    FROM claims
+    ORDER BY claimed_at DESC
+    LIMIT ?
+  `).all(limit);
+  // amount is stored as string (wei-like or SNAKE depending on version) + claimed_at unix → ISO8601
+  const enriched = rows.map(r => {
+    const amtNum = Number(r.amount);
+    // heuristique : si > 1e15, c'est en wei (18 dec), sinon c'est déjà en SNAKE
+    const amtSnake = amtNum > 1e15 ? (amtNum / 1e18) : amtNum;
+    return {
+      nonce: r.nonce,
+      address: r.address,
+      amount_snake: amtSnake.toFixed(4),
+      amount_raw: r.amount,
+      claimed_at_iso: new Date(r.claimed_at * 1000).toISOString(),
+      claimed_at_unix: r.claimed_at,
+    };
+  });
+  const csv = toCsv(enriched, ['nonce','address','amount_snake','amount_raw','claimed_at_iso','claimed_at_unix']);
+  const date = new Date().toISOString().slice(0,10);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="snake-claims-${date}.csv"`);
+  res.send('\ufeff' + csv);  // BOM for Excel UTF-8
+  console.log(`[CSV] claims: ${enriched.length} rows served to ${req.ip}`);
+});
+
+app.get('/api/admin/export/sessions.csv', adminAuth, (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '10000', 10), 100000);
+  const rows = db.prepare(`
+    SELECT id, address, score, reward, validated, created_at
+    FROM sessions
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(limit);
+  const enriched = rows.map(r => ({
+    session_id: r.id,
+    address: r.address,
+    score: r.score,
+    reward_snake: r.reward || 0,
+    validated: r.validated ? 1 : 0,
+    cheat_flag: (r.validated && r.reward === 0 && r.score === 0) ? 1 : 0,
+    created_at_iso: new Date(r.created_at * 1000).toISOString(),
+    created_at_unix: r.created_at,
+  }));
+  const csv = toCsv(enriched, ['session_id','address','score','reward_snake','validated','cheat_flag','created_at_iso','created_at_unix']);
+  const date = new Date().toISOString().slice(0,10);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="snake-sessions-${date}.csv"`);
+  res.send('\ufeff' + csv);
+  console.log(`[CSV] sessions: ${enriched.length} rows served to ${req.ip}`);
+});
+
+app.get('/api/admin/export/scores.csv', adminAuth, (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '10000', 10), 100000);
+  const rows = db.prepare(`
+    SELECT id, address, score, created_at
+    FROM score_history
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(limit);
+  const enriched = rows.map(r => ({
+    id: r.id,
+    address: r.address,
+    score: r.score,
+    created_at_iso: new Date(r.created_at * 1000).toISOString(),
+    created_at_unix: r.created_at,
+  }));
+  const csv = toCsv(enriched, ['id','address','score','created_at_iso','created_at_unix']);
+  const date = new Date().toISOString().slice(0,10);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="snake-scores-${date}.csv"`);
+  res.send('\ufeff' + csv);
+  console.log(`[CSV] scores: ${enriched.length} rows served to ${req.ip}`);
 });
 
 // ─── GROWTH TIME-SERIES (pour charts dashboard) ───────────────────────────────

@@ -103,6 +103,14 @@ function shortAddr(a){ return a.slice(0,6) + '…' + a.slice(-4); }
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(express.json());
+// CORS admin routes — any origin allowed (auth via bearer token)
+app.use('/api/admin', cors({
+  origin: true,
+  methods: ['GET','POST'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
+}));
+
+// CORS public routes — restricted to known origins
 app.use(cors({
   origin: ['https://snowdiablo.xyz', 'http://snowdiablo.xyz', 'http://localhost'],
   methods: ['GET','POST'],

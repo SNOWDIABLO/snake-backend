@@ -8,7 +8,15 @@ const fs         = require('fs');
 const path       = require('path');
 
 const app = express();
-const db  = new Database('snake.db');
+
+// ─── DB PATH (persistent volume aware) ────────────────────────────────────────
+const DB_PATH = process.env.DB_PATH || 'snake.db';
+const DB_DIR  = path.dirname(DB_PATH);
+if (DB_DIR && DB_DIR !== '.' && !fs.existsSync(DB_DIR)) {
+  fs.mkdirSync(DB_DIR, { recursive: true });
+}
+console.log(`📦 SQLite DB path: ${DB_PATH}`);
+const db = new Database(DB_PATH);
 
 // ─── DB INIT ──────────────────────────────────────────────────────────────────
 db.exec(`

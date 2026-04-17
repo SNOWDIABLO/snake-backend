@@ -831,10 +831,16 @@ function computeQuestsForAddress(addr) {
     SELECT COALESCE(MAX(score), 0) as m FROM score_history WHERE address=? AND created_at >= ?
   `).get(addr, dayStart).m;
 
-  // snake_earned : somme des rewards validés aujourd'hui
-  const snakeEarned = db.prepare(`
-    SELECT COALESCE(SUM(reward), 0) as s FROM sessions WHERE address=? AND validated=1 AND created_at >= ?
-  `).get(addr, dayStart).s;
+  // snake_earned : somme des claims aujourd'hui (claims = source de verite reelle)
+  // sessions.reward peut etre vide si la table sessions est prunee/non peuplee
+  const claimsRows = db.prepare(`
+    SELECT amount FROM claims WHERE address=? AND claimed_at >= ?
+  `).all(addr, dayStart);
+  const snakeEarned = claimsRows.reduce((sum, r) => {
+    const n = Number(r.amount);
+    // Heuristique : si > 1e15, c'est du wei (18 dec) -> divise. Sinon SNAKE direct.
+    return sum + (isFinite(n) ? (n > 1e15 ? n / 1e18 : n) : 0);
+  }, 0);
 
   const progressMap = {
     games_count:  gamesCount,

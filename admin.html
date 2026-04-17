@@ -252,6 +252,10 @@
       <span class="status-pill" id="status"><span class="dot"></span><span id="status-text">OK</span></span>
       <button onclick="refresh(true)">🔄 Refresh</button>
       <button class="primary" onclick="downloadBackup()">📦 Backup DB</button>
+      <button onclick="exportCsv('claims')" title="Export claims CSV">📊 Claims.csv</button>
+      <button onclick="exportCsv('sessions')" title="Export sessions CSV">📊 Sessions.csv</button>
+      <button onclick="exportCsv('scores')" title="Export scores CSV">📊 Scores.csv</button>
+      <button class="danger" onclick="closeSeason()" title="Clôture la saison courante et en démarre une nouvelle">🏆 Clôturer saison</button>
       <button class="danger" onclick="logout()">Logout</button>
     </div>
   </header>
@@ -310,6 +314,16 @@
       <tr><td colspan="3" class="empty">Chargement…</td></tr>
     </tbody>
   </table>
+
+  <section style="margin-top: 24px;">
+    <h2 style="margin: 0 0 8px 0; font-size: 18px;">🏆 Saison courante</h2>
+    <div id="season-box" style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
+      <div><div style="color:var(--dim); font-size:11px; text-transform:uppercase;">Nom</div><div id="season-name" style="font-size:18px; font-weight:700;">—</div></div>
+      <div><div style="color:var(--dim); font-size:11px; text-transform:uppercase;">Démarrée</div><div id="season-started" style="font-size:14px;">—</div></div>
+      <div><div style="color:var(--dim); font-size:11px; text-transform:uppercase;">Durée</div><div id="season-elapsed" style="font-size:14px;">—</div></div>
+      <div><div style="color:var(--dim); font-size:11px; text-transform:uppercase;">Joueurs actifs</div><div id="season-players" style="font-size:14px;">—</div></div>
+    </div>
+  </section>
 
   <section style="margin-top: 32px;">
     <h2 style="margin: 0 0 8px 0; font-size: 18px;">📈 Croissance</h2>
@@ -424,6 +438,7 @@
       const data = await res.json();
       render(data);
       fetchGrowth();
+      fetchSeason();
       setStatus('OK', false);
       document.getElementById('last-sync').textContent = new Date().toLocaleTimeString('fr-FR');
       if (resetBar) restartBar();
@@ -514,6 +529,29 @@
     }
   }
 
+  // ─── Task #28 CSV export ────────────────────────────────────────────────────
+  async function exportCsv(kind) {
+    const urlMap = { claims: 'claims.csv', sessions: 'sessions.csv', scores: 'scores.csv' };
+    if (!urlMap[kind]) return;
+    try {
+      setStatus(`📊 Exporting ${kind}…`, false);
+      const res = await fetch(`${API}/api/admin/export/${urlMap[kind]}?limit=50000`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `snake-${kind}-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus(`✅ ${kind} CSV downloaded (${(blob.size/1024).toFixed(1)} KB)`, false);
+    } catch (e) {
+      setStatus(`❌ CSV ${kind} failed: ${e.message}`, true);
+    }
+  }
+
   // ─── Utils ──────────────────────────────────────────────────────────────────
   function shorten(addr) {
     if (!addr) return '—';
@@ -549,6 +587,47 @@
       setStatus(`📋 ${shorten(txt)} copié`, false);
       setTimeout(() => setStatus('OK', false), 2000);
     });
+  }
+
+  // ─── Task #21 Seasons ───────────────────────────────────────────────────────
+  async function fetchSeason() {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/seasons/current`);
+      if (!res.ok) return;
+      const d = await res.json();
+      if (!d.active) {
+        document.getElementById('season-name').textContent = '(aucune saison active)';
+        return;
+      }
+      document.getElementById('season-name').textContent = d.name;
+      document.getElementById('season-started').textContent = new Date(d.started_at * 1000).toLocaleDateString('fr-FR');
+      document.getElementById('season-elapsed').textContent = `${d.elapsed_days}j`;
+      document.getElementById('season-players').textContent = (d.top10 || []).length;
+    } catch (e) { console.error('fetchSeason', e); }
+  }
+
+  async function closeSeason() {
+    const newName = prompt('Nom de la nouvelle saison ?', 'Season ' + (Date.now() % 1000));
+    if (!newName) return;
+    if (!confirm(`⚠️ Clôturer la saison courante et créer "${newName}" ?\nCela archive le classement actuel et démarre une nouvelle saison.`)) return;
+    try {
+      setStatus('🏆 Clôture de la saison en cours…', false);
+      const res = await fetch(`${API}/api/admin/seasons/close`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_name: newName }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`HTTP ${res.status}: ${err}`);
+      }
+      const data = await res.json();
+      setStatus(`✅ Saison ${data.closed.name} archivée (${data.closed.results_archived} joueurs)`, false);
+      fetchSeason();
+    } catch (e) {
+      setStatus(`❌ Clôture failed: ${e.message}`, true);
+    }
   }
 
   // ─── Task #29 Growth charts ─────────────────────────────────────────────────

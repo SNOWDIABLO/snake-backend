@@ -216,6 +216,71 @@
     font-size: 0.85rem;
   }
   .no-wallet a { color: #00ff88; text-decoration: none; }
+  .quests-box {
+    max-width: 480px;
+    margin: 14px auto 0;
+    background: rgba(20, 22, 30, 0.85);
+    border: 1px solid #2a2f3a;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 0.8rem;
+  }
+  .quests-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .quests-header .title { font-weight: 700; color: #ffd700; letter-spacing: 0.3px; }
+  .quests-header .meta  { font-size: 0.7rem; color: #888; }
+  .quest-item {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #22262e;
+  }
+  .quest-item:last-child { border-bottom: none; }
+  .quest-item .icon { font-size: 1.05rem; }
+  .quest-item .name { color: #d4d6db; }
+  .quest-item.done .name { color: #4ade80; text-decoration: line-through; opacity: 0.85; }
+  .quest-item .progress {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #8b909a;
+    min-width: 45px;
+    text-align: right;
+  }
+  .quest-item.done .progress { color: #4ade80; }
+  .quest-bar {
+    grid-column: 1 / -1;
+    height: 4px;
+    background: #22262e;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 2px;
+  }
+  .quest-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4ade80, #ffd700);
+    transition: width 0.4s ease;
+  }
+  .quest-item.done .quest-bar-fill { background: #4ade80; }
+  .quests-allDone {
+    text-align: center;
+    color: #ffd700;
+    font-weight: 700;
+    padding: 6px;
+    background: rgba(255, 215, 0, 0.08);
+    border-radius: 6px;
+    margin-top: 6px;
+    animation: pulseGold 1.5s ease-in-out infinite;
+  }
+  @keyframes pulseGold {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
 </style>
 </head>
 <body>
@@ -249,6 +314,16 @@
 <div class="top-bar">
   <button id="connect-btn" onclick="openWalletPicker()">🦊 <span data-i18n="connect">Connecter Wallet</span></button>
   <div id="wallet-address" data-i18n="not_connected">Non connecté</div>
+</div>
+
+<!-- Task #19 Daily Quests -->
+<div class="quests-box" id="quests-box" style="display:none">
+  <div class="quests-header">
+    <span class="title">🎯 Quêtes du jour</span>
+    <span class="meta" id="quests-meta">—</span>
+  </div>
+  <div id="quests-list"></div>
+  <div id="quests-alldone" class="quests-allDone" style="display:none">🎉 Toutes les quêtes complétées !</div>
 </div>
 
 <!-- Wallet picker modal -->
@@ -714,6 +789,7 @@ async function gameOver() {
         }
       }
     } catch(e) { console.log('session end:', e); }
+    loadQuests();
   }
   if (tokensEarned > 0) {
     document.getElementById('claim-btn').disabled = false;
@@ -721,6 +797,40 @@ async function gameOver() {
   } else {
     setStatus(milestoneMsg || t('status_minscore'));
   }
+}
+
+async function loadQuests() {
+  if (!walletAddress || !BACKEND_URL) return;
+  try {
+    const r = await fetch(BACKEND_URL + '/api/quests/' + walletAddress);
+    const d = await r.json();
+    renderQuests(d);
+  } catch (e) { console.log('quests load:', e); }
+}
+
+function renderQuests(d) {
+  const box = document.getElementById('quests-box');
+  const list = document.getElementById('quests-list');
+  const meta = document.getElementById('quests-meta');
+  const allDone = document.getElementById('quests-alldone');
+  if (!box || !d || !d.quests) return;
+  box.style.display = '';
+  meta.textContent = `${d.completed}/${d.total}` + (d.reset_in_seconds ? ` • reset ${formatCountdown(d.reset_in_seconds)}` : '');
+  list.innerHTML = d.quests.map(q => `
+    <div class="quest-item ${q.done ? 'done' : ''}">
+      <span class="icon">${q.icon}</span>
+      <span class="name">${q.name}</span>
+      <span class="progress">${q.progress}/${q.goal}</span>
+      <div class="quest-bar"><div class="quest-bar-fill" style="width:${q.percent}%"></div></div>
+    </div>
+  `).join('');
+  allDone.style.display = d.all_done ? '' : 'none';
+}
+
+function formatCountdown(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return h > 0 ? `${h}h${m.toString().padStart(2,'0')}` : `${m}min`;
 }
 
 function updateUI() {
@@ -906,6 +1016,7 @@ async function connectWithProvider(eip1193Provider, walletName) {
     document.getElementById('connect-btn').disabled = true;
     setStatus('');
     loadStreak();
+    loadQuests();
   } catch (e) { setStatus('❌ ' + e.message); }
 }
 

@@ -59,6 +59,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_leaderboard_score ON leaderboard(best_score DESC);
 `);
 
+// ─── MIGRATION : streak columns (idempotent) ──────────────────────────────────
+const hasStreakCol = db.prepare(
+  `SELECT COUNT(*) as c FROM pragma_table_info('leaderboard') WHERE name='streak_count'`
+).get().c;
+if (!hasStreakCol) {
+  console.log('🔧 Migrating leaderboard: adding streak columns...');
+  db.exec(`
+    ALTER TABLE leaderboard ADD COLUMN streak_count     INTEGER DEFAULT 0;
+    ALTER TABLE leaderboard ADD COLUMN max_streak       INTEGER DEFAULT 0;
+    ALTER TABLE leaderboard ADD COLUMN last_streak_date TEXT;
+  `);
+  console.log('✅ Streak columns added to leaderboard');
+}
+
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SIGNER_PK        = process.env.SIGNER_PK;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
@@ -115,11 +129,35 @@ async function publicFeed(payload) {
 // Milestones joueur — déclenche à chaque palier franchi
 const GAMES_MILESTONES  = [10, 50, 100, 250, 500, 1000];
 const CLAIMED_MILESTONES = [10, 50, 100, 500, 1000, 5000];
+const STREAK_MILESTONES  = [3, 7, 14, 30, 50, 100];
 function crossedMilestone(oldVal, newVal, milestones) {
   return milestones.find(m => oldVal < m && newVal >= m);
 }
 
 function shortAddr(a){ return a.slice(0,6) + '…' + a.slice(-4); }
+
+// ─── STREAK helpers ──────────────────────────────────────────────────────────
+function todayUTC() { return new Date().toISOString().slice(0, 10); }
+function yesterdayUTC() {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+// Calcule le nouveau streak à partir de l'état précédent et de la date du jour
+function computeStreak(prevStreak, lastStreakDate, today) {
+  if (!lastStreakDate)           return prevStreak >= 1 ? prevStreak : 1; // première fois ou données legacy
+  if (lastStreakDate === today)  return prevStreak; // déjà joué aujourd'hui → pas de change
+  if (lastStreakDate === yesterdayUTC()) return prevStreak + 1; // continuité
+  return 1; // streak cassée → reset
+}
+// Multiplier reward selon streak
+function streakMultiplier(streak) {
+  if (streak >= 30) return 2.0;
+  if (streak >= 14) return 1.5;
+  if (streak >= 7)  return 1.25;
+  if (streak >= 3)  return 1.1;
+  return 1.0;
+}
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 app.use(helmet());
@@ -227,12 +265,28 @@ app.post('/api/session/end', (req, res) => {
     return res.status(400).json({ error: 'Score rejeté (vitesse anormale)' });
   }
 
-  const reward = Math.min(Math.floor(cappedScore / 10), MAX_PER_SESSION);
+  const addr = session.address;
+
+  // ─── STREAK compute (before reward, so reward applies multiplier) ─────────
+  const today = todayUTC();
+  const streakRow = db.prepare(
+    'SELECT streak_count, max_streak, last_streak_date FROM leaderboard WHERE address=?'
+  ).get(addr);
+  const prevStreak     = streakRow ? (streakRow.streak_count || 0) : 0;
+  const prevMaxStreak  = streakRow ? (streakRow.max_streak   || 0) : 0;
+  const lastStreakDate = streakRow ? streakRow.last_streak_date    : null;
+
+  // Only advance streak on valid scoring sessions (anti-cheat already passed)
+  const newStreak    = cappedScore > 0 ? computeStreak(prevStreak, lastStreakDate, today) : prevStreak;
+  const newMaxStreak = Math.max(prevMaxStreak, newStreak);
+  const multiplier   = streakMultiplier(newStreak);
+
+  // Base reward + streak multiplier
+  const baseReward = Math.min(Math.floor(cappedScore / 10), MAX_PER_SESSION);
+  const reward     = Math.min(Math.floor(baseReward * multiplier), MAX_PER_SESSION);
 
   db.prepare('UPDATE sessions SET score=?, reward=?, validated=1 WHERE id=?')
     .run(cappedScore, reward, sessionId);
-
-  const addr = session.address;
 
   // Snapshot pré-update pour détecter records + milestones
   const prevRow = db.prepare('SELECT best_score, games_played FROM leaderboard WHERE address=?').get(addr);
@@ -241,14 +295,18 @@ app.post('/api/session/end', (req, res) => {
   const allTimeMax = db.prepare('SELECT COALESCE(MAX(best_score),0) as m FROM leaderboard').get().m;
 
   db.prepare(`
-    INSERT INTO leaderboard (address, best_score, games_played, last_played, updated_at)
-    VALUES (?, ?, 1, strftime('%s','now'), strftime('%s','now'))
+    INSERT INTO leaderboard (address, best_score, games_played, last_played, updated_at,
+                             streak_count, max_streak, last_streak_date)
+    VALUES (?, ?, 1, strftime('%s','now'), strftime('%s','now'), ?, ?, ?)
     ON CONFLICT(address) DO UPDATE SET
-      best_score   = MAX(best_score, excluded.best_score),
-      games_played = games_played + 1,
-      last_played  = excluded.last_played,
-      updated_at   = excluded.updated_at
-  `).run(addr, cappedScore);
+      best_score       = MAX(best_score, excluded.best_score),
+      games_played     = games_played + 1,
+      last_played      = excluded.last_played,
+      updated_at       = excluded.updated_at,
+      streak_count     = excluded.streak_count,
+      max_streak       = excluded.max_streak,
+      last_streak_date = excluded.last_streak_date
+  `).run(addr, cappedScore, newStreak, newMaxStreak, cappedScore > 0 ? today : lastStreakDate);
 
   db.prepare('INSERT INTO score_history (address, score) VALUES (?, ?)')
     .run(addr, cappedScore);
@@ -298,7 +356,49 @@ app.post('/api/session/end', (req, res) => {
     });
   }
 
-  res.json({ sessionId, score: cappedScore, reward });
+  // ─── PUBLIC FEED — milestone streak quotidien ──────────────────────────────
+  const streakMilestone = crossedMilestone(prevStreak, newStreak, STREAK_MILESTONES);
+  if (streakMilestone) {
+    const mult = streakMultiplier(newStreak);
+    publicFeed({
+      content: streakMilestone >= 30 ? `🔥 **${streakMilestone} JOURS D'AFFILÉE — LEGEND STATUS** 🔥` : null,
+      embeds: [{
+        title: `🔥 Streak ${streakMilestone} jours !`,
+        description: `[${shortAddr(addr)}](https://polygonscan.com/address/${addr}) joue **${streakMilestone} jours d'affilée** sans casser sa série.\nMultiplier actif : **x${mult}**`,
+        color: streakMilestone >= 30 ? 0xff6b00 : 0xf97316,
+        fields: [
+          { name: 'Streak actuel', value: `🔥 ${newStreak} jours`, inline: true },
+          { name: 'Record perso',  value: `${newMaxStreak} jours`, inline: true },
+          { name: 'Multiplier',    value: `x${mult}`, inline: true },
+        ],
+        footer: { text: 'SnakeCoin · daily streak' },
+        timestamp: new Date().toISOString(),
+      }],
+    });
+    // Discord staff aussi (rare event, worth tracking)
+    discordNotify({
+      title: `🔥 Streak milestone — ${streakMilestone} jours`,
+      color: 0xff6b00,
+      fields: [
+        { name: 'Wallet',     value: shortAddr(addr), inline: true },
+        { name: 'Streak',     value: `${newStreak} jours`, inline: true },
+        { name: 'Multiplier', value: `x${mult}`, inline: true },
+      ],
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  res.json({
+    sessionId,
+    score: cappedScore,
+    reward,
+    streak: {
+      current:    newStreak,
+      max:        newMaxStreak,
+      multiplier: multiplier,
+      milestone:  streakMilestone || null,
+    },
+  });
 });
 
 app.post('/api/claim', limiter, async (req, res) => {
@@ -459,9 +559,74 @@ app.get('/api/player/:address', (req, res) => {
   const addr = (req.params.address || '').toLowerCase();
   if (!ethers.isAddress(addr)) return res.status(400).json({ error: 'Adresse invalide' });
   const row = db.prepare('SELECT * FROM leaderboard WHERE address = ?').get(addr);
-  if (!row) return res.json({ address: addr, best_score: 0, games_played: 0, total_claimed: 0, rank: null });
+  if (!row) return res.json({
+    address: addr, best_score: 0, games_played: 0, total_claimed: 0, rank: null,
+    streak: { current: 0, max: 0, multiplier: 1.0, active: false, last_date: null },
+  });
   const rank = db.prepare('SELECT COUNT(*)+1 as r FROM leaderboard WHERE best_score > ?').get(row.best_score).r;
-  res.json({ ...row, rank });
+
+  // Streak status : "active" si last_streak_date == today OR yesterday
+  const today   = todayUTC();
+  const yest    = yesterdayUTC();
+  const last    = row.last_streak_date;
+  const active  = last === today || last === yest;
+  // Si active mais pas joué aujourd'hui, le streak risque de casser → "at_risk"
+  const atRisk  = active && last !== today;
+  // Si dernière date < hier, streak est déjà cassé → current effectif = 0
+  const effectiveCurrent = active ? (row.streak_count || 0) : 0;
+  const mult = streakMultiplier(effectiveCurrent);
+
+  res.json({
+    ...row,
+    rank,
+    streak: {
+      current:    effectiveCurrent,
+      max:        row.max_streak || 0,
+      multiplier: mult,
+      active,
+      at_risk:    atRisk,
+      last_date:  last,
+      played_today: last === today,
+    },
+  });
+});
+
+// ─── STREAK endpoint dédié (léger, cacheable) ──────────────────────────────────
+app.get('/api/streak/:address', (req, res) => {
+  const addr = (req.params.address || '').toLowerCase();
+  if (!ethers.isAddress(addr)) return res.status(400).json({ error: 'Adresse invalide' });
+  const row = db.prepare(
+    'SELECT streak_count, max_streak, last_streak_date FROM leaderboard WHERE address = ?'
+  ).get(addr);
+  if (!row) {
+    return res.json({
+      address: addr,
+      current: 0, max: 0, multiplier: 1.0,
+      active: false, at_risk: false, played_today: false, last_date: null,
+      next_milestone: STREAK_MILESTONES[0],
+    });
+  }
+  const today  = todayUTC();
+  const yest   = yesterdayUTC();
+  const last   = row.last_streak_date;
+  const active = last === today || last === yest;
+  const atRisk = active && last !== today;
+  const effectiveCurrent = active ? (row.streak_count || 0) : 0;
+  const mult   = streakMultiplier(effectiveCurrent);
+  const nextMilestone = STREAK_MILESTONES.find(m => m > effectiveCurrent) || null;
+
+  res.json({
+    address: addr,
+    current:        effectiveCurrent,
+    max:            row.max_streak || 0,
+    multiplier:     mult,
+    active,
+    at_risk:        atRisk,
+    played_today:   last === today,
+    last_date:      last,
+    next_milestone: nextMilestone,
+    days_to_next:   nextMilestone ? nextMilestone - effectiveCurrent : null,
+  });
 });
 
 // ─── ADMIN ROUTES ─────────────────────────────────────────────────────────────

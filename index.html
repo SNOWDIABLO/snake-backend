@@ -67,6 +67,12 @@
   }
   .stat-box .label { font-size: 0.65rem; color: #666; text-transform: uppercase; }
   .stat-box .value { font-size: 1.1rem; color: #00ff88; font-weight: bold; }
+  .stat-box.streak { display: none; border-color: #442200; }
+  .stat-box.streak.active { display: block; border-color: #ff6b00; box-shadow: 0 0 12px rgba(255,107,0,.35); }
+  .stat-box.streak.active .value { color: #ff9544; }
+  .stat-box.streak.at-risk { border-color: #ff3333; animation: pulseRisk 1.5s ease-in-out infinite; }
+  .stat-box.streak .mult { font-size: 0.7rem; color: #ffbb88; margin-top: 2px; letter-spacing: 0.5px; }
+  @keyframes pulseRisk { 0%,100% { box-shadow: 0 0 8px rgba(255,51,51,.3); } 50% { box-shadow: 0 0 18px rgba(255,51,51,.7); } }
   #wallet-address { font-size: 0.75rem; color: #888; }
 
   button {
@@ -210,102 +216,7 @@
     font-size: 0.85rem;
   }
   .no-wallet a { color: #00ff88; text-decoration: none; }
-
-  /* ─── V2 upgrades ─────────────────────────────────────────── */
-
-  /* Canvas glow when running */
-  canvas.running { box-shadow: 0 0 40px #00ff8855, 0 0 80px #00ff8822; }
-  canvas.shake   { animation: shake 0.3s ease-in-out; }
-  @keyframes shake {
-    0%,100% { transform: translate(0,0); }
-    20% { transform: translate(-4px, 2px); }
-    40% { transform: translate(3px, -3px); }
-    60% { transform: translate(-2px, 3px); }
-    80% { transform: translate(2px, -1px); }
-  }
-
-  /* Combo badge */
-  #combo-badge {
-    position: absolute;
-    padding: 6px 14px;
-    background: linear-gradient(135deg, #ff8800, #ffcc00);
-    color: #000;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    pointer-events: none;
-    opacity: 0;
-    transform: scale(0.5);
-    transition: all 0.25s ease;
-    box-shadow: 0 0 20px #ffcc00aa;
-    z-index: 5;
-  }
-  #combo-badge.show { opacity: 1; transform: scale(1); }
-  #combo-badge.x3   { background: linear-gradient(135deg, #ff00cc, #ffcc00); box-shadow: 0 0 25px #ff00ccaa; }
-
-  /* Leaderboard button */
-  #leaderboard-btn {
-    background: linear-gradient(135deg, #00ccff, #0088cc);
-    color: #000;
-  }
-
-  /* Leaderboard modal */
-  .lb-tabs {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 14px;
-    justify-content: center;
-  }
-  .lb-tab {
-    background: #1a1a2e;
-    border: 1px solid #333;
-    color: #888;
-    padding: 6px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: 'Courier New', monospace;
-    font-size: 0.8rem;
-  }
-  .lb-tab.active { background: #00ff8822; border-color: #00ff88; color: #00ff88; }
-
-  .lb-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.82rem;
-  }
-  .lb-table th, .lb-table td {
-    padding: 7px 4px;
-    text-align: left;
-    border-bottom: 1px solid #222;
-  }
-  .lb-table th { color: #666; font-weight: normal; text-transform: uppercase; font-size: 0.7rem; }
-  .lb-table td.rank { color: #00ff88; font-weight: bold; width: 32px; text-align: center; }
-  .lb-table td.rank.gold   { color: #ffd700; }
-  .lb-table td.rank.silver { color: #c0c0c0; }
-  .lb-table td.rank.bronze { color: #cd7f32; }
-  .lb-table td.addr  { color: #aaa; font-family: 'Courier New', monospace; }
-  .lb-table td.score { color: #00ff88; text-align: right; font-weight: bold; }
-  .lb-table tr.me td { background: #00ff8811; }
-  .lb-loading { text-align: center; padding: 30px; color: #666; }
-
-  /* Mobile touch zone hint */
-  @media (max-width: 768px) {
-    .arrow-keys { display: none; }
-    .touch-hint {
-      color: #555;
-      font-size: 0.7rem;
-      margin-top: 8px;
-      text-align: center;
-    }
-  }
-  @media (min-width: 769px) {
-    .touch-hint { display: none; }
-  }
 </style>
-
-<!-- Umami Analytics (privacy-friendly, no cookies, GDPR-compliant) -->
-<script defer src="https://cloud.umami.is/script.js" data-website-id="53d6f41b-c631-4e03-98de-c2d190d7d830"></script>
 </head>
 <body>
 
@@ -328,6 +239,11 @@
     <div class="label" data-i18n="highscore">MEILLEUR</div>
     <div class="value" id="highscore-display">0</div>
   </div>
+  <div class="stat-box streak" id="streak-box" title="Joue chaque jour pour garder ton streak !">
+    <div class="label">🔥 STREAK</div>
+    <div class="value" id="streak-display">0</div>
+    <div class="mult" id="streak-mult">x1.0</div>
+  </div>
 </div>
 
 <div class="top-bar">
@@ -344,31 +260,11 @@
   </div>
 </div>
 
-<div style="position:relative">
-  <canvas id="gameCanvas" width="480" height="480"></canvas>
-  <div id="combo-badge">COMBO x2 🔥</div>
-</div>
+<canvas id="gameCanvas" width="480" height="480"></canvas>
 
 <div class="controls">
   <button onclick="startGame()" id="start-btn">▶ <span data-i18n="new_game">Nouvelle Partie</span></button>
   <button onclick="claimTokens()" id="claim-btn" disabled>💰 <span data-i18n="claim">Claim $SNAKE</span></button>
-  <button onclick="openLeaderboard()" id="leaderboard-btn">🏆 <span data-i18n="leaderboard">Leaderboard</span></button>
-</div>
-
-<div class="touch-hint" data-i18n="touch_hint">Swipe sur l'écran pour diriger le serpent</div>
-
-<!-- Leaderboard modal -->
-<div class="modal-overlay" id="lb-modal">
-  <div class="modal" style="max-width:480px">
-    <h3>🏆 <span data-i18n="leaderboard">Leaderboard</span></h3>
-    <div class="lb-tabs">
-      <div class="lb-tab active" data-period="day"  data-i18n="lb_day">Jour</div>
-      <div class="lb-tab" data-period="week"       data-i18n="lb_week">Semaine</div>
-      <div class="lb-tab" data-period="all"        data-i18n="lb_alltime">All-Time</div>
-    </div>
-    <div id="lb-content" class="lb-loading" data-i18n="loading">Chargement...</div>
-    <button class="modal-close" onclick="closeLeaderboard()" data-i18n="close">Fermer</button>
-  </div>
 </div>
 
 <div class="arrow-keys">
@@ -418,11 +314,6 @@ const LANGS = {
     status_tx:'⏳ Transaction Polygon en cours...',
     status_confirm:'⏳ Confirmation blockchain...',
     status_success:'✅ Claim réussi !',
-    leaderboard:'Leaderboard', lb_day:'Jour', lb_week:'Semaine', lb_alltime:'All-Time',
-    loading:'Chargement...', close:'Fermer',
-    lb_empty:'Personne n\'a encore joué sur cette période',
-    touch_hint:'Swipe sur l\'écran pour diriger le serpent',
-    combo_label:'COMBO', golden:'POMME DORÉE',
   }},
   en: { flag:'🇬🇧', name:'English', t:{
     score:'SCORE', earned:'$SNAKE EARNED', highscore:'BEST',
@@ -447,11 +338,6 @@ const LANGS = {
     status_tx:'⏳ Polygon transaction sending...',
     status_confirm:'⏳ Blockchain confirmation...',
     status_success:'✅ Claim successful!',
-    leaderboard:'Leaderboard', lb_day:'Day', lb_week:'Week', lb_alltime:'All-Time',
-    loading:'Loading...', close:'Close',
-    lb_empty:'Nobody played during this period yet',
-    touch_hint:'Swipe on the screen to move the snake',
-    combo_label:'COMBO', golden:'GOLDEN APPLE',
   }},
   es: { flag:'🇪🇸', name:'Español', t:{
     score:'PUNTOS', earned:'$SNAKE GANADO', highscore:'RÉCORD',
@@ -739,11 +625,6 @@ const COLS   = canvas.width  / GRID;
 const ROWS   = canvas.height / GRID;
 
 let snake, dir, nextDir, food, score, gameLoop, running, tokensEarned, highScore, sessionId;
-let particles = [], combo = 0, lastEatTime = 0, goldenActive = false;
-
-const COMBO_WINDOW_MS = 5000;
-const GOLDEN_CHANCE   = 0.10;   // 10%
-const GOLDEN_MULT     = 3;
 
 function initState() {
   snake        = [{x:12,y:12},{x:11,y:12},{x:10,y:12}];
@@ -753,9 +634,6 @@ function initState() {
   score        = 0;
   tokensEarned = 0;
   running      = false;
-  particles    = [];
-  combo        = 0;
-  lastEatTime  = 0;
   highScore    = parseInt(localStorage.getItem('snakeHS') || '0');
   updateUI();
 }
@@ -764,62 +642,7 @@ function randomFood() {
   let f;
   do { f = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)}; }
   while (snake.some(s => s.x===f.x && s.y===f.y));
-  f.golden = Math.random() < GOLDEN_CHANCE;
   return f;
-}
-
-// ─── PARTICLES ──────────────────────────────────────────────
-function spawnParticles(cx, cy, color, count=14) {
-  for (let i=0; i<count; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 1.5 + Math.random() * 3;
-    particles.push({
-      x: cx, y: cy,
-      vx: Math.cos(angle)*speed,
-      vy: Math.sin(angle)*speed,
-      life: 1.0,
-      color,
-      size: 2 + Math.random()*2,
-    });
-  }
-}
-function updateParticles() {
-  particles = particles.filter(p => {
-    p.x += p.vx; p.y += p.vy;
-    p.vy += 0.1; // gravity
-    p.vx *= 0.96; p.vy *= 0.96;
-    p.life -= 0.04;
-    return p.life > 0;
-  });
-}
-function drawParticles() {
-  particles.forEach(p => {
-    ctx.globalAlpha = Math.max(0, p.life);
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
-    ctx.fill();
-  });
-  ctx.globalAlpha = 1;
-}
-
-function shakeCanvas() {
-  canvas.classList.remove('shake');
-  void canvas.offsetWidth; // trigger reflow
-  canvas.classList.add('shake');
-}
-
-function showComboBadge(mult, isGolden) {
-  const b = document.getElementById('combo-badge');
-  const rect = canvas.getBoundingClientRect();
-  const parent = canvas.parentElement.getBoundingClientRect();
-  b.style.left = (canvas.offsetWidth/2 - 60) + 'px';
-  b.style.top  = '20px';
-  b.textContent = isGolden ? ('🌟 ' + t('golden') + ' x3') : (t('combo_label') + ' x' + mult + ' 🔥');
-  b.classList.toggle('x3', isGolden);
-  b.classList.add('show');
-  clearTimeout(showComboBadge._to);
-  showComboBadge._to = setTimeout(() => b.classList.remove('show'), 1200);
 }
 
 async function startGame() {
@@ -837,7 +660,6 @@ async function startGame() {
     } catch(e) { console.log('session start:', e); }
   }
   running = true;
-  canvas.classList.add('running');
   draw();
   gameLoop = setInterval(tick, 130);
   document.getElementById('claim-btn').disabled = true;
@@ -856,32 +678,8 @@ function tick() {
   if (snake.some(s=>s.x===head.x&&s.y===head.y)) return gameOver();
   snake.unshift(head);
   if (head.x===food.x && head.y===food.y) {
-    const now = Date.now();
-    const wasGolden = !!food.golden;
-
-    // Combo logic
-    if (lastEatTime && (now - lastEatTime) < COMBO_WINDOW_MS) {
-      combo = Math.min(combo + 1, 5);
-    } else {
-      combo = 1;
-    }
-    lastEatTime = now;
-
-    let pts = 1;
-    if (wasGolden)   pts *= GOLDEN_MULT;
-    if (combo >= 3)  pts *= 2; // x2 combo multiplier from 3 in a row
-
-    score += pts;
+    score++;
     tokensEarned = Math.floor(score/10);
-
-    // Visual FX
-    const cx = food.x*GRID + GRID/2;
-    const cy = food.y*GRID + GRID/2;
-    const color = wasGolden ? '#ffd700' : '#00ff88';
-    spawnParticles(cx, cy, color, wasGolden ? 28 : 14);
-    if (wasGolden) shakeCanvas();
-    if (combo >= 3 || wasGolden) showComboBadge(combo>=3?2:1, wasGolden);
-
     food = randomFood();
     updateUI();
     if (score > highScore) {
@@ -889,36 +687,39 @@ function tick() {
       localStorage.setItem('snakeHS', highScore);
       document.getElementById('highscore-display').textContent = highScore;
     }
-  } else {
-    snake.pop();
-    // Reset combo if 5s passed without eating
-    if (lastEatTime && Date.now() - lastEatTime > COMBO_WINDOW_MS) {
-      combo = 0;
-    }
-  }
-  updateParticles();
+  } else { snake.pop(); }
   draw();
 }
 
 async function gameOver() {
   clearInterval(gameLoop);
   running = false;
-  shakeCanvas();
-  canvas.classList.remove('running');
   drawGameOver();
+  let milestoneMsg = null;
   if (sessionId && walletAddress && BACKEND_URL) {
     try {
-      await fetch(BACKEND_URL+'/api/session/end',{
+      const r = await fetch(BACKEND_URL+'/api/session/end',{
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({sessionId, score, address: walletAddress})
       });
+      const d = await r.json();
+      if (d && typeof d.reward === 'number' && d.reward > tokensEarned) {
+        tokensEarned = d.reward;
+        document.getElementById('tokens-display').textContent = tokensEarned.toFixed(2);
+      }
+      if (d && d.streak) {
+        renderStreak({ current:d.streak.current, max:d.streak.max, multiplier:d.streak.multiplier, active:true, at_risk:false, played_today:true, next_milestone:null, days_to_next:null });
+        if (d.streak.milestone) {
+          milestoneMsg = '🔥 ' + d.streak.milestone + ' JOURS ! Multiplier x' + d.streak.multiplier;
+        }
+      }
     } catch(e) { console.log('session end:', e); }
   }
   if (tokensEarned > 0) {
     document.getElementById('claim-btn').disabled = false;
-    setStatus(t('status_claim') + ' ' + tokensEarned.toFixed(2) + ' $SNAKE');
+    setStatus((milestoneMsg ? milestoneMsg + ' · ' : '') + t('status_claim') + ' ' + tokensEarned.toFixed(2) + ' $SNAKE');
   } else {
-    setStatus(t('status_minscore'));
+    setStatus(milestoneMsg || t('status_minscore'));
   }
 }
 
@@ -926,6 +727,34 @@ function updateUI() {
   document.getElementById('score-display').textContent = score;
   document.getElementById('tokens-display').textContent = tokensEarned.toFixed(2);
   document.getElementById('highscore-display').textContent = highScore;
+}
+
+async function loadStreak() {
+  if (!walletAddress || !BACKEND_URL) return;
+  try {
+    const r = await fetch(BACKEND_URL + '/api/streak/' + walletAddress);
+    const d = await r.json();
+    renderStreak(d);
+  } catch (e) { console.log('streak load:', e); }
+}
+function renderStreak(d) {
+  const box = document.getElementById('streak-box');
+  const val = document.getElementById('streak-display');
+  const mult = document.getElementById('streak-mult');
+  if (!box || !d) return;
+  const cur = d.current || 0;
+  val.textContent = cur;
+  mult.textContent = 'x' + (d.multiplier || 1.0).toFixed(2);
+  box.classList.remove('active', 'at-risk');
+  box.classList.add('active');
+  if (cur > 0 && d.at_risk) box.classList.add('at-risk');
+  if (d.next_milestone && d.days_to_next != null) {
+    box.title = '🔥 ' + cur + 'j · x' + (d.multiplier||1).toFixed(2) + ' → palier ' + d.next_milestone + 'j dans ' + d.days_to_next + 'j';
+  } else if (d.at_risk) {
+    box.title = '⚠️ Joue aujourd hui pour garder ton streak de ' + cur + ' jours !';
+  } else {
+    box.title = '🔥 ' + cur + ' jours d affilee (record: ' + (d.max||0) + ')';
+  }
 }
 
 // ─── DRAW ────────────────────────────────────────────────────────────────────
@@ -936,32 +765,19 @@ function draw() {
   for(let x=0;x<=canvas.width;x+=GRID){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
   for(let y=0;y<=canvas.height;y+=GRID){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
 
-  // Food (golden apple has pulsing glow)
-  const fx = food.x*GRID+GRID/2, fy = food.y*GRID+GRID/2;
-  if (food.golden) {
-    const pulse = 1 + 0.2 * Math.sin(Date.now()/150);
-    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 15 * pulse;
-    ctx.font = `${(GRID-2)*pulse}px serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('🌟', fx, fy);
-    ctx.shadowBlur = 0;
-  } else {
-    ctx.font = `${GRID-2}px serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('🍎', fx, fy);
-  }
+  // Food
+  ctx.font = `${GRID-2}px serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('🍎', food.x*GRID+GRID/2, food.y*GRID+GRID/2);
 
-  // Snake with neon glow
-  ctx.shadowColor = '#00ff88';
+  // Snake
   snake.forEach((seg,i) => {
     const ratio = 1-(i/snake.length)*0.5;
-    ctx.shadowBlur = i===0 ? 15 : 6;
     ctx.fillStyle = `rgb(0,${Math.floor(255*ratio)},${Math.floor(136*ratio)})`;
     ctx.beginPath();
     ctx.roundRect(seg.x*GRID+1, seg.y*GRID+1, GRID-2, GRID-2, 4);
     ctx.fill();
     if(i===0){
-      ctx.shadowBlur = 0;
       ctx.fillStyle='#000';
       const ex = dir.x===0?[GRID*0.3,GRID*0.7]:(dir.x>0?[GRID*0.7,GRID*0.7]:[GRID*0.3,GRID*0.3]);
       const ey = dir.y===0?[GRID*0.3,GRID*0.7]:(dir.y>0?[GRID*0.7,GRID*0.7]:[GRID*0.3,GRID*0.3]);
@@ -969,19 +785,11 @@ function draw() {
       ctx.beginPath();ctx.arc(seg.x*GRID+ex[1],seg.y*GRID+ey[1],2,0,Math.PI*2);ctx.fill();
     }
   });
-  ctx.shadowBlur = 0;
-
-  // Particles
-  drawParticles();
 
   // HUD
   ctx.fillStyle='#ffffff22'; ctx.font='13px Courier New';
   ctx.textAlign='left';  ctx.fillText('Score: '+score, 8, 20);
   ctx.textAlign='right'; ctx.fillText('$SNAKE: '+tokensEarned.toFixed(2), canvas.width-8, 20);
-  if (combo >= 2) {
-    ctx.fillStyle = combo>=3 ? '#ffcc00' : '#00ff88';
-    ctx.textAlign='center'; ctx.fillText('🔥 x'+combo, canvas.width/2, 20);
-  }
 }
 
 function drawWelcome() {
@@ -1019,84 +827,6 @@ document.addEventListener('keydown', e => {
     case ' ': e.preventDefault(); if(!running) startGame(); break;
   }
 });
-
-// ─── MOBILE TOUCH (swipe) ────────────────────────────────────────────────────
-let touchStartX = 0, touchStartY = 0;
-canvas.addEventListener('touchstart', (e) => {
-  const t = e.touches[0];
-  touchStartX = t.clientX; touchStartY = t.clientY;
-}, { passive: true });
-canvas.addEventListener('touchmove', (e) => {
-  if (!running) return;
-  e.preventDefault(); // prevent page scroll while playing
-}, { passive: false });
-canvas.addEventListener('touchend', (e) => {
-  const t = e.changedTouches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
-  if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return; // tap, not swipe
-  if (Math.abs(dx) > Math.abs(dy)) {
-    setDir(dx > 0 ? 1 : -1, 0);
-  } else {
-    setDir(0, dy > 0 ? 1 : -1);
-  }
-});
-
-// ─── LEADERBOARD ─────────────────────────────────────────────────────────────
-let lbCurrentPeriod = 'day';
-
-function openLeaderboard() {
-  document.getElementById('lb-modal').classList.add('active');
-  loadLeaderboard(lbCurrentPeriod);
-}
-function closeLeaderboard() {
-  document.getElementById('lb-modal').classList.remove('active');
-}
-document.querySelectorAll('.lb-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.lb-tab').forEach(x => x.classList.remove('active'));
-    tab.classList.add('active');
-    lbCurrentPeriod = tab.dataset.period;
-    loadLeaderboard(lbCurrentPeriod);
-  });
-});
-
-async function loadLeaderboard(period) {
-  const c = document.getElementById('lb-content');
-  c.className = 'lb-loading';
-  c.textContent = t('loading');
-  try {
-    const r = await fetch(`${BACKEND_URL}/api/leaderboard?period=${period}&limit=20`);
-    const d = await r.json();
-    if (!d.leaderboard || d.leaderboard.length === 0) {
-      c.className = 'lb-loading';
-      c.textContent = t('lb_empty');
-      return;
-    }
-    const me = walletAddress ? walletAddress.toLowerCase() : null;
-    const rows = d.leaderboard.map((row, i) => {
-      const rank = i + 1;
-      const rankClass = rank===1?'gold':rank===2?'silver':rank===3?'bronze':'';
-      const short = row.address.slice(0,6) + '…' + row.address.slice(-4);
-      const isMe = me && row.address.toLowerCase() === me;
-      return `
-        <tr class="${isMe?'me':''}">
-          <td class="rank ${rankClass}">#${rank}</td>
-          <td class="addr">${short}${isMe?' <span style="color:#00ff88">(you)</span>':''}</td>
-          <td class="score">${row.best_score}</td>
-        </tr>`;
-    }).join('');
-    c.className = '';
-    c.innerHTML = `
-      <table class="lb-table">
-        <thead><tr><th>#</th><th>Wallet</th><th style="text-align:right">${t('score')}</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-  } catch (e) {
-    c.className = 'lb-loading';
-    c.textContent = '❌ ' + e.message;
-  }
-}
 
 // ─── WEB3 / EIP-6963 MULTI-WALLET ───────────────────────────────────────────
 let provider, signer, walletAddress;
@@ -1175,6 +905,7 @@ async function connectWithProvider(eip1193Provider, walletName) {
     document.getElementById('connect-btn').textContent = '🟢 ' + walletName + ' · ' + short;
     document.getElementById('connect-btn').disabled = true;
     setStatus('');
+    loadStreak();
   } catch (e) { setStatus('❌ ' + e.message); }
 }
 

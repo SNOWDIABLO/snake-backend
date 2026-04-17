@@ -59,6 +59,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_leaderboard_score ON leaderboard(best_score DESC);
 `);
 
+// ─── MIGRATION : events (task #20 golden snake) ──────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    type        TEXT NOT NULL,
+    multiplier  REAL NOT NULL DEFAULT 3.0,
+    started_at  INTEGER NOT NULL,
+    ended_at    INTEGER,
+    reason      TEXT DEFAULT 'auto',
+    meta_json   TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_events_type_active ON events(type, ended_at);
+`);
+
 // ─── MIGRATION : seasons (idempotent) ────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS seasons (
@@ -189,6 +203,73 @@ function streakMultiplier(streak) {
   return 1.0;
 }
 
+// ─── GOLDEN SNAKE MODE (task #20) ────────────────────────────────────────────
+// Auto-window : samedi 20h UTC → dimanche 20h UTC (24h), x3 rewards.
+// Override manuel via /api/admin/events/golden/toggle.
+const GOLDEN_MULTIPLIER   = 3.0;
+const GOLDEN_DAY_UTC      = 6;   // 0=dimanche, 6=samedi
+const GOLDEN_HOUR_UTC     = 20;  // 20h UTC start
+const GOLDEN_DURATION_H   = 24;
+
+function isInAutoGoldenWindow(now = new Date()) {
+  // Compute last saturday 20:00 UTC (start of current weekly window)
+  const n = new Date(now);
+  const day = n.getUTCDay();
+  // offset days back to last saturday
+  const daysBack = (day - GOLDEN_DAY_UTC + 7) % 7;
+  const start = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() - daysBack, GOLDEN_HOUR_UTC, 0, 0));
+  const end   = new Date(start.getTime() + GOLDEN_DURATION_H * 3600 * 1000);
+  return { in_window: now >= start && now < end, start, end };
+}
+
+function getGoldenState() {
+  // 1) manual override = row type='golden' with ended_at IS NULL
+  const manual = db.prepare(`SELECT * FROM events WHERE type='golden' AND ended_at IS NULL ORDER BY id DESC LIMIT 1`).get();
+  if (manual) {
+    return {
+      active: true,
+      multiplier: manual.multiplier,
+      mode: 'manual',
+      started_at: manual.started_at,
+      ends_at: null,
+      reason: manual.reason,
+    };
+  }
+  // 2) auto weekly window
+  const now = new Date();
+  const w = isInAutoGoldenWindow(now);
+  if (w.in_window) {
+    return {
+      active: true,
+      multiplier: GOLDEN_MULTIPLIER,
+      mode: 'auto',
+      started_at: Math.floor(w.start.getTime() / 1000),
+      ends_at:    Math.floor(w.end.getTime()   / 1000),
+      reason: 'weekly',
+    };
+  }
+  // 3) inactive → next window
+  // compute next saturday 20h UTC
+  const nxt = new Date(now);
+  const day = nxt.getUTCDay();
+  const daysAhead = (GOLDEN_DAY_UTC - day + 7) % 7 || (nxt.getUTCHours() < GOLDEN_HOUR_UTC ? 0 : 7);
+  nxt.setUTCDate(nxt.getUTCDate() + daysAhead);
+  nxt.setUTCHours(GOLDEN_HOUR_UTC, 0, 0, 0);
+  return {
+    active: false,
+    multiplier: 1.0,
+    mode: 'inactive',
+    next_start: Math.floor(nxt.getTime() / 1000),
+  };
+}
+
+// Bootstrap : log state au demarrage + Discord notify si auto active
+(() => {
+  const g = getGoldenState();
+  if (g.active) console.log(`⚡ GOLDEN SNAKE active (${g.mode}) - multiplier x${g.multiplier}`);
+  else console.log(`⚡ Golden snake inactive - next window: ${new Date((g.next_start||0)*1000).toISOString()}`);
+})();
+
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(express.json());
@@ -311,9 +392,11 @@ app.post('/api/session/end', (req, res) => {
   const newMaxStreak = Math.max(prevMaxStreak, newStreak);
   const multiplier   = streakMultiplier(newStreak);
 
-  // Base reward + streak multiplier
-  const baseReward = Math.min(Math.floor(cappedScore / 10), MAX_PER_SESSION);
-  const reward     = Math.min(Math.floor(baseReward * multiplier), MAX_PER_SESSION);
+  // Base reward + streak multiplier + golden snake multiplier (task #20)
+  const goldenState = getGoldenState();
+  const goldenMult  = goldenState.active ? goldenState.multiplier : 1.0;
+  const baseReward  = Math.min(Math.floor(cappedScore / 10), MAX_PER_SESSION);
+  const reward      = Math.min(Math.floor(baseReward * multiplier * goldenMult), MAX_PER_SESSION);
 
   db.prepare('UPDATE sessions SET score=?, reward=?, validated=1 WHERE id=?')
     .run(cappedScore, reward, sessionId);
@@ -422,6 +505,8 @@ app.post('/api/session/end', (req, res) => {
     sessionId,
     score: cappedScore,
     reward,
+    golden_active: goldenState.active,
+    golden_multiplier: goldenMult,
     streak: {
       current:    newStreak,
       max:        newMaxStreak,
@@ -804,6 +889,54 @@ app.post('/api/admin/seasons/close', adminAuth, express.json(), (req, res) => {
     console.error('season close failed:', e);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ─── GOLDEN SNAKE EVENT (task #20) ─────────────────────────────────────────
+app.get('/api/events/golden', (req, res) => {
+  res.json(getGoldenState());
+});
+
+// Admin toggle : start or stop a manual golden event
+app.post('/api/admin/events/golden/toggle', adminAuth, express.json(), (req, res) => {
+  const open = db.prepare(`SELECT * FROM events WHERE type='golden' AND ended_at IS NULL ORDER BY id DESC LIMIT 1`).get();
+  const now  = Math.floor(Date.now() / 1000);
+  if (open) {
+    db.prepare(`UPDATE events SET ended_at=? WHERE id=?`).run(now, open.id);
+    console.log(`⚡ Golden snake manual event #${open.id} closed`);
+    discordNotify({
+      title: '⚡ Golden Snake désactivé',
+      description: `Event manuel clôturé (durée ${Math.floor((now - open.started_at)/60)}min)`,
+      color: 0x888888,
+      timestamp: new Date().toISOString(),
+    });
+    return res.json({ action: 'closed', event: { id: open.id, started_at: open.started_at, ended_at: now } });
+  }
+  const mult   = Math.max(1.1, Math.min(10, parseFloat((req.body && req.body.multiplier) || GOLDEN_MULTIPLIER)));
+  const reason = (req.body && req.body.reason) || 'manual';
+  const info = db.prepare(`INSERT INTO events (type, multiplier, started_at, reason) VALUES ('golden', ?, ?, ?)`).run(mult, now, reason);
+  console.log(`⚡ Golden snake manual event #${info.lastInsertRowid} opened (x${mult})`);
+  discordNotify({
+    title: '⚡ GOLDEN SNAKE ACTIVÉ',
+    description: `Event manuel lancé - multiplier **x${mult}** sur toutes les rewards.`,
+    color: 0xFFD700,
+    timestamp: new Date().toISOString(),
+  });
+  // Public feed aussi
+  if (PUBLIC_FEED_WEBHOOK) {
+    publicFeedNotify({
+      title: '⚡ GOLDEN SNAKE MODE ACTIVÉ',
+      description: `Tous les scores rapportent **x${mult} SNAKE** maintenant 🐍💰\nJoue vite avant la fin !`,
+      color: 0xFFD700,
+      timestamp: new Date().toISOString(),
+    });
+  }
+  res.json({ action: 'opened', event: { id: info.lastInsertRowid, multiplier: mult, started_at: now } });
+});
+
+// Admin list events history
+app.get('/api/admin/events/history', adminAuth, (req, res) => {
+  const rows = db.prepare(`SELECT * FROM events ORDER BY id DESC LIMIT 50`).all();
+  res.json(rows);
 });
 
 // ─── DAILY QUESTS (task #19) ───────────────────────────────────────────────

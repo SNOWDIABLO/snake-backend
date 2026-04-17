@@ -57,6 +57,11 @@ const MAX_PER_SESSION  = parseFloat(process.env.MAX_PER_SESSION || '50');
 const PORT             = process.env.PORT || 3000;
 const DISCORD_WEBHOOK  = process.env.DISCORD_WEBHOOK || '';
 
+// ─── ANTI-CHEAT THRESHOLDS ───────────────────────────────────────────────────
+const MIN_SESSION_SEC  = parseInt(process.env.MIN_SESSION_SEC || '3', 10);   // <3s = bot
+const MAX_PTS_PER_SEC  = parseFloat(process.env.MAX_PTS_PER_SEC || '5');     // humain pro = 3-4
+const MIN_SESSION_GAP  = parseInt(process.env.MIN_SESSION_GAP || '2', 10);   // 2s entre sessions/wallet
+
 if (!SIGNER_PK) { console.error('❌ SIGNER_PK manquant dans .env'); process.exit(1); }
 
 const wallet = new ethers.Wallet(SIGNER_PK);
@@ -100,9 +105,22 @@ app.post('/api/session/start', (req, res) => {
   if (!address || !ethers.isAddress(address)) {
     return res.status(400).json({ error: 'Adresse wallet invalide' });
   }
+  const addr = address.toLowerCase();
+
+  // Anti-spam : rejette si session créée il y a < MIN_SESSION_GAP sec
+  const lastSession = db.prepare(
+    'SELECT created_at FROM sessions WHERE address=? ORDER BY created_at DESC LIMIT 1'
+  ).get(addr);
+  if (lastSession) {
+    const gap = Math.floor(Date.now()/1000) - lastSession.created_at;
+    if (gap < MIN_SESSION_GAP) {
+      return res.status(429).json({ error: `Attends ${MIN_SESSION_GAP - gap}s avant nouvelle session` });
+    }
+  }
+
   const sessionId = ethers.hexlify(ethers.randomBytes(16));
   db.prepare(`INSERT INTO sessions (id, address, score, reward) VALUES (?, ?, 0, 0)`)
-    .run(sessionId, address.toLowerCase());
+    .run(sessionId, addr);
   res.json({ sessionId });
 });
 
@@ -117,7 +135,50 @@ app.post('/api/session/end', (req, res) => {
   if (session.validated) return res.status(400).json({ error: 'Session déjà validée' });
 
   const cappedScore  = Math.min(score, 500);
-  const reward       = Math.min(Math.floor(cappedScore / 10), MAX_PER_SESSION);
+
+  // ─── ANTI-CHEAT ──────────────────────────────────────────────────────────
+  const now      = Math.floor(Date.now() / 1000);
+  const duration = Math.max(1, now - session.created_at);
+  const ratio    = cappedScore / duration;
+
+  // Trop rapide = bot
+  if (cappedScore > 0 && duration < MIN_SESSION_SEC) {
+    db.prepare('UPDATE sessions SET validated=1, score=0, reward=0 WHERE id=?').run(sessionId);
+    console.warn(`[CHEAT] ${session.address} score=${cappedScore} duration=${duration}s`);
+    discordNotify({
+      title: '🚨 Anti-cheat trigger',
+      color: 0xff3333,
+      fields: [
+        { name: 'Wallet',   value: shortAddr(session.address), inline: true },
+        { name: 'Score',    value: `${cappedScore}`, inline: true },
+        { name: 'Duration', value: `${duration}s (min ${MIN_SESSION_SEC}s)`, inline: true },
+        { name: 'Reason',   value: 'Session trop courte (probable bot)', inline: false },
+      ],
+      timestamp: new Date().toISOString(),
+    });
+    return res.status(400).json({ error: 'Session rejetée (trop courte)' });
+  }
+
+  // Trop de points/seconde = speed hack
+  if (ratio > MAX_PTS_PER_SEC) {
+    db.prepare('UPDATE sessions SET validated=1, score=0, reward=0 WHERE id=?').run(sessionId);
+    console.warn(`[CHEAT] ${session.address} ratio=${ratio.toFixed(2)} pts/sec`);
+    discordNotify({
+      title: '🚨 Anti-cheat trigger',
+      color: 0xff3333,
+      fields: [
+        { name: 'Wallet',   value: shortAddr(session.address), inline: true },
+        { name: 'Score',    value: `${cappedScore}`, inline: true },
+        { name: 'Duration', value: `${duration}s`, inline: true },
+        { name: 'Ratio',    value: `${ratio.toFixed(2)} pts/s (max ${MAX_PTS_PER_SEC})`, inline: true },
+        { name: 'Reason',   value: 'Ratio points/sec anormal', inline: false },
+      ],
+      timestamp: new Date().toISOString(),
+    });
+    return res.status(400).json({ error: 'Score rejeté (vitesse anormale)' });
+  }
+
+  const reward = Math.min(Math.floor(cappedScore / 10), MAX_PER_SESSION);
 
   db.prepare('UPDATE sessions SET score=?, reward=?, validated=1 WHERE id=?')
     .run(cappedScore, reward, sessionId);

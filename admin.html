@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐍 SnakeCoin Admin Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg-alt: #111827;
+    --card: #1a2137;
+    --border: #2d3656;
+    --text: #e5e7eb;
+    --dim: #9ca3af;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
+
+  header h1 {
+    font-size: 22px;
+    background: linear-gradient(135deg, var(--green), var(--blue));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid var(--green);
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--green);
+  }
+
+  .status-pill.err { background: rgba(239,68,68,.15); border-color: var(--red); color: var(--red); }
+  .status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+  .actions { display: flex; gap: 8px; }
+  button {
+    font-family: inherit;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all .15s;
+  }
+  button:hover { border-color: var(--blue); background: var(--bg-alt); }
+  button.primary { background: var(--blue); border-color: var(--blue); color: white; }
+  button.primary:hover { background: #2563eb; }
+  button.danger  { background: var(--red); border-color: var(--red); color: white; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card.stat { position: relative; overflow: hidden; }
+  .card.stat::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--blue);
+  }
+  .card.stat[data-color="green"]::before  { background: var(--green); }
+  .card.stat[data-color="red"]::before    { background: var(--red); }
+  .card.stat[data-color="yellow"]::before { background: var(--yellow); }
+  .card.stat[data-color="purple"]::before { background: var(--purple); }
+
+  .card.stat .label { font-size: 12px; text-transform: uppercase; color: var(--dim); letter-spacing: .5px; margin-bottom: 8px; }
+  .card.stat .value { font-size: 28px; font-weight: 700; font-family: 'Courier New', monospace; }
+  .card.stat .sub   { font-size: 11px; color: var(--dim); margin-top: 4px; }
+
+  .section-title {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--dim);
+    margin: 24px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  table thead { background: var(--bg-alt); }
+  table th, table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--dim);
+    letter-spacing: .5px;
+  }
+  table tbody tr:last-child td { border-bottom: none; }
+  table tbody tr:hover { background: rgba(59,130,246,.05); }
+
+  .addr {
+    font-family: 'Courier New', monospace;
+    color: var(--blue);
+    cursor: pointer;
+  }
+  .addr:hover { color: var(--green); }
+  .num { font-family: 'Courier New', monospace; text-align: right; }
+  .num.big { color: var(--green); font-weight: 600; }
+  .rank { font-weight: 700; color: var(--yellow); width: 40px; }
+  .rank.top1 { color: #fbbf24; }
+  .rank.top2 { color: #d1d5db; }
+  .rank.top3 { color: #f97316; }
+
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(10,14,26,.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(6px);
+  }
+  .overlay .box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 420px;
+    width: 90%;
+  }
+  .overlay h2 { margin-bottom: 16px; }
+  .overlay p { color: var(--dim); font-size: 13px; margin-bottom: 20px; }
+  .overlay input {
+    width: 100%;
+    padding: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .overlay input:focus { outline: none; border-color: var(--blue); }
+  .overlay .err-msg {
+    color: var(--red);
+    font-size: 12px;
+    min-height: 16px;
+    margin-bottom: 8px;
+  }
+
+  .footer {
+    margin-top: 40px;
+    padding: 20px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--dim);
+  }
+
+  .refresh-bar {
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .refresh-bar .progress {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--blue));
+    transition: width linear;
+  }
+
+  .empty { color: var(--dim); font-style: italic; text-align: center; padding: 24px; }
+  .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; margin: 20px 0; }
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .chart-card h3 { margin: 0 0 12px 0; font-size: 14px; color: var(--fg); display: flex; justify-content: space-between; align-items: center; }
+  .chart-card h3 .chart-sum { font-size: 12px; color: var(--dim); font-weight: normal; }
+  .chart-card canvas { width: 100% !important; height: 220px !important; }
+  .growth-controls { display: flex; gap: 8px; margin: 16px 0; align-items: center; }
+  .growth-controls button { background: var(--card); color: var(--fg); border: 1px solid var(--border); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .growth-controls button.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="overlay" id="auth-overlay">
+  <div class="box">
+    <h2>🔐 Admin Authentication</h2>
+    <p>Token Bearer requis pour accéder au dashboard SnakeCoin admin.</p>
+    <input type="password" id="token-input" placeholder="ADMIN_TOKEN" autocomplete="off" />
+    <div class="err-msg" id="auth-err"></div>
+    <button class="primary" onclick="authenticate()" style="width:100%">Authentifier</button>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <div>
+      <h1>🐍 SnakeCoin Admin</h1>
+      <div style="font-size:11px;color:var(--dim);margin-top:4px">snake-backend-production-e5e8.up.railway.app</div>
+    </div>
+    <div class="actions">
+      <span class="status-pill" id="status"><span class="dot"></span><span id="status-text">OK</span></span>
+      <button onclick="refresh(true)">🔄 Refresh</button>
+      <button class="primary" onclick="downloadBackup()">📦 Backup DB</button>
+      <button class="danger" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <div class="refresh-bar"><div class="progress" id="refresh-progress" style="width:0%"></div></div>
+
+  <div class="grid">
+    <div class="card stat" data-color="green">
+      <div class="label">Sessions (24h)</div>
+      <div class="value" id="stat-sessions">—</div>
+      <div class="sub">Parties jouées dernières 24h</div>
+    </div>
+    <div class="card stat" data-color="purple">
+      <div class="label">$SNAKE distribués</div>
+      <div class="value" id="stat-distributed">—</div>
+      <div class="sub">Total all-time</div>
+    </div>
+    <div class="card stat" data-color="yellow">
+      <div class="label">Top wallets actifs</div>
+      <div class="value" id="stat-topcount">—</div>
+      <div class="sub">Classement par claim total</div>
+    </div>
+    <div class="card stat" data-color="red">
+      <div class="label">Cheats bloqués</div>
+      <div class="value" id="stat-cheats">—</div>
+      <div class="sub">Anti-cheat rejections</div>
+    </div>
+  </div>
+
+  <div class="section-title">🏆 Top 20 wallets (par total claimed)</div>
+  <table id="top-table">
+    <thead>
+      <tr>
+        <th class="rank">#</th>
+        <th>Wallet</th>
+        <th class="num">Best score</th>
+        <th class="num">Parties</th>
+        <th class="num">Total claimed</th>
+      </tr>
+    </thead>
+    <tbody id="top-body">
+      <tr><td colspan="5" class="empty">Chargement…</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">💸 50 derniers claims</div>
+  <table id="claims-table">
+    <thead>
+      <tr>
+        <th>Quand</th>
+        <th>Wallet</th>
+        <th class="num">Amount</th>
+      </tr>
+    </thead>
+    <tbody id="claims-body">
+      <tr><td colspan="3" class="empty">Chargement…</td></tr>
+    </tbody>
+  </table>
+
+  <section style="margin-top: 32px;">
+    <h2 style="margin: 0 0 8px 0; font-size: 18px;">📈 Croissance</h2>
+    <div class="growth-controls">
+      <span style="color: var(--dim); font-size: 13px;">Période :</span>
+      <button data-days="7"  onclick="setGrowthDays(7)">7j</button>
+      <button data-days="30" class="active" onclick="setGrowthDays(30)">30j</button>
+      <button data-days="90" onclick="setGrowthDays(90)">90j</button>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>🎮 Sessions / jour <span class="chart-sum" id="sum-sessions">—</span></h3>
+        <canvas id="chart-sessions"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>💰 $SNAKE distribué / jour <span class="chart-sum" id="sum-claims">—</span></h3>
+        <canvas id="chart-claims"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>🆕 Nouveaux joueurs / jour <span class="chart-sum" id="sum-players">—</span></h3>
+        <canvas id="chart-players"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>🚨 Cheat attempts / jour <span class="chart-sum" id="sum-cheats">—</span></h3>
+        <canvas id="chart-cheats"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    Dashboard auto-refresh toutes les 30s · Dernier sync : <span id="last-sync">—</span>
+  </div>
+</div>
+
+<script>
+  const API = 'https://snake-backend-production-e5e8.up.railway.app';
+  const REFRESH_MS = 30000;
+  let token = sessionStorage.getItem('admin_token') || '';
+  let refreshTimer = null;
+  let progressTimer = null;
+
+  // ─── Auth ──────────────────────────────────────────────────────────────────
+  if (token) {
+    // Try auto-auth if token in session
+    tryAutoAuth();
+  } else {
+    document.getElementById('token-input').focus();
+  }
+
+  document.getElementById('token-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') authenticate();
+  });
+
+  async function tryAutoAuth() {
+    try {
+      const res = await fetch(`${API}/api/admin/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showApp();
+        refresh(true);
+      } else {
+        token = '';
+        sessionStorage.removeItem('admin_token');
+      }
+    } catch (_) {}
+  }
+
+  async function authenticate() {
+    const input = document.getElementById('token-input').value.trim();
+    const errEl = document.getElementById('auth-err');
+    if (!input) { errEl.textContent = 'Token requis'; return; }
+    errEl.textContent = '⏳ Vérification…';
+
+    try {
+      const res = await fetch(`${API}/api/admin/stats`, {
+        headers: { 'Authorization': `Bearer ${input}` }
+      });
+      if (res.status === 401) { errEl.textContent = '❌ Token invalide'; return; }
+      if (!res.ok) { errEl.textContent = `❌ HTTP ${res.status}`; return; }
+
+      token = input;
+      sessionStorage.setItem('admin_token', token);
+      showApp();
+      refresh(true);
+    } catch (e) {
+      errEl.textContent = `❌ ${e.message}`;
+    }
+  }
+
+  function showApp() {
+    document.getElementById('auth-overlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+  }
+
+  function logout() {
+    sessionStorage.removeItem('admin_token');
+    token = '';
+    clearInterval(refreshTimer);
+    clearInterval(progressTimer);
+    location.reload();
+  }
+
+  // ─── Fetch & render ─────────────────────────────────────────────────────────
+  async function refresh(resetBar = false) {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/admin/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      render(data);
+      fetchGrowth();
+      setStatus('OK', false);
+      document.getElementById('last-sync').textContent = new Date().toLocaleTimeString('fr-FR');
+      if (resetBar) restartBar();
+    } catch (e) {
+      setStatus(`ERR: ${e.message}`, true);
+    }
+  }
+
+  function render(data) {
+    document.getElementById('stat-sessions').textContent    = fmt(data.sessions24h);
+    document.getElementById('stat-distributed').textContent = fmt(data.totalDistributed, 2);
+    document.getElementById('stat-topcount').textContent    = (data.topWallets || []).length;
+    document.getElementById('stat-cheats').textContent      = fmt(data.cheatAttempts);
+
+    // Top wallets
+    const topBody = document.getElementById('top-body');
+    if (!data.topWallets || data.topWallets.length === 0) {
+      topBody.innerHTML = '<tr><td colspan="5" class="empty">Aucun wallet actif</td></tr>';
+    } else {
+      topBody.innerHTML = data.topWallets.map((w, i) => {
+        const rankClass = i === 0 ? 'rank top1' : i === 1 ? 'rank top2' : i === 2 ? 'rank top3' : 'rank';
+        return `
+          <tr>
+            <td class="${rankClass}">#${i + 1}</td>
+            <td class="addr" onclick="copy('${w.address}')" title="Click to copy">${shorten(w.address)}</td>
+            <td class="num">${fmt(w.best_score)}</td>
+            <td class="num">${fmt(w.games_played)}</td>
+            <td class="num big">${fmt(w.total_claimed, 2)} SNAKE</td>
+          </tr>`;
+      }).join('');
+    }
+
+    // Recent claims
+    const claimsBody = document.getElementById('claims-body');
+    if (!data.recentClaims || data.recentClaims.length === 0) {
+      claimsBody.innerHTML = '<tr><td colspan="3" class="empty">Aucun claim récent</td></tr>';
+    } else {
+      claimsBody.innerHTML = data.recentClaims.map(c => `
+        <tr>
+          <td>${timeAgo(c.claimed_at)}</td>
+          <td class="addr" onclick="copy('${c.address}')" title="Click to copy">${shorten(c.address)}</td>
+          <td class="num big">${fmtWei(c.amount)} SNAKE</td>
+        </tr>`).join('');
+    }
+  }
+
+  function setStatus(text, isErr) {
+    const el = document.getElementById('status');
+    el.classList.toggle('err', !!isErr);
+    document.getElementById('status-text').textContent = text;
+  }
+
+  // ─── Refresh bar ────────────────────────────────────────────────────────────
+  function restartBar() {
+    clearInterval(refreshTimer);
+    clearInterval(progressTimer);
+    const bar = document.getElementById('refresh-progress');
+    let start = Date.now();
+    progressTimer = setInterval(() => {
+      const pct = Math.min(100, ((Date.now() - start) / REFRESH_MS) * 100);
+      bar.style.width = `${pct}%`;
+    }, 250);
+    refreshTimer = setInterval(() => {
+      start = Date.now();
+      bar.style.width = '0%';
+      refresh(false);
+    }, REFRESH_MS);
+  }
+
+  // ─── Backup download ────────────────────────────────────────────────────────
+  async function downloadBackup() {
+    try {
+      setStatus('📦 Downloading backup…', false);
+      const res = await fetch(`${API}/api/admin/backup`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `snake-${new Date().toISOString().slice(0,10)}.db`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus(`✅ Backup downloaded (${(blob.size/1024).toFixed(1)} KB)`, false);
+    } catch (e) {
+      setStatus(`❌ Backup failed: ${e.message}`, true);
+    }
+  }
+
+  // ─── Utils ──────────────────────────────────────────────────────────────────
+  function shorten(addr) {
+    if (!addr) return '—';
+    return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  }
+  function fmt(n, decimals = 0) {
+    if (n === null || n === undefined) return '—';
+    const num = Number(n);
+    if (isNaN(num)) return n;
+    return num.toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  }
+  // Wei (1 SNAKE = 1e18 wei) → format SNAKE
+  function fmtWei(weiStr) {
+    if (weiStr === null || weiStr === undefined) return '—';
+    try {
+      const s = String(weiStr);
+      const divisor = 1e18;
+      const num = Number(s) / divisor;
+      if (isNaN(num)) return s;
+      return num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    } catch (_) { return String(weiStr); }
+  }
+  function timeAgo(tsSec) {
+    if (!tsSec) return '—';
+    const diff = Math.floor(Date.now()/1000 - tsSec);
+    if (diff < 60)      return `${diff}s`;
+    if (diff < 3600)    return `${Math.floor(diff/60)}m`;
+    if (diff < 86400)   return `${Math.floor(diff/3600)}h`;
+    return `${Math.floor(diff/86400)}j`;
+  }
+  function copy(txt) {
+    navigator.clipboard.writeText(txt).then(() => {
+      setStatus(`📋 ${shorten(txt)} copié`, false);
+      setTimeout(() => setStatus('OK', false), 2000);
+    });
+  }
+
+  // ─── Task #29 Growth charts ─────────────────────────────────────────────────
+  let growthDays = 30;
+  const growthCharts = { sessions: null, claims: null, players: null, cheats: null };
+
+  function setGrowthDays(d) {
+    growthDays = d;
+    document.querySelectorAll('.growth-controls button').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.days, 10) === d);
+    });
+    fetchGrowth();
+  }
+
+  function fillSeries(rows, days, key) {
+    // Build a continuous daily timeline with 0-fill for missing days
+    const map = new Map(rows.map(r => [r.day, r[key]]));
+    const labels = [];
+    const values = [];
+    const now = new Date();
+    now.setUTCHours(0, 0, 0, 0);
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 86400000);
+      const iso = d.toISOString().slice(0, 10);
+      labels.push(iso.slice(5));  // MM-DD
+      values.push(Number(map.get(iso) || 0));
+    }
+    return { labels, values };
+  }
+
+  function renderLine(id, labels, values, color, fmt) {
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+    if (growthCharts[id.replace('chart-', '')]) {
+      growthCharts[id.replace('chart-', '')].destroy();
+    }
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          borderColor: color,
+          backgroundColor: color + '22',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.3,
+          fill: true,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => fmt ? fmt(ctx.parsed.y) : ctx.parsed.y.toLocaleString('fr-FR'),
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#888', maxTicksLimit: 10 }, grid: { color: '#22262e' } },
+          y: { beginAtZero: true, ticks: { color: '#888' }, grid: { color: '#22262e' } },
+        },
+      },
+    });
+    growthCharts[id.replace('chart-', '')] = chart;
+  }
+
+  async function fetchGrowth() {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/admin/growth?days=${growthDays}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      const sess = fillSeries(data.sessions || [], growthDays, 'count');
+      const claims = fillSeries(data.claims || [], growthDays, 'snake');
+      const players = fillSeries(data.new_players || [], growthDays, 'count');
+      const cheats = fillSeries(data.cheats || [], growthDays, 'count');
+
+      renderLine('chart-sessions', sess.labels, sess.values, '#4ade80');
+      renderLine('chart-claims', claims.labels, claims.values, '#fbbf24', (v) => v.toFixed(2) + ' SNAKE');
+      renderLine('chart-players', players.labels, players.values, '#60a5fa');
+      renderLine('chart-cheats', cheats.labels, cheats.values, '#ef4444');
+
+      const sumI = (arr) => arr.reduce((a, b) => a + b, 0);
+      document.getElementById('sum-sessions').textContent = `Σ ${sumI(sess.values).toLocaleString('fr-FR')}`;
+      document.getElementById('sum-claims').textContent = `Σ ${sumI(claims.values).toFixed(2)} SNAKE`;
+      document.getElementById('sum-players').textContent = `Σ ${sumI(players.values).toLocaleString('fr-FR')}`;
+      document.getElementById('sum-cheats').textContent = `Σ ${sumI(cheats.values).toLocaleString('fr-FR')}`;
+    } catch (e) {
+      console.error('fetchGrowth:', e);
+    }
+  }
+</script>
+</body>
+</html>

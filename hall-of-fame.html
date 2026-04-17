@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🏆 Hall of Fame — SnakeCoin Top 100</title>
+  <meta name="description" content="Top 100 des meilleurs joueurs SnakeCoin — Play to Earn sur Polygon. Classement temps réel." />
+  <meta property="og:title" content="🏆 SnakeCoin Hall of Fame" />
+  <meta property="og:description" content="Top 100 joueurs SnakeCoin — Play to Earn sur Polygon" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏆%3C/text%3E%3C/svg%3E" />
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --bg2: #12151c;
+      --card: #161a22;
+      --border: #22262e;
+      --fg: #e4e6eb;
+      --dim: #8b909a;
+      --accent: #4ade80;
+      --gold: #ffd700;
+      --silver: #c0c0c0;
+      --bronze: #cd7f32;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'JetBrains Mono', monospace;
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+      color: var(--fg);
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding: 24px 16px;
+    }
+    header h1 {
+      font-size: clamp(28px, 5vw, 44px);
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, var(--gold), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      color: var(--dim);
+      font-size: 14px;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 16px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--card);
+    }
+    .back-link:hover { background: var(--border); }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .stat-card .label { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+
+    .podium {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 24px;
+      align-items: end;
+    }
+    .podium-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .podium-card:hover { transform: translateY(-2px); }
+    .podium-card.rank-1 { border-color: var(--gold); box-shadow: 0 0 24px rgba(255, 215, 0, 0.15); min-height: 200px; }
+    .podium-card.rank-2 { border-color: var(--silver); min-height: 180px; }
+    .podium-card.rank-3 { border-color: var(--bronze); min-height: 170px; }
+    .podium-card .medal { font-size: 40px; margin-bottom: 6px; }
+    .podium-card .rank-label { font-size: 11px; color: var(--dim); text-transform: uppercase; }
+    .podium-card .score { font-size: 28px; font-weight: 700; color: var(--accent); margin: 4px 0; }
+    .podium-card .wallet { font-size: 11px; color: var(--dim); font-family: monospace; word-break: break-all; }
+    .podium-card .sub { font-size: 12px; color: var(--dim); margin-top: 6px; }
+
+    .table-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--bg2); position: sticky; top: 0; z-index: 1; }
+    th {
+      text-align: left;
+      padding: 12px 14px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--dim);
+      border-bottom: 1px solid var(--border);
+    }
+    th.num, td.num { text-align: right; }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(74, 222, 128, 0.04); }
+
+    .rank-cell {
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--dim);
+      width: 50px;
+    }
+    .rank-cell.top { color: var(--fg); }
+    .rank-cell.rank-1 { color: var(--gold); }
+    .rank-cell.rank-2 { color: var(--silver); }
+    .rank-cell.rank-3 { color: var(--bronze); }
+    .wallet-cell {
+      font-family: monospace;
+      color: var(--fg);
+    }
+    .wallet-cell a { color: var(--accent); text-decoration: none; }
+    .wallet-cell a:hover { text-decoration: underline; }
+    .score-cell { font-weight: 700; color: var(--accent); }
+    .snake-cell { color: var(--gold); }
+
+    .streak-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(74, 222, 128, 0.12);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .streak-badge.hot { background: rgba(251, 146, 60, 0.15); border-color: rgba(251, 146, 60, 0.4); color: #fb923c; }
+    .streak-badge.fire { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: #ef4444; }
+    .streak-badge.inactive { background: rgba(139, 144, 154, 0.08); border-color: var(--border); color: var(--dim); }
+
+    .footer {
+      text-align: center;
+      color: var(--dim);
+      font-size: 12px;
+      margin-top: 24px;
+    }
+    .footer a { color: var(--accent); }
+
+    .loading { text-align: center; padding: 48px; color: var(--dim); }
+    .err { text-align: center; padding: 48px; color: var(--danger); }
+
+    @media (max-width: 640px) {
+      .podium { grid-template-columns: 1fr; }
+      .hide-mobile { display: none; }
+      td, th { padding: 8px 10px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <a class="back-link" href="/">← Retour au jeu</a>
+
+  <header>
+    <h1>🏆 Hall of Fame</h1>
+    <p>Top 100 des meilleurs joueurs SnakeCoin — Play to Earn sur Polygon. Classement live, auto-refresh 60s.</p>
+  </header>
+
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card"><div class="label">Joueurs classés</div><div class="value" id="stat-players">—</div></div>
+    <div class="stat-card"><div class="label">Top score</div><div class="value" id="stat-top">—</div></div>
+    <div class="stat-card"><div class="label">$SNAKE distribué</div><div class="value" id="stat-snake">—</div></div>
+    <div class="stat-card"><div class="label">Parties jouées</div><div class="value" id="stat-games">—</div></div>
+  </div>
+
+  <div id="podium" class="podium" style="display:none"></div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="num">#</th>
+          <th>Wallet</th>
+          <th class="num">Best Score</th>
+          <th class="num">Parties</th>
+          <th class="num hide-mobile">$SNAKE</th>
+          <th class="hide-mobile">Streak</th>
+        </tr>
+      </thead>
+      <tbody id="hof-body">
+        <tr><td colspan="6" class="loading">Chargement du classement…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="footer">
+    Dernière mise à jour : <span id="last-sync">—</span> · Auto-refresh 60s ·
+    <a href="https://polygonscan.com/" target="_blank" rel="noopener">Polygonscan</a>
+  </p>
+</div>
+
+<script>
+  const API = 'https://snake-backend-production-e5e8.up.railway.app';
+  const REFRESH_MS = 60000;
+  const POLYGONSCAN = 'https://polygonscan.com/address/';
+
+  function shortAddr(addr) {
+    if (!addr) return '—';
+    return addr.slice(0, 6) + '…' + addr.slice(-4);
+  }
+  function fmt(n, dec = 0) {
+    return Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+  function fmtSnake(weiLike) {
+    // total_claimed stored in SNAKE units already (REAL)
+    const n = Number(weiLike || 0);
+    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function streakClass(streak, active) {
+    if (!active) return 'inactive';
+    if (streak >= 30) return 'fire';
+    if (streak >= 7)  return 'hot';
+    return '';
+  }
+  function isStreakActive(last_streak_date) {
+    if (!last_streak_date) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    const yest  = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    return last_streak_date === today || last_streak_date === yest;
+  }
+
+  function renderPodium(rows) {
+    const el = document.getElementById('podium');
+    const top3 = rows.slice(0, 3);
+    if (top3.length < 3) { el.style.display = 'none'; return; }
+    el.style.display = 'grid';
+    // order: 2, 1, 3 (1 in center)
+    const order = [1, 0, 2];
+    const medals = ['🥇', '🥈', '🥉'];
+    const labels = ['1ER', '2E', '3E'];
+    el.innerHTML = order.map(i => {
+      const r = top3[i];
+      return `
+        <div class="podium-card rank-${i + 1}">
+          <div class="medal">${medals[i]}</div>
+          <div class="rank-label">${labels[i]}</div>
+          <div class="score">${fmt(r.best_score)}</div>
+          <div class="wallet"><a href="${POLYGONSCAN}${r.address}" target="_blank" rel="noopener">${shortAddr(r.address)}</a></div>
+          <div class="sub">${fmt(r.games_played)} parties · ${fmtSnake(r.total_claimed)} SNAKE</div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderTable(rows) {
+    const body = document.getElementById('hof-body');
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="6" class="loading">Aucun joueur classé pour le moment.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map((r, idx) => {
+      const rank = idx + 1;
+      const rankCls = rank <= 3 ? `rank-${rank} top` : (rank <= 10 ? 'top' : '');
+      const streak = r.streak_count || 0;
+      const active = isStreakActive(r.last_streak_date);
+      const sCls = streakClass(streak, active);
+      const sIcon = active ? '🔥' : '🧊';
+      const streakHTML = streak > 0
+        ? `<span class="streak-badge ${sCls}">${sIcon} ${streak}j</span>`
+        : `<span style="color:var(--dim)">—</span>`;
+      return `
+        <tr>
+          <td class="rank-cell ${rankCls} num">#${rank}</td>
+          <td class="wallet-cell"><a href="${POLYGONSCAN}${r.address}" target="_blank" rel="noopener">${shortAddr(r.address)}</a></td>
+          <td class="num score-cell">${fmt(r.best_score)}</td>
+          <td class="num">${fmt(r.games_played)}</td>
+          <td class="num snake-cell hide-mobile">${fmtSnake(r.total_claimed)}</td>
+          <td class="hide-mobile">${streakHTML}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function renderStats(rows) {
+    if (!rows.length) return;
+    document.getElementById('stat-players').textContent = fmt(rows.length);
+    document.getElementById('stat-top').textContent = fmt(rows[0].best_score);
+    const totalSnake = rows.reduce((a, r) => a + Number(r.total_claimed || 0), 0);
+    const totalGames = rows.reduce((a, r) => a + Number(r.games_played || 0), 0);
+    document.getElementById('stat-snake').textContent = fmtSnake(totalSnake);
+    document.getElementById('stat-games').textContent = fmt(totalGames);
+  }
+
+  async function loadHOF() {
+    try {
+      const res = await fetch(`${API}/api/leaderboard?limit=100&period=all`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const rows = data.leaderboard || [];
+      renderStats(rows);
+      renderPodium(rows);
+      renderTable(rows);
+      document.getElementById('last-sync').textContent = new Date().toLocaleTimeString('fr-FR');
+    } catch (e) {
+      document.getElementById('hof-body').innerHTML =
+        `<tr><td colspan="6" class="err">Erreur : ${e.message}</td></tr>`;
+    }
+  }
+
+  loadHOF();
+  setInterval(loadHOF, REFRESH_MS);
+</script>
+
+</body>
+</html>

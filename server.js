@@ -546,7 +546,8 @@ app.get('/api/leaderboard', (req, res) => {
     `).all(offset, limit);
   } else {
     rows = db.prepare(`
-      SELECT address, best_score, games_played, total_claimed
+      SELECT address, best_score, games_played, total_claimed,
+             streak_count, max_streak, last_streak_date
       FROM leaderboard
       ORDER BY best_score DESC
       LIMIT ?
@@ -646,6 +647,67 @@ app.get('/api/admin/backup', adminAuth, (req, res) => {
     console.error('backup failed:', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ─── GROWTH TIME-SERIES (pour charts dashboard) ───────────────────────────────
+app.get('/api/admin/growth', adminAuth, (req, res) => {
+  const days = Math.min(Math.max(parseInt(req.query.days || '30', 10), 1), 90);
+  // Timestamp cutoff : début de (now - days jours)
+  const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
+
+  // Sessions/jour (score_history)
+  const sessions = db.prepare(`
+    SELECT strftime('%Y-%m-%d', created_at, 'unixepoch') as day,
+           COUNT(*) as count,
+           COUNT(DISTINCT address) as unique_players
+    FROM score_history
+    WHERE created_at > ?
+    GROUP BY day
+    ORDER BY day ASC
+  `).all(cutoff);
+
+  // Claims/jour + SNAKE distribué/jour (claims.amount est en wei string)
+  const claims = db.prepare(`
+    SELECT strftime('%Y-%m-%d', claimed_at, 'unixepoch') as day,
+           COUNT(*) as count,
+           SUM(CAST(amount as REAL) / 1e18) as snake
+    FROM claims
+    WHERE claimed_at > ?
+    GROUP BY day
+    ORDER BY day ASC
+  `).all(cutoff);
+
+  // Cheat attempts/jour (sessions validées avec reward=0 et score=0)
+  const cheats = db.prepare(`
+    SELECT strftime('%Y-%m-%d', created_at, 'unixepoch') as day,
+           COUNT(*) as count
+    FROM sessions
+    WHERE created_at > ? AND validated=1 AND reward=0 AND score=0
+    GROUP BY day
+    ORDER BY day ASC
+  `).all(cutoff);
+
+  // Nouveaux joueurs/jour (date du 1er score_history par adresse)
+  const newPlayers = db.prepare(`
+    SELECT strftime('%Y-%m-%d', first_seen, 'unixepoch') as day,
+           COUNT(*) as count
+    FROM (
+      SELECT address, MIN(created_at) as first_seen
+      FROM score_history
+      GROUP BY address
+      HAVING first_seen > ?
+    )
+    GROUP BY day
+    ORDER BY day ASC
+  `).all(cutoff);
+
+  res.json({
+    days,
+    sessions,
+    claims,
+    cheats,
+    new_players: newPlayers,
+  });
 });
 
 app.get('/api/admin/stats', adminAuth, (req, res) => {

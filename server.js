@@ -170,6 +170,117 @@ async function publicFeed(payload) {
   } catch (e) { console.log('public feed webhook:', e.message); }
 }
 
+// ─── TWITCH IRC BOT (task #24) ───────────────────────────────────────────────
+// Reagi aux events claims/milestones/streaks/golden + commandes chat
+// Env vars : TWITCH_CHANNEL, TWITCH_USERNAME, TWITCH_OAUTH (oauth:xxx)
+const TWITCH_CHANNEL  = (process.env.TWITCH_CHANNEL  || '').toLowerCase().replace(/^#/, '');
+const TWITCH_USERNAME = (process.env.TWITCH_USERNAME || '').toLowerCase();
+const TWITCH_OAUTH    = process.env.TWITCH_OAUTH || '';
+let twitchClient = null;
+let twitchReady  = false;
+const twitchQueue = [];
+let twitchSendTokens = 15;     // 15 msg / 30s (safe sous le 20/30 limit)
+setInterval(() => { twitchSendTokens = Math.min(15, twitchSendTokens + 1); }, 2000);
+
+function twitchNotify(message) {
+  if (!twitchReady || !twitchClient || !TWITCH_CHANNEL) return;
+  if (twitchSendTokens <= 0) {
+    if (twitchQueue.length < 30) twitchQueue.push(message);
+    return;
+  }
+  twitchSendTokens--;
+  twitchClient.say('#' + TWITCH_CHANNEL, message).catch(e => console.log('twitch say:', e.message));
+}
+
+// Drain queue regulierement
+setInterval(() => {
+  while (twitchQueue.length && twitchSendTokens > 0) {
+    twitchSendTokens--;
+    const m = twitchQueue.shift();
+    twitchClient.say('#' + TWITCH_CHANNEL, m).catch(e => console.log('twitch drain:', e.message));
+  }
+}, 2500);
+
+if (TWITCH_CHANNEL && TWITCH_USERNAME && TWITCH_OAUTH) {
+  try {
+    const tmi = require('tmi.js');
+    twitchClient = new tmi.Client({
+      options: { debug: false, skipUpdatingEmotesets: true },
+      connection: { reconnect: true, secure: true },
+      identity: { username: TWITCH_USERNAME, password: TWITCH_OAUTH },
+      channels: [TWITCH_CHANNEL],
+    });
+    twitchClient.on('connected', (addr, port) => {
+      twitchReady = true;
+      console.log(`🟣 Twitch IRC connected → #${TWITCH_CHANNEL} via ${addr}:${port}`);
+    });
+    twitchClient.on('disconnected', (reason) => {
+      twitchReady = false;
+      console.log(`🟣 Twitch IRC disconnected: ${reason}`);
+    });
+    twitchClient.on('message', async (channel, tags, message, self) => {
+      if (self) return;
+      const txt = (message || '').trim();
+      if (!txt.startsWith('!')) return;
+      const [cmd, ...args] = txt.split(/\s+/);
+      const sender = tags['display-name'] || tags.username;
+      try {
+        switch (cmd.toLowerCase()) {
+          case '!snake':
+            twitchNotify(`🐍 SnakeCoin Play-to-Earn → snakegame.live · earn $SNAKE on Polygon · Discord: discord.gg/snake`);
+            break;
+          case '!top': {
+            const rows = db.prepare(`SELECT address, best_score FROM leaderboard ORDER BY best_score DESC LIMIT 3`).all();
+            if (!rows.length) { twitchNotify('No scores yet 🐍'); break; }
+            const txt = rows.map((r, i) => `${i+1}. ${shortAddr(r.address)} → ${r.best_score}`).join(' | ');
+            twitchNotify(`🏆 Top 3: ${txt}`);
+            break;
+          }
+          case '!stats': {
+            const totalClaims = db.prepare('SELECT COUNT(*) as c FROM claims').get().c;
+            const totalPlayers = db.prepare('SELECT COUNT(DISTINCT address) as c FROM leaderboard').get().c;
+            const totalSnake = db.prepare('SELECT COALESCE(SUM(total_claimed),0) as s FROM leaderboard').get().s;
+            twitchNotify(`📊 ${totalPlayers} players · ${totalClaims} claims · ${totalSnake.toFixed(0)} SNAKE distributed`);
+            break;
+          }
+          case '!golden': {
+            const g = getGoldenState();
+            if (g.active) {
+              const remain = g.ends_at ? Math.floor((g.ends_at - Date.now()/1000) / 60) : -1;
+              twitchNotify(`⚡ GOLDEN SNAKE ACTIVE x${g.multiplier}` + (remain > 0 ? ` · ${remain}min restantes` : ' · mode manuel'));
+            } else {
+              const nxt = g.next_start ? new Date(g.next_start * 1000).toUTCString().slice(5, 22) + ' UTC' : '?';
+              twitchNotify(`⚡ Golden Snake inactif · next: ${nxt}`);
+            }
+            break;
+          }
+          case '!score': {
+            const wallet = (args[0] || '').toLowerCase();
+            if (!ethers.isAddress(wallet)) { twitchNotify(`@${sender} usage: !score 0x...`); break; }
+            const row = db.prepare('SELECT best_score, games_played, total_claimed FROM leaderboard WHERE address=?').get(wallet);
+            if (!row) { twitchNotify(`@${sender} ${shortAddr(wallet)} : no games played`); break; }
+            twitchNotify(`📈 ${shortAddr(wallet)} → best ${row.best_score} · ${row.games_played} games · ${(row.total_claimed||0).toFixed(2)} SNAKE`);
+            break;
+          }
+          case '!quests': {
+            const wallet = (args[0] || '').toLowerCase();
+            if (!ethers.isAddress(wallet)) { twitchNotify(`@${sender} usage: !quests 0x...`); break; }
+            const q = computeQuestsForAddress(wallet);
+            const summary = q.quests.map(x => `${x.icon}${x.progress}/${x.goal}${x.done?'✓':''}`).join(' ');
+            twitchNotify(`🎯 ${shortAddr(wallet)} quests: ${summary}` + (q.all_done ? ' · ALL DONE 🎉' : ''));
+            break;
+          }
+        }
+      } catch (e) { console.log('twitch cmd err:', e.message); }
+    });
+    twitchClient.connect().catch(e => console.log('twitch connect:', e.message));
+  } catch (e) {
+    console.log('🟣 Twitch IRC init failed (tmi.js missing or bad creds):', e.message);
+  }
+} else {
+  console.log('🟣 Twitch bot disabled (set TWITCH_CHANNEL + TWITCH_USERNAME + TWITCH_OAUTH to enable)');
+}
+
 // Milestones joueur — déclenche à chaque palier franchi
 const GAMES_MILESTONES  = [10, 50, 100, 250, 500, 1000];
 const CLAIMED_MILESTONES = [10, 50, 100, 500, 1000, 5000];
@@ -472,6 +583,7 @@ app.post('/api/session/end', (req, res) => {
   // ─── PUBLIC FEED — milestone streak quotidien ──────────────────────────────
   const streakMilestone = crossedMilestone(prevStreak, newStreak, STREAK_MILESTONES);
   if (streakMilestone) {
+    twitchNotify(`🔥 ${shortAddr(addr)} is on a ${streakMilestone}-day streak!` + (streakMilestone >= 30 ? ' LEGEND STATUS 👑' : ''));
     const mult = streakMultiplier(newStreak);
     publicFeed({
       content: streakMilestone >= 30 ? `🔥 **${streakMilestone} JOURS D'AFFILÉE — LEGEND STATUS** 🔥` : null,
@@ -594,6 +706,7 @@ app.post('/api/claim', limiter, async (req, res) => {
 
   // ─── PUBLIC FEED — gros claim (≥ 10 SNAKE) ─────────────────────────────────
   if (session.reward >= 10) {
+    twitchNotify(`💰 ${shortAddr(address)} just claimed ${session.reward} $SNAKE 🐍`);
     publicFeed({
       embeds: [{
         title: '💸 Gros claim en cours',
@@ -608,6 +721,7 @@ app.post('/api/claim', limiter, async (req, res) => {
   // ─── PUBLIC FEED — milestone total_claimed ─────────────────────────────────
   const claimedMilestone = crossedMilestone(prevClaimed, newClaimed, CLAIMED_MILESTONES);
   if (claimedMilestone) {
+    twitchNotify(`💎 ${shortAddr(address)} just hit ${claimedMilestone} $SNAKE cumulative! ` + (claimedMilestone >= 500 ? '🚀 WHALE ALERT' : ''));
     publicFeed({
       content: claimedMilestone >= 500 ? `🚀 WHALE ALERT` : null,
       embeds: [{
@@ -891,6 +1005,26 @@ app.post('/api/admin/seasons/close', adminAuth, express.json(), (req, res) => {
   }
 });
 
+// ─── TWITCH BOT ADMIN (task #24) ──────────────────────────────────────────
+app.get('/api/admin/twitch/status', adminAuth, (req, res) => {
+  res.json({
+    enabled:    Boolean(TWITCH_CHANNEL && TWITCH_USERNAME && TWITCH_OAUTH),
+    connected:  twitchReady,
+    channel:    TWITCH_CHANNEL ? '#' + TWITCH_CHANNEL : null,
+    username:   TWITCH_USERNAME || null,
+    queue_size: twitchQueue.length,
+    tokens:     twitchSendTokens,
+  });
+});
+
+app.post('/api/admin/twitch/say', adminAuth, express.json(), (req, res) => {
+  const msg = (req.body && req.body.message || '').slice(0, 480);
+  if (!msg) return res.status(400).json({ error: 'message required' });
+  if (!twitchReady) return res.status(503).json({ error: 'Twitch not connected' });
+  twitchNotify(msg);
+  res.json({ sent: true, message: msg });
+});
+
 // ─── GOLDEN SNAKE EVENT (task #20) ─────────────────────────────────────────
 app.get('/api/events/golden', (req, res) => {
   res.json(getGoldenState());
@@ -903,6 +1037,7 @@ app.post('/api/admin/events/golden/toggle', adminAuth, express.json(), (req, res
   if (open) {
     db.prepare(`UPDATE events SET ended_at=? WHERE id=?`).run(now, open.id);
     console.log(`⚡ Golden snake manual event #${open.id} closed`);
+    twitchNotify(`⚡ Golden Snake event ended. Back to normal x1 rewards.`);
     discordNotify({
       title: '⚡ Golden Snake désactivé',
       description: `Event manuel clôturé (durée ${Math.floor((now - open.started_at)/60)}min)`,
@@ -915,6 +1050,7 @@ app.post('/api/admin/events/golden/toggle', adminAuth, express.json(), (req, res
   const reason = (req.body && req.body.reason) || 'manual';
   const info = db.prepare(`INSERT INTO events (type, multiplier, started_at, reason) VALUES ('golden', ?, ?, ?)`).run(mult, now, reason);
   console.log(`⚡ Golden snake manual event #${info.lastInsertRowid} opened (x${mult})`);
+  twitchNotify(`⚡⚡⚡ GOLDEN SNAKE MODE ON ⚡⚡⚡ x${mult} rewards on every claim! Play now → snakegame.live 🐍💰`);
   discordNotify({
     title: '⚡ GOLDEN SNAKE ACTIVÉ',
     description: `Event manuel lancé - multiplier **x${mult}** sur toutes les rewards.`,

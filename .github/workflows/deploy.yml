@@ -1,0 +1,72 @@
+name: 🚀 Deploy Frontend to WebHostOp
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'admin.html'
+      - 'snake_logo*.png'
+      - 'snake_logo*.svg'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch: # Allow manual trigger from Actions tab
+
+jobs:
+  deploy:
+    name: 📤 FTP Deploy to /public_html/
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 🔍 List files to deploy
+        run: |
+          echo "=== Files that will be uploaded ==="
+          ls -lah index.html admin.html snake_logo*.png snake_logo*.svg 2>/dev/null || true
+          echo "==================================="
+
+      - name: 📤 FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          port: ${{ vars.FTP_PORT || 21 }}
+          # Only upload frontend files, exclude backend + dev files
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/node_modules/**
+            **/discord-bot-snacke/**
+            **/snake-contract/**
+            **/*.md
+            **/.env*
+            **/package*.json
+            **/server.js
+            **/*.js
+            **/*.log
+            **/*.db
+            **/.DS_Store
+            **/Thumbs.db
+
+      - name: ✅ Deployment summary
+        if: success()
+        run: |
+          echo "### 🎉 Deploy successful" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target**: \`${{ secrets.FTP_SERVER_DIR }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Site**: https://snowdiablo.xyz" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⏱️ Cloudflare cache may need purge if changes aren't visible. Run:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo 'curl -X POST "https://api.cloudflare.com/client/v4/zones/YOUR_ZONE_ID/purge_cache" \' >> $GITHUB_STEP_SUMMARY
+          echo '  -H "Authorization: Bearer YOUR_TOKEN" \' >> $GITHUB_STEP_SUMMARY
+          echo '  -H "Content-Type: application/json" \' >> $GITHUB_STEP_SUMMARY
+          echo '  --data '"'"'{"purge_everything":true}'"'"'' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

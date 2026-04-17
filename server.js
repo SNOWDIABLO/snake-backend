@@ -66,6 +66,7 @@ const DAILY_LIMIT      = parseFloat(process.env.DAILY_LIMIT || '100');
 const MAX_PER_SESSION  = parseFloat(process.env.MAX_PER_SESSION || '50');
 const PORT             = process.env.PORT || 3000;
 const DISCORD_WEBHOOK  = process.env.DISCORD_WEBHOOK || '';
+const PUBLIC_FEED_WEBHOOK = process.env.PUBLIC_FEED_WEBHOOK || '';
 
 // ─── ANTI-CHEAT THRESHOLDS ───────────────────────────────────────────────────
 const MIN_SESSION_SEC  = parseInt(process.env.MIN_SESSION_SEC || '3', 10);   // <3s = bot
@@ -98,6 +99,26 @@ async function discordNotify(embed) {
     });
   } catch (e) { console.log('discord webhook:', e.message); }
 }
+
+// ─── PUBLIC FEED (channel public Discord) ────────────────────────────────────
+async function publicFeed(payload) {
+  if (!PUBLIC_FEED_WEBHOOK) return;
+  try {
+    await fetch(PUBLIC_FEED_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) { console.log('public feed webhook:', e.message); }
+}
+
+// Milestones joueur — déclenche à chaque palier franchi
+const GAMES_MILESTONES  = [10, 50, 100, 250, 500, 1000];
+const CLAIMED_MILESTONES = [10, 50, 100, 500, 1000, 5000];
+function crossedMilestone(oldVal, newVal, milestones) {
+  return milestones.find(m => oldVal < m && newVal >= m);
+}
+
 function shortAddr(a){ return a.slice(0,6) + '…' + a.slice(-4); }
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
@@ -212,6 +233,13 @@ app.post('/api/session/end', (req, res) => {
     .run(cappedScore, reward, sessionId);
 
   const addr = session.address;
+
+  // Snapshot pré-update pour détecter records + milestones
+  const prevRow = db.prepare('SELECT best_score, games_played FROM leaderboard WHERE address=?').get(addr);
+  const prevBest  = prevRow ? prevRow.best_score  : 0;
+  const prevGames = prevRow ? prevRow.games_played : 0;
+  const allTimeMax = db.prepare('SELECT COALESCE(MAX(best_score),0) as m FROM leaderboard').get().m;
+
   db.prepare(`
     INSERT INTO leaderboard (address, best_score, games_played, last_played, updated_at)
     VALUES (?, ?, 1, strftime('%s','now'), strftime('%s','now'))
@@ -224,6 +252,51 @@ app.post('/api/session/end', (req, res) => {
 
   db.prepare('INSERT INTO score_history (address, score) VALUES (?, ?)')
     .run(addr, cappedScore);
+
+  // ─── PUBLIC FEED — nouveau record all-time ─────────────────────────────────
+  if (cappedScore > allTimeMax && cappedScore >= 20) {
+    publicFeed({
+      content: `🔥 **NOUVEAU RECORD ALL-TIME !** 🏆`,
+      embeds: [{
+        title: '🐍 Record SnakeCoin battu',
+        description: `[${shortAddr(addr)}](https://polygonscan.com/address/${addr}) vient de poser **${cappedScore} points** !\nL'ancien record était de **${allTimeMax}** points.`,
+        color: 0xffd700,
+        fields: [
+          { name: 'Score', value: `**${cappedScore}** pts`, inline: true },
+          { name: 'Reward', value: `${reward} $SNAKE`, inline: true },
+        ],
+        footer: { text: 'SnakeCoin · jouer sur snowdiablo.xyz' },
+        timestamp: new Date().toISOString(),
+      }],
+    });
+  }
+  // Record personnel (sans être all-time) — seulement si score notable
+  else if (cappedScore > prevBest && cappedScore >= 30) {
+    publicFeed({
+      embeds: [{
+        title: '🎯 Nouveau record personnel',
+        description: `[${shortAddr(addr)}](https://polygonscan.com/address/${addr}) améliore son best : **${cappedScore}** pts (avant ${prevBest})`,
+        color: 0x3b82f6,
+        footer: { text: 'SnakeCoin' },
+        timestamp: new Date().toISOString(),
+      }],
+    });
+  }
+
+  // ─── PUBLIC FEED — milestone games_played ──────────────────────────────────
+  const newGames = prevGames + 1;
+  const gameMilestone = crossedMilestone(prevGames, newGames, GAMES_MILESTONES);
+  if (gameMilestone) {
+    publicFeed({
+      embeds: [{
+        title: `🎮 Milestone : ${gameMilestone} parties jouées`,
+        description: `[${shortAddr(addr)}](https://polygonscan.com/address/${addr}) vient d'atteindre **${gameMilestone} parties** !`,
+        color: 0xa855f7,
+        footer: { text: 'SnakeCoin · dedication reward' },
+        timestamp: new Date().toISOString(),
+      }],
+    });
+  }
 
   res.json({ sessionId, score: cappedScore, reward });
 });
@@ -280,6 +353,11 @@ app.post('/api/claim', limiter, async (req, res) => {
 
   db.prepare('DELETE FROM sessions WHERE id=?').run(sessionId);
 
+  // Snapshot pré-update pour détecter milestones claim
+  const prevClaimedRow = db.prepare('SELECT total_claimed FROM leaderboard WHERE address=?').get(addr);
+  const prevClaimed = prevClaimedRow ? prevClaimedRow.total_claimed : 0;
+  const newClaimed  = prevClaimed + session.reward;
+
   db.prepare(`
     UPDATE leaderboard SET
       total_claimed = total_claimed + ?,
@@ -298,6 +376,34 @@ app.post('/api/claim', limiter, async (req, res) => {
     timestamp: new Date().toISOString(),
     footer: { text: 'SnakeCoin · Polygon' },
   });
+
+  // ─── PUBLIC FEED — gros claim (≥ 10 SNAKE) ─────────────────────────────────
+  if (session.reward >= 10) {
+    publicFeed({
+      embeds: [{
+        title: '💸 Gros claim en cours',
+        description: `[${shortAddr(address)}](https://polygonscan.com/address/${address}) vient de claim **${session.reward} $SNAKE**`,
+        color: 0x22c55e,
+        footer: { text: 'SnakeCoin · Polygon mainnet' },
+        timestamp: new Date().toISOString(),
+      }],
+    });
+  }
+
+  // ─── PUBLIC FEED — milestone total_claimed ─────────────────────────────────
+  const claimedMilestone = crossedMilestone(prevClaimed, newClaimed, CLAIMED_MILESTONES);
+  if (claimedMilestone) {
+    publicFeed({
+      content: claimedMilestone >= 500 ? `🚀 WHALE ALERT` : null,
+      embeds: [{
+        title: `💎 Milestone : ${claimedMilestone} $SNAKE claimés au total`,
+        description: `[${shortAddr(address)}](https://polygonscan.com/address/${address}) franchit la barre des **${claimedMilestone} $SNAKE cumulés** !`,
+        color: claimedMilestone >= 500 ? 0xef4444 : 0xeab308,
+        footer: { text: 'SnakeCoin · legend status' },
+        timestamp: new Date().toISOString(),
+      }],
+    });
+  }
 
   res.json({
     amount: amount.toString(),
@@ -395,6 +501,7 @@ app.get('/api/admin/stats', adminAuth, (req, res) => {
 app.listen(PORT, () => {
   console.log(`🐍 SnakeCoin backend running on port ${PORT}`);
   console.log(`💼 Contract: ${CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ'}`);
-  if (DISCORD_WEBHOOK) console.log('🤖 Discord webhook enabled');
-  if (ADMIN_TOKEN)     console.log('🔐 Admin token configured');
+  if (DISCORD_WEBHOOK)     console.log('🤖 Discord webhook enabled (staff)');
+  if (PUBLIC_FEED_WEBHOOK) console.log('📢 Public feed webhook enabled (#snake-feed)');
+  if (ADMIN_TOKEN)         console.log('🔐 Admin token configured');
 });

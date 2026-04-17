@@ -276,7 +276,7 @@ function twitchConnect() {
       const cmd = cmdRaw.toLowerCase();
       try {
         if (cmd === '!snake') {
-          twitchNotify('🐍 SnakeCoin Play-to-Earn → snakegame.live · earn $SNAKE on Polygon · discord.gg/snake');
+          twitchNotify('🐍 SnakeCoin Play-to-Earn → snowdiablo.xyz · earn $SNAKE on Polygon · discord.gg/snake');
         } else if (cmd === '!top') {
           const rows = db.prepare(`SELECT address, best_score FROM leaderboard ORDER BY best_score DESC LIMIT 3`).all();
           if (!rows.length) { twitchNotify('No scores yet 🐍'); }
@@ -691,7 +691,7 @@ app.post('/api/session/end', (req, res) => {
 
   // ─── Task #25 : Bluesky auto-post si new all-time record ─────────────────
   if (cappedScore > allTimeMax && allTimeMax > 0) {
-    bskyNotify(`🐍 NEW ALL-TIME RECORD on SnakeCoin! ${shortAddr(addr)} just scored ${cappedScore}. Can you beat it? https://snakegame.live #SnakeCoin #P2E #Polygon`);
+    bskyNotify(`🐍 NEW ALL-TIME RECORD on SnakeCoin! ${shortAddr(addr)} just scored ${cappedScore}. Can you beat it? https://snowdiablo.xyz #SnakeCoin #P2E #Polygon`);
   }
 
   db.prepare(`
@@ -899,7 +899,7 @@ app.post('/api/claim', limiter, async (req, res) => {
   if (claimedMilestone) {
     twitchNotify(`💎 ${shortAddr(address)} just hit ${claimedMilestone} $SNAKE cumulative! ` + (claimedMilestone >= 500 ? '🚀 WHALE ALERT' : ''));
     if (claimedMilestone >= 500) {
-      bskyNotify(`🚀 WHALE ALERT on SnakeCoin 🐍 ${shortAddr(address)} just crossed ${claimedMilestone} $SNAKE cumulative claimed on Polygon. https://snakegame.live #SnakeCoin #Whale #Polygon`);
+      bskyNotify(`🚀 WHALE ALERT on SnakeCoin 🐍 ${shortAddr(address)} just crossed ${claimedMilestone} $SNAKE cumulative claimed on Polygon. https://snowdiablo.xyz #SnakeCoin #Whale #Polygon`);
     }
     publicFeed({
       content: claimedMilestone >= 500 ? `🚀 WHALE ALERT` : null,
@@ -1251,8 +1251,8 @@ app.post('/api/admin/events/golden/toggle', adminAuth, express.json(), (req, res
   const reason = (req.body && req.body.reason) || 'manual';
   const info = db.prepare(`INSERT INTO events (type, multiplier, started_at, reason) VALUES ('golden', ?, ?, ?)`).run(mult, now, reason);
   console.log(`⚡ Golden snake manual event #${info.lastInsertRowid} opened (x${mult})`);
-  twitchNotify(`⚡⚡⚡ GOLDEN SNAKE MODE ON ⚡⚡⚡ x${mult} rewards on every claim! Play now → snakegame.live 🐍💰`);
-  bskyNotify(`⚡ GOLDEN SNAKE MODE ACTIVE ⚡ Every claim gives x${mult} $SNAKE right now on SnakeCoin! 🐍💰 Play → https://snakegame.live #SnakeCoin #P2E #Polygon`);
+  twitchNotify(`⚡⚡⚡ GOLDEN SNAKE MODE ON ⚡⚡⚡ x${mult} rewards on every claim! Play now → snowdiablo.xyz 🐍💰`);
+  bskyNotify(`⚡ GOLDEN SNAKE MODE ACTIVE ⚡ Every claim gives x${mult} $SNAKE right now on SnakeCoin! 🐍💰 Play → https://snowdiablo.xyz #SnakeCoin #P2E #Polygon`);
   discordNotify({
     title: '⚡ GOLDEN SNAKE ACTIVÉ',
     description: `Event manuel lancé - multiplier **x${mult}** sur toutes les rewards.`,

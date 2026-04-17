@@ -39,7 +39,7 @@ Invoke-RestMethod "https://snake-backend-production-e5e8.up.railway.app/api/admi
 
 Test post manuel :
 ```powershell
-$body = @{ text = "🐍 SnakeCoin bot test — live auto-post working https://snakegame.live #SnakeCoin" } | ConvertTo-Json
+$body = @{ text = "🐍 SnakeCoin bot test — live auto-post working https://snowdiablo.xyz #SnakeCoin" } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri "https://snake-backend-production-e5e8.up.railway.app/api/admin/bsky/post" -Headers @{Authorization="Bearer $env:ADMIN_TOKEN"} -ContentType "application/json" -Body $body
 # → ok:True, uri:"at://did:plc:.../app.bsky.feed.post/...", cid:"..."
 ```
@@ -50,7 +50,7 @@ Le post apparaît sur ton feed Bluesky. Les URLs sont automatiquement cliquables
 
 | Trigger | Exemple post |
 |---------|--------------|
-| Nouveau record all-time | `🐍 NEW ALL-TIME RECORD on SnakeCoin! 0xe59d...f539 just scored 127. Can you beat it? https://snakegame.live #SnakeCoin #P2E #Polygon` |
+| Nouveau record all-time | `🐍 NEW ALL-TIME RECORD on SnakeCoin! 0xe59d...f539 just scored 127. Can you beat it? https://snowdiablo.xyz #SnakeCoin #P2E #Polygon` |
 | Whale milestone (≥500 cumul) | `🚀 WHALE ALERT on SnakeCoin 🐍 0xe59d...f539 just crossed 500 $SNAKE cumulative...` |
 | Golden Snake event start | `⚡ GOLDEN SNAKE MODE ACTIVE ⚡ Every claim gives x3 $SNAKE right now...` |
 

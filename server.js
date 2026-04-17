@@ -923,7 +923,7 @@ app.post('/api/admin/events/golden/toggle', adminAuth, express.json(), (req, res
   });
   // Public feed aussi
   if (PUBLIC_FEED_WEBHOOK) {
-    publicFeedNotify({
+    publicFeed({
       title: '⚡ GOLDEN SNAKE MODE ACTIVÉ',
       description: `Tous les scores rapportent **x${mult} SNAKE** maintenant 🐍💰\nJoue vite avant la fin !`,
       color: 0xFFD700,

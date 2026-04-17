@@ -281,6 +281,48 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
   }
+  .golden-banner {
+    position: relative;
+    max-width: 520px;
+    margin: 12px auto 0;
+    padding: 10px 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ffd700 0%, #ffae00 50%, #ff8c00 100%);
+    color: #1a0f00;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 140, 0, 0.3);
+    animation: goldenPulse 2s ease-in-out infinite;
+    overflow: hidden;
+  }
+  .golden-banner::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: goldenShine 3s linear infinite;
+  }
+  .golden-banner .title {
+    font-size: 1rem;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+  .golden-banner .countdown {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    margin-top: 4px;
+    opacity: 0.85;
+  }
+  @keyframes goldenPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 140, 0, 0.3); }
+    50%      { box-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 140, 0, 0.5); }
+  }
+  @keyframes goldenShine {
+    0%   { left: -100%; }
+    100% { left: 100%;  }
+  }
 </style>
 </head>
 <body>
@@ -314,6 +356,13 @@
 <div class="top-bar">
   <button id="connect-btn" onclick="openWalletPicker()">🦊 <span data-i18n="connect">Connecter Wallet</span></button>
   <div id="wallet-address" data-i18n="not_connected">Non connecté</div>
+</div>
+
+<!-- Task #20 Golden Snake Banner -->
+<div class="golden-banner" id="golden-banner" style="display:none">
+  <div class="title">⚡ GOLDEN SNAKE MODE ACTIVE ⚡</div>
+  <div>Multiplier <span id="golden-mult">x3</span> sur toutes les rewards !</div>
+  <div class="countdown" id="golden-countdown">—</div>
 </div>
 
 <!-- Task #19 Daily Quests -->
@@ -799,6 +848,47 @@ async function gameOver() {
   }
 }
 
+let goldenState = null;
+let goldenTimer = null;
+
+async function loadGolden() {
+  if (!BACKEND_URL) return;
+  try {
+    const r = await fetch(BACKEND_URL + '/api/events/golden');
+    goldenState = await r.json();
+    renderGolden();
+  } catch (e) { console.log('golden load:', e); }
+}
+
+function renderGolden() {
+  const banner = document.getElementById('golden-banner');
+  if (!banner || !goldenState) return;
+  if (!goldenState.active) {
+    banner.style.display = 'none';
+    if (goldenTimer) { clearInterval(goldenTimer); goldenTimer = null; }
+    return;
+  }
+  banner.style.display = '';
+  document.getElementById('golden-mult').textContent = 'x' + goldenState.multiplier;
+  const tick = () => {
+    const cd = document.getElementById('golden-countdown');
+    if (!cd) return;
+    if (goldenState.mode === 'manual') {
+      cd.textContent = 'Event manuel • actif';
+      return;
+    }
+    const remain = (goldenState.ends_at || 0) - Math.floor(Date.now()/1000);
+    if (remain <= 0) { cd.textContent = 'termine...'; loadGolden(); return; }
+    const h = Math.floor(remain / 3600);
+    const m = Math.floor((remain % 3600) / 60);
+    const sec = remain % 60;
+    cd.textContent = `Fin dans ${h}h${m.toString().padStart(2,'0')}m${sec.toString().padStart(2,'0')}s`;
+  };
+  tick();
+  if (goldenTimer) clearInterval(goldenTimer);
+  goldenTimer = setInterval(tick, 1000);
+}
+
 async function loadQuests() {
   if (!walletAddress || !BACKEND_URL) return;
   try {
@@ -1017,6 +1107,7 @@ async function connectWithProvider(eip1193Provider, walletName) {
     setStatus('');
     loadStreak();
     loadQuests();
+    loadGolden();
   } catch (e) { setStatus('❌ ' + e.message); }
 }
 
@@ -1062,6 +1153,15 @@ function setStatus(msg){ document.getElementById('status').textContent=msg; }
 buildLangBar();
 applyLang();
 drawWelcome();
+</script>
+<script>
+  // Task #20 bootstrap golden snake state
+  window.addEventListener('DOMContentLoaded', () => {
+    if (typeof loadGolden === 'function') {
+      loadGolden();
+      setInterval(loadGolden, 60000);
+    }
+  });
 </script>
 </body>
 </html>

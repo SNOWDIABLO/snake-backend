@@ -316,6 +316,20 @@
   </table>
 
   <section style="margin-top: 24px;">
+    <h2 style="margin: 0 0 8px 0; font-size: 18px;">⚡ Golden Snake Mode</h2>
+    <div id="golden-box" style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 200px;">
+        <div style="color: var(--dim); font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Etat</div>
+        <div id="golden-state" style="font-size: 18px; font-weight: 700;">—</div>
+        <div id="golden-detail" style="color: var(--dim); font-size: 12px; margin-top: 4px;">—</div>
+      </div>
+      <div>
+        <button id="golden-toggle-btn" class="primary" onclick="toggleGolden()" style="background: linear-gradient(135deg, #ffd700, #ff8c00); color: #1a0f00; font-weight: 700;">⚡ Toggle event</button>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin-top: 24px;">
     <h2 style="margin: 0 0 8px 0; font-size: 18px;">🏆 Saison courante</h2>
     <div id="season-box" style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
       <div><div style="color:var(--dim); font-size:11px; text-transform:uppercase;">Nom</div><div id="season-name" style="font-size:18px; font-weight:700;">—</div></div>
@@ -439,6 +453,7 @@
       render(data);
       fetchGrowth();
       fetchSeason();
+      fetchGolden();
       setStatus('OK', false);
       document.getElementById('last-sync').textContent = new Date().toLocaleTimeString('fr-FR');
       if (resetBar) restartBar();
@@ -587,6 +602,66 @@
       setStatus(`📋 ${shorten(txt)} copié`, false);
       setTimeout(() => setStatus('OK', false), 2000);
     });
+  }
+
+  // ─── Task #20 Golden Snake Event ─────────────────────────────
+  async function fetchGolden() {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/events/golden`);
+      if (!res.ok) return;
+      const g = await res.json();
+      const stateEl  = document.getElementById('golden-state');
+      const detailEl = document.getElementById('golden-detail');
+      const btn      = document.getElementById('golden-toggle-btn');
+      if (g.active) {
+        stateEl.innerHTML = `⚡ ACTIF <span style="color: #ffd700;">×${g.multiplier}</span>`;
+        if (g.mode === 'auto') {
+          const endStr = new Date((g.ends_at || 0) * 1000).toLocaleString('fr-FR');
+          detailEl.textContent = `Mode auto (weekend) • fin : ${endStr}`;
+        } else {
+          const startStr = new Date((g.started_at || 0) * 1000).toLocaleString('fr-FR');
+          detailEl.textContent = `Mode manuel • demarre : ${startStr} • raison : ${g.reason || '—'}`;
+        }
+        btn.textContent = '⛔ Desactiver l\'event';
+      } else {
+        stateEl.innerHTML = `<span style="color: var(--dim);">inactif</span>`;
+        const nextStr = g.next_start ? new Date(g.next_start * 1000).toLocaleString('fr-FR') : '—';
+        detailEl.textContent = `Prochaine fenetre auto : ${nextStr}`;
+        btn.textContent = '⚡ Activer event manuel';
+      }
+    } catch (e) { console.error('fetchGolden', e); }
+  }
+
+  async function toggleGolden() {
+    let multiplier = 3;
+    const current = await (await fetch(`${API}/api/events/golden`)).json();
+    if (!current.active) {
+      const v = prompt('Multiplier pour cet event ? (1.1 - 10)', '3');
+      if (!v) return;
+      multiplier = parseFloat(v);
+      if (!isFinite(multiplier) || multiplier < 1.1 || multiplier > 10) {
+        alert('Multiplier invalide (doit être entre 1.1 et 10)');
+        return;
+      }
+      if (!confirm(`Activer GOLDEN SNAKE avec multiplier x${multiplier} ?\nTous les joueurs verront la banniere doree.`)) return;
+    } else {
+      if (!confirm('Desactiver l\'event Golden Snake en cours ?')) return;
+    }
+    try {
+      setStatus('⚡ Toggle en cours...', false);
+      const res = await fetch(`${API}/api/admin/events/golden/toggle`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ multiplier, reason: 'admin_manual' }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      const data = await res.json();
+      setStatus(`✅ Golden ${data.action === 'opened' ? 'ACTIVE' : 'desactive'}`, false);
+      fetchGolden();
+    } catch (e) {
+      setStatus(`❌ Toggle failed: ${e.message}`, true);
+    }
   }
 
   // ─── Task #21 Seasons ───────────────────────────────────────────────────────

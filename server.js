@@ -337,6 +337,121 @@ function scheduleReconnect() {
 // Bootstrap
 twitchConnect();
 
+// ─── BLUESKY AUTO-POST (task #25) ────────────────────────────────────────────
+// AT Protocol via fetch natif (Node 18+), pas de dep externe.
+// Auto-post : nouveau record all-time, whale alerts (cumul >=500), golden events.
+// Env : BSKY_HANDLE (ex snowdiablo.bsky.social), BSKY_APP_PASSWORD (genere sur bsky.app settings).
+const BSKY_HANDLE       = process.env.BSKY_HANDLE       || '';
+const BSKY_APP_PASSWORD = process.env.BSKY_APP_PASSWORD || '';
+const BSKY_PDS          = 'https://bsky.social';
+const BSKY_MIN_INTERVAL = 5 * 60 * 1000;  // 5min entre posts (anti-spam)
+let bskySession = null;      // { accessJwt, refreshJwt, did, exp }
+let bskyLastPost = 0;
+const bskyQueue = [];
+let bskyPosting = false;
+
+async function bskyAuth() {
+  if (!BSKY_HANDLE || !BSKY_APP_PASSWORD) return null;
+  // Session cache : valide ~2h, renouvele apres 1h30 par securite
+  if (bskySession && Date.now() < bskySession.exp) return bskySession;
+  try {
+    const r = await fetch(`${BSKY_PDS}/xrpc/com.atproto.server.createSession`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: BSKY_HANDLE, password: BSKY_APP_PASSWORD }),
+    });
+    if (!r.ok) throw new Error(`createSession ${r.status}: ${await r.text()}`);
+    const d = await r.json();
+    bskySession = { accessJwt: d.accessJwt, refreshJwt: d.refreshJwt, did: d.did, exp: Date.now() + 90 * 60 * 1000 };
+    console.log(`🦋 Bluesky: session ready for ${d.handle} (did=${d.did.slice(0, 24)}...)`);
+    return bskySession;
+  } catch (e) {
+    console.log('🦋 Bluesky auth failed:', e.message);
+    bskySession = null;
+    return null;
+  }
+}
+
+// Detecte les URLs dans un texte et construit les facets pour les rendre clickables.
+function bskyBuildFacets(text) {
+  const facets = [];
+  const regex = /https?:\/\/[^\s)]+/g;
+  const enc = new TextEncoder();
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    const byteStart = enc.encode(text.slice(0, m.index)).length;
+    const byteEnd   = enc.encode(text.slice(0, m.index + m[0].length)).length;
+    facets.push({
+      index: { byteStart, byteEnd },
+      features: [{ $type: 'app.bsky.richtext.facet#link', uri: m[0] }],
+    });
+  }
+  return facets;
+}
+
+async function bskyPostNow(text) {
+  const sess = await bskyAuth();
+  if (!sess) return { ok: false, error: 'no session' };
+  try {
+    const record = {
+      $type: 'app.bsky.feed.post',
+      text: text.slice(0, 300),       // bluesky limit 300 chars
+      createdAt: new Date().toISOString(),
+      langs: ['fr', 'en'],
+      facets: bskyBuildFacets(text),
+    };
+    const r = await fetch(`${BSKY_PDS}/xrpc/com.atproto.repo.createRecord`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sess.accessJwt}` },
+      body: JSON.stringify({ repo: sess.did, collection: 'app.bsky.feed.post', record }),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      // 401 = token expired, retry une fois
+      if (r.status === 401) { bskySession = null; return await bskyPostNow(text); }
+      throw new Error(`createRecord ${r.status}: ${body}`);
+    }
+    const d = await r.json();
+    console.log(`🦋 Bluesky: posted → ${d.uri}`);
+    bskyLastPost = Date.now();
+    return { ok: true, uri: d.uri, cid: d.cid };
+  } catch (e) {
+    console.log('🦋 Bluesky post failed:', e.message);
+    return { ok: false, error: e.message };
+  }
+}
+
+function bskyNotify(text) {
+  if (!BSKY_HANDLE || !BSKY_APP_PASSWORD) return;
+  // Rate-limit : 5min mini entre posts
+  const wait = bskyLastPost + BSKY_MIN_INTERVAL - Date.now();
+  if (wait > 0) {
+    if (bskyQueue.length < 10) bskyQueue.push(text);
+    return;
+  }
+  if (bskyPosting) {
+    if (bskyQueue.length < 10) bskyQueue.push(text);
+    return;
+  }
+  bskyPosting = true;
+  bskyPostNow(text).finally(() => { bskyPosting = false; });
+}
+
+// Drain queue toutes les 30s si le cooldown est expire
+setInterval(() => {
+  if (!bskyQueue.length || bskyPosting) return;
+  if (Date.now() < bskyLastPost + BSKY_MIN_INTERVAL) return;
+  const msg = bskyQueue.shift();
+  bskyPosting = true;
+  bskyPostNow(msg).finally(() => { bskyPosting = false; });
+}, 30000);
+
+if (BSKY_HANDLE && BSKY_APP_PASSWORD) {
+  bskyAuth().then(s => { if (s) console.log('🦋 Bluesky bot enabled →', BSKY_HANDLE); });
+} else {
+  console.log('🦋 Bluesky disabled (set BSKY_HANDLE + BSKY_APP_PASSWORD to enable)');
+}
+
 // Milestones joueur — déclenche à chaque palier franchi
 const GAMES_MILESTONES  = [10, 50, 100, 250, 500, 1000];
 const CLAIMED_MILESTONES = [10, 50, 100, 500, 1000, 5000];
@@ -574,6 +689,11 @@ app.post('/api/session/end', (req, res) => {
   const prevGames = prevRow ? prevRow.games_played : 0;
   const allTimeMax = db.prepare('SELECT COALESCE(MAX(best_score),0) as m FROM leaderboard').get().m;
 
+  // ─── Task #25 : Bluesky auto-post si new all-time record ─────────────────
+  if (cappedScore > allTimeMax && allTimeMax > 0) {
+    bskyNotify(`🐍 NEW ALL-TIME RECORD on SnakeCoin! ${shortAddr(addr)} just scored ${cappedScore}. Can you beat it? https://snakegame.live #SnakeCoin #P2E #Polygon`);
+  }
+
   db.prepare(`
     INSERT INTO leaderboard (address, best_score, games_played, last_played, updated_at,
                              streak_count, max_streak, last_streak_date)
@@ -778,6 +898,9 @@ app.post('/api/claim', limiter, async (req, res) => {
   const claimedMilestone = crossedMilestone(prevClaimed, newClaimed, CLAIMED_MILESTONES);
   if (claimedMilestone) {
     twitchNotify(`💎 ${shortAddr(address)} just hit ${claimedMilestone} $SNAKE cumulative! ` + (claimedMilestone >= 500 ? '🚀 WHALE ALERT' : ''));
+    if (claimedMilestone >= 500) {
+      bskyNotify(`🚀 WHALE ALERT on SnakeCoin 🐍 ${shortAddr(address)} just crossed ${claimedMilestone} $SNAKE cumulative claimed on Polygon. https://snakegame.live #SnakeCoin #Whale #Polygon`);
+    }
     publicFeed({
       content: claimedMilestone >= 500 ? `🚀 WHALE ALERT` : null,
       embeds: [{
@@ -1061,6 +1184,28 @@ app.post('/api/admin/seasons/close', adminAuth, express.json(), (req, res) => {
   }
 });
 
+// ─── BLUESKY ADMIN (task #25) ──────────────────────────────────────────────
+app.get('/api/admin/bsky/status', adminAuth, (req, res) => {
+  res.json({
+    enabled:     Boolean(BSKY_HANDLE && BSKY_APP_PASSWORD),
+    handle:      BSKY_HANDLE || null,
+    session:     Boolean(bskySession),
+    session_exp: bskySession ? new Date(bskySession.exp).toISOString() : null,
+    last_post:   bskyLastPost ? new Date(bskyLastPost).toISOString() : null,
+    queue_size:  bskyQueue.length,
+    cooldown_remain_sec: Math.max(0, Math.floor((bskyLastPost + BSKY_MIN_INTERVAL - Date.now()) / 1000)),
+  });
+});
+
+app.post('/api/admin/bsky/post', adminAuth, express.json(), async (req, res) => {
+  const text = (req.body && req.body.text || '').slice(0, 300);
+  if (!text) return res.status(400).json({ error: 'text required' });
+  // Bypass rate-limit pour admin manual post
+  const r = await bskyPostNow(text);
+  if (!r.ok) return res.status(500).json(r);
+  res.json(r);
+});
+
 // ─── TWITCH BOT ADMIN (task #24) ──────────────────────────────────────────
 app.get('/api/admin/twitch/status', adminAuth, (req, res) => {
   res.json({
@@ -1107,6 +1252,7 @@ app.post('/api/admin/events/golden/toggle', adminAuth, express.json(), (req, res
   const info = db.prepare(`INSERT INTO events (type, multiplier, started_at, reason) VALUES ('golden', ?, ?, ?)`).run(mult, now, reason);
   console.log(`⚡ Golden snake manual event #${info.lastInsertRowid} opened (x${mult})`);
   twitchNotify(`⚡⚡⚡ GOLDEN SNAKE MODE ON ⚡⚡⚡ x${mult} rewards on every claim! Play now → snakegame.live 🐍💰`);
+  bskyNotify(`⚡ GOLDEN SNAKE MODE ACTIVE ⚡ Every claim gives x${mult} $SNAKE right now on SnakeCoin! 🐍💰 Play → https://snakegame.live #SnakeCoin #P2E #Polygon`);
   discordNotify({
     title: '⚡ GOLDEN SNAKE ACTIVÉ',
     description: `Event manuel lancé - multiplier **x${mult}** sur toutes les rewards.`,

@@ -1,0 +1,33 @@
+{
+  "name": "SnakeCoin Trophy S7 #2",
+  "description": "Top 2 Silver trophy — the relentless second of Season 7 on SnakeCoin P2E. Grants permanent $SNAKE claim multiplier and in-game cosmic skin. Earn yours at snowdiablo.xyz",
+  "image": "ipfs://bafkreigo7azwwmgztd4ysp242phw4uvjo4irrdrbmuppibo7ql6crbbuwq",
+  "external_url": "https://snowdiablo.xyz",
+  "background_color": "0A0A1A",
+  "attributes": [
+    {
+      "trait_type": "Season",
+      "value": 7
+    },
+    {
+      "trait_type": "Rank",
+      "value": 2
+    },
+    {
+      "trait_type": "Tier",
+      "value": "Silver"
+    },
+    {
+      "trait_type": "Multiplier",
+      "value": "+15%"
+    },
+    {
+      "trait_type": "Game",
+      "value": "SnakeCoin P2E"
+    },
+    {
+      "trait_type": "Chain",
+      "value": "Polygon"
+    }
+  ]
+}

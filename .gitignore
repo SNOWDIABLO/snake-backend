@@ -1,8 +1,41 @@
+﻿# ═══════════ SECRETS — JAMAIS COMMIT ═══════════
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 
-# Exports admin (data joueurs, ne JAMAIS commit)
+# ═══════════ DATA JOUEURS — NE JAMAIS LEAK ═══════════
 *.csv
-snake.db
 *.db
 *.db-journal
-*.bak
+*.sqlite
+*.sqlite3
+snake.db
+data/
 
+# ═══════════ NODE / BUILD ═══════════
+node_modules/
+dist/
+build/
+.DS_Store
+Thumbs.db
+
+# ═══════════ BACKUPS ═══════════
+*.bak
+*.backup
+*.old
+*.tmp
+
+# ═══════════ LOGS ═══════════
+*.log
+logs/
+pm2.log
+npm-debug.log*
+
+# ═══════════ IDE ═══════════
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <radialGradient id="coin" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#12162a"/>
+      <stop offset="85%" stop-color="#0a0c18"/>
+      <stop offset="100%" stop-color="#050610"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00ff88"/>
+      <stop offset="100%" stop-color="#00ccff"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a0ffc8"/>
+      <stop offset="50%" stop-color="#00e678"/>
+      <stop offset="100%" stop-color="#00803c"/>
+    </linearGradient>
+    <radialGradient id="head" cx="35%" cy="35%">
+      <stop offset="0%" stop-color="#c0f0ff"/>
+      <stop offset="100%" stop-color="#0078a0"/>
+    </radialGradient>
+    <radialGradient id="apple" cx="30%" cy="30%">
+      <stop offset="0%" stop-color="#ffb0b5"/>
+      <stop offset="60%" stop-color="#eb2838"/>
+      <stop offset="100%" stop-color="#8c0f19"/>
+    </radialGradient>
+  </defs>
+
+  <!-- outer rim -->
+  <circle cx="16" cy="16" r="15.5" fill="url(#rim)"/>
+  <!-- coin body -->
+  <circle cx="16" cy="16" r="14" fill="url(#coin)"/>
+  <!-- inner bevel -->
+  <circle cx="16" cy="16" r="13.2" fill="none" stroke="#202440" stroke-width="0.4"/>
+
+  <!-- snake spiral body (smooth cylindrical tube) -->
+  <path d="M 21 9
+           C 24 10, 25 14, 22 17
+           C 19 20, 14 20, 12 17
+           C 10 14, 12 11, 15 12
+           C 18 13, 18 16, 16 17"
+        fill="none" stroke="url(#body)" stroke-width="3.2"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- highlight along top of body -->
+  <path d="M 21 9
+           C 24 10, 25 14, 22 17
+           C 19 20, 14 20, 12 17
+           C 10 14, 12 11, 15 12
+           C 18 13, 18 16, 16 17"
+        fill="none" stroke="#d0ffe4" stroke-width="0.8"
+        stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+
+  <!-- snake head -->
+  <ellipse cx="21" cy="9" rx="2.6" ry="2" fill="url(#head)" transform="rotate(-20 21 9)"/>
+  <!-- eyes -->
+  <circle cx="22" cy="8.3" r="0.55" fill="#000"/>
+  <circle cx="20" cy="8.9" r="0.55" fill="#000"/>
+  <circle cx="22.15" cy="8.15" r="0.2" fill="#fff"/>
+  <circle cx="20.15" cy="8.75" r="0.2" fill="#fff"/>
+  <!-- forked tongue -->
+  <path d="M 23.2 9.2 L 24.5 9.8 M 24.5 9.8 L 25.1 9.3 M 24.5 9.8 L 25.2 10.3"
+        stroke="#ff3b55" stroke-width="0.5" stroke-linecap="round" fill="none"/>
+
+  <!-- apple -->
+  <circle cx="18" cy="9" r="1.6" fill="url(#apple)"/>
+  <ellipse cx="17.5" cy="8.5" rx="0.5" ry="0.35" fill="#fff4f4" opacity="0.7"/>
+  <path d="M 18.4 7.5 L 18.8 6.8" stroke="#503018" stroke-width="0.5" stroke-linecap="round"/>
+  <path d="M 18.8 6.8 Q 19.6 6.3, 19.2 7.3 Z" fill="#00b050"/>
+
+  <!-- polygon nod -->
+  <polygon points="16,26 17.3,26.7 17.3,28.2 16,29 14.7,28.2 14.7,26.7"
+           fill="#00ccff" opacity="0.85"/>
+  <circle cx="16" cy="27.6" r="0.35" fill="#d8f4ff"/>
+
+  <!-- sparkles -->
+  <g fill="#fff" opacity="0.7">
+    <path d="M 6 7 L 7 7 M 6.5 6.5 L 6.5 7.5" stroke="#fff" stroke-width="0.3"/>
+    <path d="M 26 11 L 27 11 M 26.5 10.5 L 26.5 11.5" stroke="#fff" stroke-width="0.3"/>
+    <path d="M 7 23 L 8 23 M 7.5 22.5 L 7.5 23.5" stroke="#fff" stroke-width="0.3"/>
+  </g>
+</svg>

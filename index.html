@@ -74,6 +74,23 @@
   .stat-box.streak.active .value { color: #ff9544; }
   .stat-box.streak.at-risk { border-color: #ff3333; animation: pulseRisk 1.5s ease-in-out infinite; }
   .stat-box.streak .mult { font-size: 0.7rem; color: #ffbb88; margin-top: 2px; letter-spacing: 0.5px; }
+  /* Task #46 — NFT trophy multiplier badge (masqué si pas de trophée) */
+  .stat-box.trophy { display: none; border-color: #2a2a44; }
+  .stat-box.trophy.active { display: block; }
+  .stat-box.trophy .value { font-size: 1.1rem; letter-spacing: 1px; }
+  .stat-box.trophy .mult { font-size: 0.7rem; margin-top: 2px; letter-spacing: 0.5px; }
+  .stat-box.trophy.gold   { border-color: #FFD700; box-shadow: 0 0 14px rgba(255,215,0,.45); }
+  .stat-box.trophy.gold   .value { color: #FFE866; }
+  .stat-box.trophy.gold   .mult  { color: #ffdd88; }
+  .stat-box.trophy.silver { border-color: #C0C0C0; box-shadow: 0 0 12px rgba(192,192,192,.35); }
+  .stat-box.trophy.silver .value { color: #E8E8E8; }
+  .stat-box.trophy.silver .mult  { color: #d0d0d0; }
+  .stat-box.trophy.bronze { border-color: #CD7F32; box-shadow: 0 0 12px rgba(205,127,50,.35); }
+  .stat-box.trophy.bronze .value { color: #E8944C; }
+  .stat-box.trophy.bronze .mult  { color: #d4a574; }
+  .stat-box.trophy.top10  { border-color: #00ff88; box-shadow: 0 0 12px rgba(0,255,136,.30); }
+  .stat-box.trophy.top10  .value { color: #44ffaa; }
+  .stat-box.trophy.top10  .mult  { color: #88e6bb; }
   @keyframes pulseRisk { 0%,100% { box-shadow: 0 0 8px rgba(255,51,51,.3); } 50% { box-shadow: 0 0 18px rgba(255,51,51,.7); } }
   #wallet-address { font-size: 0.75rem; color: #888; }
 
@@ -273,6 +290,73 @@
     transition: width 0.4s ease;
   }
   .quest-item.done .quest-bar-fill { background: #4ade80; }
+  /* Task #22 Trophées NFT */
+  .trophies-box {
+    max-width: 480px;
+    margin: 14px auto 0;
+    background: linear-gradient(180deg, rgba(40,30,10,0.9), rgba(20,15,5,0.9));
+    border: 1px solid #55441a;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 0.85rem;
+  }
+  .trophies-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .trophies-header .title { font-weight: 700; color: #ffd700; letter-spacing: 0.3px; }
+  .trophy-item {
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed #332a1a;
+  }
+  .trophy-item:last-child { border-bottom: none; }
+  .trophy-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: #000;
+  }
+  .trophy-icon.gold   { background: linear-gradient(135deg,#FFD700,#B8860B); }
+  .trophy-icon.silver { background: linear-gradient(135deg,#E5E4E2,#808080); }
+  .trophy-icon.bronze { background: linear-gradient(135deg,#CD7F32,#8B4513); }
+  .trophy-icon.top10  { background: linear-gradient(135deg,#00FF88,#008844); }
+  .trophy-info .tier-name { font-weight: 700; color: #fff; }
+  .trophy-info .season { font-size: 0.75rem; color: #999; }
+  .trophy-action button {
+    background: linear-gradient(135deg,#ffd700,#ff9900);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .trophy-action button:hover:not(:disabled) { opacity: 0.9; }
+  .trophy-action button:disabled {
+    background: #333;
+    color: #888;
+    cursor: not-allowed;
+  }
+  .trophy-minted {
+    color: #4ade80;
+    font-weight: 700;
+    font-size: 0.8rem;
+  }
+  .trophy-minted a { color: #4ade80; text-decoration: underline; }
+
   .quests-allDone {
     text-align: center;
     color: #ffd700;
@@ -357,6 +441,12 @@
     <div class="value" id="streak-display">0</div>
     <div class="mult" id="streak-mult">x1.0</div>
   </div>
+  <!-- Task #46 — NFT trophy multiplier (affiché seulement si NFT minté) -->
+  <div class="stat-box trophy" id="trophy-box" title="Ton meilleur trophée NFT activé : +% permanent sur toutes les rewards $SNAKE">
+    <div class="label">🏆 TROPHY</div>
+    <div class="value" id="trophy-tier">—</div>
+    <div class="mult" id="trophy-mult">+0%</div>
+  </div>
 </div>
 
 <div class="top-bar">
@@ -379,6 +469,15 @@
   </div>
   <div id="quests-list"></div>
   <div id="quests-alldone" class="quests-allDone" style="display:none">🎉 Toutes les quêtes complétées !</div>
+</div>
+
+<!-- Task #22 NFT Trophées -->
+<div class="trophies-box" id="trophies-box" style="display:none">
+  <div class="trophies-header">
+    <span class="title">🏆 Mes Trophées NFT</span>
+    <span class="meta" style="font-size:0.7rem;color:#888">On-chain · Polygon</span>
+  </div>
+  <div id="trophies-list"></div>
 </div>
 
 <!-- Wallet picker modal -->
@@ -750,6 +849,16 @@ const CONTRACT_ABI = [
   "function claimReward(uint256 amount, bytes32 nonce, bytes calldata sig) external",
   "function balanceOf(address account) view returns (uint256)"
 ];
+// Task #22 — SnakeTrophyNFT (ERC-721 saisonniers top 10)
+// À remplir après deploy du contract sur Polygon mainnet (voir snake-contract/SnakeTrophyNFT.sol)
+const NFT_CONTRACT_ADDRESS = '';
+const NFT_CONTRACT_ABI = [
+  "function mint(uint256 season, uint256 rank, bytes32 nonce, bytes calldata sig) payable",
+  "function mintFee() view returns (uint256)",
+  "function tokenURI(uint256 tokenId) view returns (string)",
+  "function tokenIdFor(uint256 season, uint256 rank) pure returns (uint256)",
+  "event TrophyMinted(address indexed player, uint256 indexed season, uint256 indexed rank, uint256 tokenId)"
+];
 
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
@@ -844,6 +953,14 @@ async function gameOver() {
         renderStreak({ current:d.streak.current, max:d.streak.max, multiplier:d.streak.multiplier, active:true, at_risk:false, played_today:true, next_milestone:null, days_to_next:null });
         if (d.streak.milestone) {
           milestoneMsg = '🔥 ' + d.streak.milestone + ' JOURS ! Multiplier x' + d.streak.multiplier;
+        }
+      }
+      // Task #46 — affiche/rafraîchit le badge NFT multiplier depuis la réponse session/end
+      if (d && d.nft) {
+        renderNftMultiplier(d.nft);
+        if (d.nft.tier && d.nft.bonus_pct > 0) {
+          const nftMsg = '🏆 ' + d.nft.tier + ' +' + d.nft.bonus_pct + '%';
+          milestoneMsg = milestoneMsg ? milestoneMsg + ' · ' + nftMsg : nftMsg;
         }
       }
     } catch(e) { console.log('session end:', e); }
@@ -964,6 +1081,120 @@ function renderStreak(d) {
   } else {
     box.title = '🔥 ' + cur + ' jours d affilee (record: ' + (d.max||0) + ')';
   }
+}
+
+// ─── NFT TROPHY MULTIPLIER badge (Task #46) ────────────────────────────────
+async function loadNftMultiplier() {
+  if (!walletAddress || !BACKEND_URL) return;
+  try {
+    const r = await fetch(BACKEND_URL + '/api/nft/multiplier/' + walletAddress);
+    if (!r.ok) return;
+    const d = await r.json();
+    renderNftMultiplier(d);
+  } catch (e) { console.log('trophy-mult load:', e); }
+}
+function renderNftMultiplier(d) {
+  const box  = document.getElementById('trophy-box');
+  const tier = document.getElementById('trophy-tier');
+  const mult = document.getElementById('trophy-mult');
+  if (!box) return;
+  box.classList.remove('active', 'gold', 'silver', 'bronze', 'top10');
+  if (!d || !d.tier) {
+    box.title = '🏆 Aucun trophée NFT minté — termine top 10 une saison pour mint + booster tes rewards';
+    return;
+  }
+  const cls = d.tier.toLowerCase(); // gold | silver | bronze | top10
+  box.classList.add('active', cls);
+  tier.textContent = d.tier.toUpperCase();
+  mult.textContent = '+' + (d.bonus_pct || 0) + '%';
+  box.title = '🏆 ' + d.tier + ' NFT actif · +' + d.bonus_pct + '% permanent sur toutes tes rewards $SNAKE (rank ' + d.rank + ')';
+}
+
+// ─── NFT TROPHÉES (Task #22) ────────────────────────────────────────────────
+async function loadTrophies() {
+  if (!walletAddress || !BACKEND_URL) return;
+  try {
+    const r = await fetch(BACKEND_URL + '/api/nft/eligibility/' + walletAddress);
+    const d = await r.json();
+    renderTrophies(d);
+  } catch (e) { console.log('trophies load:', e); }
+}
+
+function renderTrophies(d) {
+  const box = document.getElementById('trophies-box');
+  const list = document.getElementById('trophies-list');
+  if (!box || !d || !Array.isArray(d.drops) || d.drops.length === 0) {
+    if (box) box.style.display = 'none';
+    return;
+  }
+  box.style.display = '';
+  list.innerHTML = d.drops.map(t => {
+    const tierClass = t.tier.toLowerCase(); // gold | silver | bronze | top10
+    const rankDisplay = t.rank === 1 ? '🥇' : t.rank === 2 ? '🥈' : t.rank === 3 ? '🥉' : '#' + t.rank;
+    const tierLabel = t.tier === 'Top10' ? 'Top 10' : t.tier;
+    let action;
+    if (t.status === 'minted') {
+      const link = t.tx_hash ? `<a href="https://polygonscan.com/tx/${t.tx_hash}" target="_blank">tx ↗</a>` : '';
+      action = `<span class="trophy-minted">✅ Minté<br>${link}</span>`;
+    } else if (!d.contract) {
+      action = `<span style="color:#888;font-size:0.75rem">Contrat non<br>déployé</span>`;
+    } else {
+      action = `<button onclick="mintTrophy(${t.season},${t.rank})">Mint<br><small style="font-weight:400">${d.mintFee_pol} POL</small></button>`;
+    }
+    return `
+      <div class="trophy-item">
+        <div class="trophy-icon ${tierClass}">${rankDisplay}</div>
+        <div class="trophy-info">
+          <div class="tier-name">${tierLabel} Trophy</div>
+          <div class="season">Saison ${t.season}</div>
+        </div>
+        <div class="trophy-action">${action}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function mintTrophy(season, rank) {
+  if (!walletAddress || !signer) { setStatus('⚠️ Connecte ton wallet'); return; }
+  if (!NFT_CONTRACT_ADDRESS) { setStatus('❌ Contrat NFT non configuré'); return; }
+  try {
+    setStatus('🏆 Demande de signature mint...');
+    const r = await fetch(BACKEND_URL + '/api/nft/mint-sig', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ address: walletAddress, season, rank }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Signature refusée');
+
+    setStatus('📝 Envoi transaction (paye ' + ethers.formatEther(await getNftMintFee()) + ' POL)...');
+    const contract = new ethers.Contract(NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI, signer);
+    const fee = await contract.mintFee();
+    const tx = await contract.mint(season, rank, data.nonce, data.sig, { value: fee });
+    setStatus('⏳ Attente confirmation...');
+    const receipt = await tx.wait();
+
+    // Notifie backend pour marquer minted + trigger auto-post
+    await fetch(BACKEND_URL + '/api/nft/confirm', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        address: walletAddress, season, rank, tx_hash: receipt.hash
+      }),
+    });
+    setStatus('✅ Trophée minté !');
+    loadTrophies();       // refresh liste
+    loadNftMultiplier();  // Task #46 — badge multiplier activé (Gold/Silver/Bronze/Top10)
+  } catch (e) {
+    console.error('mint trophy:', e);
+    setStatus('❌ ' + (e.reason || e.message || 'Mint échoué'));
+  }
+}
+
+async function getNftMintFee() {
+  if (!NFT_CONTRACT_ADDRESS || !provider) return ethers.parseEther('10');
+  try {
+    const c = new ethers.Contract(NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI, provider);
+    return await c.mintFee();
+  } catch { return ethers.parseEther('10'); }
 }
 
 // ─── DRAW ────────────────────────────────────────────────────────────────────
@@ -1221,6 +1452,8 @@ async function connectWithProvider(eip1193Provider, walletName) {
     loadStreak();
     loadQuests();
     loadGolden();
+    loadTrophies();        // Task #22 — check trophées éligibles
+    loadNftMultiplier();   // Task #46 — badge multiplier actif
   } catch (e) { setStatus('❌ ' + e.message); }
 }
 

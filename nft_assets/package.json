@@ -1,0 +1,17 @@
+{
+  "name": "snakecoin-nft-assets",
+  "version": "1.0.0",
+  "description": "Pipeline upload Pinata IPFS pour les NFT trophées SnakeCoin",
+  "private": true,
+  "scripts": {
+    "metadata": "node generate_metadata.js",
+    "upload:images": "node upload_pinata.js images",
+    "upload:metadata": "node upload_pinata.js metadata",
+    "upload:all": "node upload_pinata.js both"
+  },
+  "dependencies": {
+    "axios": "^1.7.0",
+    "form-data": "^4.0.0",
+    "dotenv": "^16.4.0"
+  }
+}

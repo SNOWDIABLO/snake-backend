@@ -1,0 +1,33 @@
+{
+  "name": "SnakeCoin Trophy S7 #1",
+  "description": "Top 1 Gold trophy — the ultimate champion of Season 7 on SnakeCoin P2E. Grants permanent $SNAKE claim multiplier and in-game cosmic skin. Earn yours at snowdiablo.xyz",
+  "image": "ipfs://bafybeielq4sqb3crdl3x65fvgkevwsiuku367lx3zl3hq5safl73zcaf2e",
+  "external_url": "https://snowdiablo.xyz",
+  "background_color": "0A0A1A",
+  "attributes": [
+    {
+      "trait_type": "Season",
+      "value": 7
+    },
+    {
+      "trait_type": "Rank",
+      "value": 1
+    },
+    {
+      "trait_type": "Tier",
+      "value": "Gold"
+    },
+    {
+      "trait_type": "Multiplier",
+      "value": "+25%"
+    },
+    {
+      "trait_type": "Game",
+      "value": "SnakeCoin P2E"
+    },
+    {
+      "trait_type": "Chain",
+      "value": "Polygon"
+    }
+  ]
+}

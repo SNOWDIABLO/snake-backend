@@ -93,6 +93,20 @@ db.exec(`
     PRIMARY KEY (season_id, address)
   );
   CREATE INDEX IF NOT EXISTS idx_season_results_rank ON season_results(season_id, rank);
+  -- Task #22 : NFT trophy drops (ERC-721)
+  CREATE TABLE IF NOT EXISTS nft_drops (
+    season_id   INTEGER NOT NULL,
+    address     TEXT NOT NULL,
+    rank        INTEGER NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'eligible',  -- eligible | minted
+    nonce       TEXT,
+    tx_hash     TEXT,
+    minted_at   INTEGER,
+    created_at  INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+    PRIMARY KEY (season_id, address)
+  );
+  CREATE INDEX IF NOT EXISTS idx_nft_drops_addr ON nft_drops(address);
+  CREATE INDEX IF NOT EXISTS idx_nft_drops_status ON nft_drops(status);
 `);
 
 // Seed initial season if none exists
@@ -118,8 +132,9 @@ if (!hasStreakCol) {
 }
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-const SIGNER_PK        = process.env.SIGNER_PK;
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const SIGNER_PK            = process.env.SIGNER_PK;
+const CONTRACT_ADDRESS     = process.env.CONTRACT_ADDRESS;        // $SNAKE ERC-20
+const NFT_CONTRACT_ADDRESS = process.env.NFT_CONTRACT_ADDRESS;    // SnakeTrophyNFT ERC-721
 const DAILY_LIMIT      = parseFloat(process.env.DAILY_LIMIT || '100');
 const MAX_PER_SESSION  = parseFloat(process.env.MAX_PER_SESSION || '50');
 const PORT             = process.env.PORT || 3000;
@@ -485,6 +500,28 @@ function streakMultiplier(streak) {
   return 1.0;
 }
 
+// ─── NFT TROPHY MULTIPLIER (Task #46) ────────────────────────────────────────
+// Lit le rank le + élevé minté pour ce wallet (toutes saisons confondues, status='minted')
+// → applique le multiplier permanent : Gold +25 / Silver +15 / Bronze +10 / Top10 +5
+// Source de vérité = nft_drops (sync par /api/nft/confirm + cron on-chain scan futur).
+// Stateless DB read → pas d'appel RPC dans le hot-path /api/session/end.
+function getNftTier(addr) {
+  if (!addr) return { tier: null, rank: null, multiplier: 1.0, bonus_pct: 0 };
+  const a = addr.toLowerCase();
+  const row = db.prepare(`
+    SELECT MIN(rank) AS best_rank
+    FROM nft_drops
+    WHERE address = ? AND status = 'minted'
+  `).get(a);
+  const rank = row && row.best_rank != null ? row.best_rank : null;
+  if (rank === null) return { tier: null, rank: null, multiplier: 1.0, bonus_pct: 0 };
+  if (rank === 1) return { tier: 'Gold',   rank, multiplier: 1.25, bonus_pct: 25 };
+  if (rank === 2) return { tier: 'Silver', rank, multiplier: 1.15, bonus_pct: 15 };
+  if (rank === 3) return { tier: 'Bronze', rank, multiplier: 1.10, bonus_pct: 10 };
+  return            { tier: 'Top10',  rank, multiplier: 1.05, bonus_pct: 5  };
+}
+function nftMultiplier(addr) { return getNftTier(addr).multiplier; }
+
 // ─── GOLDEN SNAKE MODE (task #20) ────────────────────────────────────────────
 // Auto-window : samedi 20h UTC → dimanche 20h UTC (24h), x3 rewards.
 // Override manuel via /api/admin/events/golden/toggle.
@@ -674,11 +711,13 @@ app.post('/api/session/end', (req, res) => {
   const newMaxStreak = Math.max(prevMaxStreak, newStreak);
   const multiplier   = streakMultiplier(newStreak);
 
-  // Base reward + streak multiplier + golden snake multiplier (task #20)
+  // Base reward + streak multiplier + golden snake multiplier (task #20) + NFT trophy multiplier (task #46)
   const goldenState = getGoldenState();
   const goldenMult  = goldenState.active ? goldenState.multiplier : 1.0;
+  const nftTier     = getNftTier(addr);
+  const nftMult     = nftTier.multiplier;
   const baseReward  = Math.min(Math.floor(cappedScore / 10), MAX_PER_SESSION);
-  const reward      = Math.min(Math.floor(baseReward * multiplier * goldenMult), MAX_PER_SESSION);
+  const reward      = Math.min(Math.floor(baseReward * multiplier * goldenMult * nftMult), MAX_PER_SESSION);
 
   db.prepare('UPDATE sessions SET score=?, reward=?, validated=1 WHERE id=?')
     .run(cappedScore, reward, sessionId);
@@ -801,6 +840,12 @@ app.post('/api/session/end', (req, res) => {
       multiplier: multiplier,
       milestone:  streakMilestone || null,
     },
+    nft: {
+      tier:       nftTier.tier,        // 'Gold' | 'Silver' | 'Bronze' | 'Top10' | null
+      rank:       nftTier.rank,        // 1..10 ou null
+      multiplier: nftMult,             // 1.0 | 1.05 | 1.10 | 1.15 | 1.25
+      bonus_pct:  nftTier.bonus_pct,   // 0 | 5 | 10 | 15 | 25
+    },
   });
 });
 
@@ -839,11 +884,13 @@ app.post('/api/claim', limiter, async (req, res) => {
   const nonce  = ethers.hexlify(ethers.randomBytes(32));
   const amount = ethers.parseEther(session.reward.toString());
 
-  const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
+  // IMPORTANT: SnakeToken.sol utilise keccak256(abi.encodePacked(...)) → on DOIT matcher
+  // avec solidityPackedKeccak256 (ethers v6). NE PAS utiliser AbiCoder.encode (= abi.encode non-packed).
+  // Packed layout : address(20) + uint256(32) + bytes32(32) + address(20) = 104 bytes
+  const hash = ethers.solidityPackedKeccak256(
     ['address', 'uint256', 'bytes32', 'address'],
     [address, amount, nonce, CONTRACT_ADDRESS]
   );
-  const hash = ethers.keccak256(encoded);
   const sig  = await wallet.signMessage(ethers.getBytes(hash));
 
   db.prepare('INSERT INTO claims (nonce, address, amount) VALUES (?,?,?)')
@@ -919,6 +966,157 @@ app.post('/api/claim', limiter, async (req, res) => {
     sig,
     reward: session.reward,
   });
+});
+
+// ─── NFT TROPHY DROPS (Task #22) ──────────────────────────────────────────────
+// GET /api/nft/eligibility/:address — retourne les trophées mintables pour ce wallet
+app.get('/api/nft/eligibility/:address', (req, res) => {
+  const address = (req.params.address || '').toLowerCase();
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Adresse invalide' });
+  }
+  const drops = db.prepare(`
+    SELECT season_id, rank, status, tx_hash, minted_at
+    FROM nft_drops
+    WHERE address = ?
+    ORDER BY season_id DESC, rank ASC
+  `).all(address);
+
+  const tierOf = (rank) => {
+    if (rank === 1) return 'Gold';
+    if (rank === 2) return 'Silver';
+    if (rank === 3) return 'Bronze';
+    return 'Top10';
+  };
+
+  // Current active multiplier (task #46)
+  const activeTier = getNftTier(address);
+
+  res.json({
+    address,
+    contract: NFT_CONTRACT_ADDRESS || null,
+    mintFee_pol: '10', // affiche 10 POL côté UI (source de vérité = contract.mintFee())
+    active_multiplier: {
+      tier:       activeTier.tier,       // 'Gold' | 'Silver' | 'Bronze' | 'Top10' | null
+      rank:       activeTier.rank,       // 1..10 ou null
+      multiplier: activeTier.multiplier, // 1.0 | 1.05 | 1.10 | 1.15 | 1.25
+      bonus_pct:  activeTier.bonus_pct,  // 0 | 5 | 10 | 15 | 25
+    },
+    drops: drops.map(d => ({
+      season: d.season_id,
+      rank: d.rank,
+      tier: tierOf(d.rank),
+      status: d.status,
+      tx_hash: d.tx_hash,
+      minted_at: d.minted_at ? new Date(d.minted_at * 1000).toISOString() : null,
+    })),
+  });
+});
+
+// GET /api/nft/multiplier/:address — endpoint léger pour UI (badge multiplier en temps réel)
+app.get('/api/nft/multiplier/:address', (req, res) => {
+  const address = (req.params.address || '').toLowerCase();
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Adresse invalide' });
+  }
+  const t = getNftTier(address);
+  res.json({
+    address,
+    tier:       t.tier,
+    rank:       t.rank,
+    multiplier: t.multiplier,
+    bonus_pct:  t.bonus_pct,
+    label:      t.tier ? `${t.tier} +${t.bonus_pct}%` : 'No trophy',
+  });
+});
+
+// POST /api/nft/mint-sig — retourne une signature de mint pour un trophée éligible
+app.post('/api/nft/mint-sig', limiter, async (req, res) => {
+  const { address, season, rank } = req.body || {};
+  if (!address || !ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Adresse invalide' });
+  }
+  if (!Number.isInteger(season) || season < 1) {
+    return res.status(400).json({ error: 'season invalide' });
+  }
+  if (!Number.isInteger(rank) || rank < 1 || rank > 10) {
+    return res.status(400).json({ error: 'rank doit être entre 1 et 10' });
+  }
+  if (!NFT_CONTRACT_ADDRESS) {
+    return res.status(503).json({ error: 'Contrat NFT non configuré' });
+  }
+
+  const addr = address.toLowerCase();
+
+  // Check éligibilité
+  const drop = db.prepare(`
+    SELECT * FROM nft_drops WHERE season_id=? AND address=?
+  `).get(season, addr);
+  if (!drop) {
+    return res.status(403).json({ error: 'Pas éligible pour cette saison' });
+  }
+  if (drop.rank !== rank) {
+    return res.status(403).json({ error: `Rank incorrect (éligible pour #${drop.rank})` });
+  }
+  if (drop.status === 'minted') {
+    return res.status(409).json({ error: 'Trophée déjà minté', tx_hash: drop.tx_hash });
+  }
+
+  // Génère nonce + signature (format: abi.encode(address, season, rank, nonce, contractAddr))
+  const nonce = ethers.hexlify(ethers.randomBytes(32));
+  const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
+    ['address', 'uint256', 'uint256', 'bytes32', 'address'],
+    [address, season, rank, nonce, NFT_CONTRACT_ADDRESS]
+  );
+  const hash = ethers.keccak256(encoded);
+  const sig  = await wallet.signMessage(ethers.getBytes(hash));
+
+  // Stocke nonce pour tracking (optionnel mais pratique)
+  db.prepare(`UPDATE nft_drops SET nonce=? WHERE season_id=? AND address=?`)
+    .run(nonce, season, addr);
+
+  res.json({
+    season,
+    rank,
+    nonce,
+    sig,
+    contract: NFT_CONTRACT_ADDRESS,
+  });
+});
+
+// POST /api/nft/confirm — user report après tx confirmée on-chain (optionnel, sinon cron on-chain scan)
+app.post('/api/nft/confirm', (req, res) => {
+  const { address, season, rank, tx_hash } = req.body || {};
+  if (!address || !ethers.isAddress(address) || !tx_hash || !Number.isInteger(season) || !Number.isInteger(rank)) {
+    return res.status(400).json({ error: 'Paramètres invalides' });
+  }
+  const addr = address.toLowerCase();
+  const now = Math.floor(Date.now() / 1000);
+  const r = db.prepare(`
+    UPDATE nft_drops SET status='minted', tx_hash=?, minted_at=?
+    WHERE season_id=? AND address=? AND rank=?
+  `).run(tx_hash, now, season, addr, rank);
+
+  if (r.changes === 0) {
+    return res.status(404).json({ error: 'Drop introuvable' });
+  }
+
+  // Notify public
+  const tierOf = (rk) => rk === 1 ? 'Gold' : rk === 2 ? 'Silver' : rk === 3 ? 'Bronze' : 'Top10';
+  const tier = tierOf(rank);
+  twitchNotify(`🏆 ${shortAddr(address)} just minted a ${tier} Trophy for Season ${season}! snowdiablo.xyz`);
+  bskyNotify(`🏆 NEW TROPHY MINTED 🐍\n${shortAddr(address)} claimed the ${tier} Trophy from Season ${season} on SnakeCoin P2E.\nhttps://snowdiablo.xyz #SnakeCoin #NFT #Polygon`);
+  publicFeed({
+    embeds: [{
+      title: `🏆 Trophée ${tier} minté · Saison ${season}`,
+      description: `[${shortAddr(address)}](https://polygonscan.com/address/${address}) vient de mint son NFT trophée !\nTX : [voir sur Polygonscan](https://polygonscan.com/tx/${tx_hash})`,
+      color: rank === 1 ? 0xFFD700 : rank === 2 ? 0xC0C0C0 : rank === 3 ? 0xCD7F32 : 0x00ff88,
+      footer: { text: 'SnakeCoin · Trophy Collection' },
+      timestamp: new Date().toISOString(),
+    }],
+  });
+
+  res.json({ ok: true });
 });
 
 // ─── PUBLIC STATS ─────────────────────────────────────────────────────────────
@@ -1153,18 +1351,49 @@ app.post('/api/admin/seasons/close', adminAuth, express.json(), (req, res) => {
       duration_days: Math.floor((now - current.started_at) / 86400),
     };
 
+    // Task #22 : top 10 éligible aux NFT trophées
+    const top10 = snapshot.slice(0, 10);
+
     const closeTxn = db.transaction(() => {
       // Insert snapshot rows
       const ins = db.prepare(`INSERT INTO season_results (season_id, address, rank, best_score, games_played, total_claimed, max_streak) VALUES (?, ?, ?, ?, ?, ?, ?)`);
       snapshot.forEach((r, i) => {
         ins.run(current.id, r.address, i + 1, r.best_score, r.games_played, r.total_claimed, r.max_streak);
       });
+      // Insert NFT drops pour top 10 (status=eligible)
+      const insDrop = db.prepare(`
+        INSERT OR IGNORE INTO nft_drops (season_id, address, rank, status)
+        VALUES (?, ?, ?, 'eligible')
+      `);
+      top10.forEach((r, i) => insDrop.run(current.id, r.address, i + 1));
+
       // Mark season closed + stats
       db.prepare(`UPDATE seasons SET ended_at=?, stats_json=? WHERE id=?`).run(now, JSON.stringify(stats), current.id);
       // Start new season
       db.prepare(`INSERT INTO seasons (name, started_at) VALUES (?, ?)`).run(newName, now);
     });
     closeTxn();
+
+    // ─── NFT DROPS ANNOUNCE (public + social) ─────────────────────────────────
+    if (top10.length > 0 && NFT_CONTRACT_ADDRESS) {
+      const champ = top10[0];
+      twitchNotify(`🏆 SEASON ${current.id} CLOSED! Top 10 can now mint their NFT trophies at snowdiablo.xyz — Champion: ${shortAddr(champ.address)} 🥇`);
+      bskyNotify(`🏆 Season ${current.id} closed on SnakeCoin P2E 🐍\nTop 10 players can now mint their on-chain trophy NFT (Gold/Silver/Bronze/Top10).\n🥇 Champion: ${shortAddr(champ.address)}\nClaim at https://snowdiablo.xyz #SnakeCoin #NFT #Polygon`);
+      publicFeed({
+        content: `🏆 **Season ${current.id} fermée !** Top 10 peut mint son trophée NFT on-chain`,
+        embeds: [{
+          title: `🏆 Saison ${current.id} · Top 10 NFT drops`,
+          description: top10.map((r, i) => {
+            const medals = ['🥇','🥈','🥉'];
+            const prefix = medals[i] || `#${i+1}`;
+            return `${prefix} [${shortAddr(r.address)}](https://polygonscan.com/address/${r.address}) · **${r.best_score}** pts`;
+          }).join('\n'),
+          color: 0xFFD700,
+          footer: { text: `Mint : snowdiablo.xyz · 10 POL / trophée` },
+          timestamp: new Date().toISOString(),
+        }],
+      });
+    }
 
     console.log(`🏆 Season ${current.id} "${current.name}" closed → ${snapshot.length} results archived. New: ${newName}`);
     // Discord staff notification
@@ -1533,7 +1762,8 @@ app.get('/api/admin/stats', adminAuth, (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🐍 SnakeCoin backend running on port ${PORT}`);
-  console.log(`💼 Contract: ${CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ'}`);
+  console.log(`💼 Contract $SNAKE : ${CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ'}`);
+  console.log(`🏆 Contract NFT    : ${NFT_CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ (set NFT_CONTRACT_ADDRESS)'}`);
   if (DISCORD_WEBHOOK)     console.log('🤖 Discord webhook enabled (staff)');
   if (PUBLIC_FEED_WEBHOOK) console.log('📢 Public feed webhook enabled (#snake-feed)');
   if (ADMIN_TOKEN)         console.log('🔐 Admin token configured');

@@ -890,13 +890,15 @@ app.post('/api/claim', limiter, async (req, res) => {
   const nonce  = ethers.hexlify(ethers.randomBytes(32));
   const amount = ethers.parseEther(session.reward.toString());
 
-  // IMPORTANT: SnakeToken.sol utilise keccak256(abi.encodePacked(...)) → on DOIT matcher
-  // avec solidityPackedKeccak256 (ethers v6). NE PAS utiliser AbiCoder.encode (= abi.encode non-packed).
-  // Packed layout : address(20) + uint256(32) + bytes32(32) + address(20) = 104 bytes
-  const hash = ethers.solidityPackedKeccak256(
+  // Le contract DÉPLOYÉ (SnakeToken v.prod) utilise keccak256(abi.encode(...)) NON-packed
+  // (anti-collision hash — voir commentaire "Fix #1" dans le contract source sur Polygonscan).
+  // → DOIT utiliser AbiCoder.defaultAbiCoder().encode (= abi.encode Solidity), PAS solidityPacked.
+  // Layout non-packed : 4 × 32 bytes = 128 bytes (chaque param padded à 32 bytes).
+  const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
     ['address', 'uint256', 'bytes32', 'address'],
     [address, amount, nonce, CONTRACT_ADDRESS]
   );
+  const hash = ethers.keccak256(encoded);
   const sig  = await wallet.signMessage(ethers.getBytes(hash));
 
   db.prepare('INSERT INTO claims (nonce, address, amount) VALUES (?,?,?)')

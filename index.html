@@ -101,6 +101,10 @@
     box-shadow: 0 0 30px #00ff8811;
     display: block;
     max-width: 100%;
+    touch-action: none;              /* empeche scroll/zoom pendant swipe */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;     /* no iOS long-press menu */
   }
   .controls {
     display: flex;
@@ -1027,6 +1031,57 @@ document.addEventListener('keydown', e => {
     case ' ': e.preventDefault(); if(!running) startGame(); break;
   }
 });
+
+// ─── TOUCH / SWIPE CONTROLS (mobile) ─────────────────────────────────────────
+// Swipe natif sur le canvas : haut/bas/gauche/droite
+// Seuil 18px anti-faux-positif, lock scroll page pendant le touch sur canvas
+(function initTouchControls() {
+  let touchStartX = 0, touchStartY = 0, touchStartT = 0;
+  const SWIPE_MIN_DIST = 18;     // px, minimum pour enregistrer un swipe
+  const SWIPE_MAX_TIME = 600;    // ms, au-delà on ignore (tap long != swipe)
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchStartT = Date.now();
+    e.preventDefault(); // bloque le scroll page pendant le jeu
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    // Empeche le scroll vertical de la page pendant le swipe
+    e.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    const dt = Date.now() - touchStartT;
+    if (dt > SWIPE_MAX_TIME) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    const absX = Math.abs(dx), absY = Math.abs(dy);
+
+    // Tap simple (pas de mouvement) sur canvas = start/restart si pas running
+    if (absX < SWIPE_MIN_DIST && absY < SWIPE_MIN_DIST) {
+      if (!running && walletAddress) startGame();
+      return;
+    }
+    // Direction dominante
+    if (absX > absY) {
+      setDir(dx > 0 ? 1 : -1, 0);
+    } else {
+      setDir(0, dy > 0 ? 1 : -1);
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  // Bonus : touch sur les boutons flechés (desktop onclick marche deja,
+  // on assure pas de double-trigger sur mobile)
+  document.querySelectorAll('.arrow-keys button').forEach(btn => {
+    btn.style.touchAction = 'manipulation'; // supprime le delay 300ms mobile
+  });
+})();
 
 // ─── WEB3 / EIP-6963 MULTI-WALLET ───────────────────────────────────────────
 let provider, signer, walletAddress;

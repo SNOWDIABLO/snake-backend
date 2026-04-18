@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SnakeCoin 🐍 - Crypto Snake Game</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+<!-- WalletConnect v2 (mobile wallets: Trust, Phantom, MetaMask Mobile, Rainbow, etc.) -->
+<script src="https://unpkg.com/@walletconnect/ethereum-provider@2.13.3/dist/index.umd.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -741,6 +743,9 @@ function buildLangBar() {
 // ═══════════════════════════════════════════════════
 const BACKEND_URL      = 'https://snake-backend-production-e5e8.up.railway.app';
 const CONTRACT_ADDRESS = '0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1';
+// WalletConnect v2 Project ID — cree un projet gratuit sur https://cloud.reown.com
+// Sans ID, le bouton WalletConnect affichera une erreur explicative
+const WC_PROJECT_ID    = 'REPLACE_WITH_YOUR_REOWN_PROJECT_ID';
 const CONTRACT_ABI = [
   "function claimReward(uint256 amount, bytes32 nonce, bytes calldata sig) external",
   "function balanceOf(address account) view returns (uint256)"
@@ -1104,18 +1109,8 @@ function openWalletPicker() {
   const list = document.getElementById('wallet-list');
   list.innerHTML = '';
 
-  if (discoveredWallets.length === 0) {
-    // Fallback to legacy window.ethereum if no EIP-6963
-    if (window.ethereum) {
-      const btn = document.createElement('div');
-      btn.className = 'wallet-option';
-      btn.innerHTML = '<span style="font-size:1.5rem">🦊</span><span>Wallet injecté</span>';
-      btn.onclick = () => connectWithProvider(window.ethereum, 'Wallet');
-      list.appendChild(btn);
-    } else {
-      list.innerHTML = '<div class="no-wallet">❌ Aucun wallet détecté.<br><br>Installe un wallet : <a href="https://metamask.io" target="_blank">MetaMask</a> · <a href="https://rabby.io" target="_blank">Rabby</a> · <a href="https://www.okx.com/web3" target="_blank">OKX</a></div>';
-    }
-  } else {
+  // 1) Wallets injectés (EIP-6963 = MetaMask, Rabby, OKX, etc. en extension)
+  if (discoveredWallets.length > 0) {
     discoveredWallets.forEach(w => {
       const btn = document.createElement('div');
       btn.className = 'wallet-option';
@@ -1126,9 +1121,72 @@ function openWalletPicker() {
       btn.onclick = () => connectWithProvider(w.provider, w.info.name);
       list.appendChild(btn);
     });
+  } else if (window.ethereum) {
+    // Fallback legacy
+    const btn = document.createElement('div');
+    btn.className = 'wallet-option';
+    btn.innerHTML = '<span style="font-size:1.5rem">🦊</span><span>Wallet injecté</span>';
+    btn.onclick = () => connectWithProvider(window.ethereum, 'Wallet');
+    list.appendChild(btn);
+  }
+
+  // 2) WalletConnect — TOUJOURS visible (mobile + desktop QR)
+  const wcBtn = document.createElement('div');
+  wcBtn.className = 'wallet-option';
+  wcBtn.innerHTML = `
+    <span style="font-size:1.5rem">📱</span>
+    <span>WalletConnect<br><small style="opacity:.6">Trust · Phantom · MetaMask Mobile · Rainbow…</small></span>
+  `;
+  wcBtn.onclick = () => connectWalletConnect();
+  list.appendChild(wcBtn);
+
+  // 3) Aide si vraiment rien de détecté côté injecté
+  if (discoveredWallets.length === 0 && !window.ethereum) {
+    const hint = document.createElement('div');
+    hint.className = 'no-wallet';
+    hint.style.marginTop = '12px';
+    hint.innerHTML = '💡 Pas d\'extension ? Utilise <b>WalletConnect</b> ci-dessus (mobile) ou installe <a href="https://metamask.io" target="_blank">MetaMask</a> · <a href="https://rabby.io" target="_blank">Rabby</a> · <a href="https://www.okx.com/web3" target="_blank">OKX</a>';
+    list.appendChild(hint);
   }
 
   document.getElementById('wallet-modal').classList.add('active');
+}
+
+// ─── WALLETCONNECT v2 ───────────────────────────────────────────────────────
+let wcProvider = null;
+async function connectWalletConnect() {
+  closeWalletPicker();
+  if (!window.EthereumProvider) {
+    setStatus('❌ WalletConnect bundle pas chargé (vérifie ta connexion)');
+    return;
+  }
+  if (!WC_PROJECT_ID || WC_PROJECT_ID === 'REPLACE_WITH_YOUR_REOWN_PROJECT_ID') {
+    setStatus('⚠️ WalletConnect non configuré — admin : crée un projet sur cloud.reown.com');
+    return;
+  }
+  try {
+    setStatus('📱 Ouverture QR WalletConnect...');
+    // Init singleton (évite reconnect-loop si user clique 2x)
+    if (!wcProvider) {
+      wcProvider = await window.EthereumProvider.init({
+        projectId: WC_PROJECT_ID,
+        chains: [137], // Polygon mainnet
+        optionalChains: [137, 1],
+        showQrModal: true,
+        qrModalOptions: { themeMode: 'dark' },
+        metadata: {
+          name: 'SnakeCoin P2E',
+          description: 'Play-to-Earn Snake on Polygon',
+          url: 'https://snowdiablo.xyz',
+          icons: ['https://snowdiablo.xyz/icon.png']
+        }
+      });
+    }
+    await wcProvider.connect(); // ouvre le QR modal / deep-link
+    await connectWithProvider(wcProvider, 'WalletConnect');
+  } catch (e) {
+    setStatus('❌ WalletConnect: ' + (e.message || 'annulé'));
+  }
 }
 
 function closeWalletPicker() {

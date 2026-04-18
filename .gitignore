@@ -1,0 +1,8 @@
+
+# Exports admin (data joueurs, ne JAMAIS commit)
+*.csv
+snake.db
+*.db
+*.db-journal
+*.bak
+

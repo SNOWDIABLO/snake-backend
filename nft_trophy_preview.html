@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>SnakeCoin Trophy — Preview v2 (design pro)</title>
+<style>
+  body {
+    background: radial-gradient(circle at top, #1a0a2a 0%, #000 80%);
+    font-family: 'JetBrains Mono', monospace;
+    color: #fff;
+    margin: 0; padding: 40px;
+    min-height: 100vh;
+  }
+  h1 {
+    color: #ffd700;
+    margin: 0 0 8px 0;
+    text-align: center;
+    font-size: 2rem;
+    text-shadow: 0 0 20px #ffd70055;
+  }
+  .subtitle {
+    color: #888;
+    text-align: center;
+    margin: 0 0 6px 0;
+  }
+  .pricing {
+    text-align: center;
+    color: #4ade80;
+    font-size: 0.9rem;
+    margin-bottom: 30px;
+  }
+  .pricing strong { color: #ffd700; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 30px;
+    margin-top: 40px;
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .trophy-card {
+    background: linear-gradient(180deg, rgba(40,30,60,0.9), rgba(10,10,25,0.95));
+    border: 1px solid #332244;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: transform 0.3s ease;
+  }
+  .trophy-card:hover { transform: translateY(-4px); }
+  .trophy-card h3 {
+    margin: 0 0 16px 0;
+    color: #fff;
+    text-align: center;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+  }
+  .trophy-card svg {
+    background: #000;
+    border-radius: 12px;
+    width: 100%;
+    height: auto;
+    display: block;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.8);
+  }
+  .meta {
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-top: 16px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  .meta .price {
+    display: inline-block;
+    padding: 4px 12px;
+    background: linear-gradient(135deg, #ffd700, #ff9900);
+    color: #000;
+    font-weight: 700;
+    border-radius: 20px;
+    margin: 6px 0;
+  }
+  .meta .util {
+    font-size: 0.75rem;
+    color: #4ade80;
+    margin-top: 6px;
+  }
+</style>
+</head>
+<body>
+<h1>🏆 SnakeCoin Trophy · Design v2</h1>
+<p class="subtitle">Rendu SVG on-chain (porté dans le contract)</p>
+<p class="pricing">
+  Prix fixe en <strong>USD</strong> via oracle Chainlink MATIC/USD ·
+  Gold <strong>25$</strong> · Silver <strong>15$</strong> · Bronze <strong>10$</strong> · Top10 <strong>5$</strong>
+</p>
+
+<div class="grid" id="grid"></div>
+
+<script>
+// Tier config : nom, couleurs iridescentes, glow, prix USD, multiplier in-game
+const TIERS = {
+  gold:   { name: 'Gold',   c1: '#FFD700', c2: '#FFA500', c3: '#B8860B', glow: '#FFD700', priceUsd: 25, mult: 25, ornament: 'crown' },
+  silver: { name: 'Silver', c1: '#F0F0F0', c2: '#B8B8B8', c3: '#808080', glow: '#CCDDFF', priceUsd: 15, mult: 15, ornament: 'stars' },
+  bronze: { name: 'Bronze', c1: '#CD7F32', c2: '#A0522D', c3: '#6B3410', glow: '#CD7F32', priceUsd: 10, mult: 10, ornament: 'laurel' },
+  top10:  { name: 'Top10',  c1: '#00FF88', c2: '#00CC66', c3: '#004422', glow: '#00FF88', priceUsd:  5, mult:  5, ornament: 'flame' },
+};
+
+function tierFor(rank) {
+  if (rank === 1) return { key: 'gold',   ...TIERS.gold };
+  if (rank === 2) return { key: 'silver', ...TIERS.silver };
+  if (rank === 3) return { key: 'bronze', ...TIERS.bronze };
+  return              { key: 'top10',  ...TIERS.top10  };
+}
+
+// Ornement SVG (crown, stars, laurel, flame) dessiné au dessus de la tête
+function buildOrnament(type, color) {
+  if (type === 'crown') {
+    // Couronne royale
+    return `
+      <g transform="translate(175,50)">
+        <path d="M-30,10 L-25,-15 L-15,5 L-8,-20 L0,0 L8,-20 L15,5 L25,-15 L30,10 L25,15 L-25,15 Z"
+              fill="${color}" stroke="#000" stroke-width="1.5"/>
+        <circle cx="-25" cy="-15" r="3" fill="#ff0066"/>
+        <circle cx="-8" cy="-20" r="3" fill="#00ffff"/>
+        <circle cx="0" cy="0" r="3" fill="#ff00ff"/>
+        <circle cx="8" cy="-20" r="3" fill="#ffff00"/>
+        <circle cx="25" cy="-15" r="3" fill="#00ff00"/>
+      </g>`;
+  }
+  if (type === 'stars') {
+    // 3 étoiles
+    const star = (cx, cy, size) => {
+      const pts = [];
+      for (let i = 0; i < 5; i++) {
+        const a = (i * 144 - 90) * Math.PI / 180;
+        pts.push(`${cx + Math.cos(a) * size},${cy + Math.sin(a) * size}`);
+      }
+      return `<polygon points="${pts.join(' ')}" fill="${color}" stroke="#000" stroke-width="1"/>`;
+    };
+    return `
+      <g transform="translate(175,45)">
+        ${star(-30, 0, 10)}
+        ${star(0, -5, 14)}
+        ${star(30, 0, 10)}
+      </g>`;
+  }
+  if (type === 'laurel') {
+    // Couronne de laurier (2 branches)
+    return `
+      <g transform="translate(175,55)">
+        <path d="M-45,10 Q-55,-5 -50,-20 Q-40,-25 -35,-15 Q-30,-5 -35,5 Z" fill="${color}" opacity="0.9"/>
+        <path d="M-35,-5 Q-45,-15 -42,-30 Q-32,-35 -28,-22 Q-23,-12 -30,-5 Z" fill="${color}" opacity="0.8"/>
+        <path d="M-20,-15 Q-30,-22 -27,-35 Q-17,-38 -13,-28 Q-10,-18 -17,-12 Z" fill="${color}" opacity="0.85"/>
+        <path d="M45,10 Q55,-5 50,-20 Q40,-25 35,-15 Q30,-5 35,5 Z" fill="${color}" opacity="0.9"/>
+        <path d="M35,-5 Q45,-15 42,-30 Q32,-35 28,-22 Q23,-12 30,-5 Z" fill="${color}" opacity="0.8"/>
+        <path d="M20,-15 Q30,-22 27,-35 Q17,-38 13,-28 Q10,-18 17,-12 Z" fill="${color}" opacity="0.85"/>
+      </g>`;
+  }
+  if (type === 'flame') {
+    // Flamme verte stylisée
+    return `
+      <g transform="translate(175,45)">
+        <path d="M0,-25 Q-15,-15 -10,5 Q-15,15 0,20 Q15,15 10,5 Q15,-15 0,-25 Z"
+              fill="${color}" stroke="#000" stroke-width="1" opacity="0.95"/>
+        <path d="M0,-15 Q-8,-8 -5,5 Q-8,10 0,12 Q8,10 5,5 Q8,-8 0,-15 Z"
+              fill="#fff" opacity="0.7"/>
+      </g>`;
+  }
+  return '';
+}
+
+function buildSVG(season, rank) {
+  const t = tierFor(rank);
+  const id = `${season}-${rank}-${t.key}`;
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 350" width="350" height="350">
+  <defs>
+    <!-- Iridescent body gradient -->
+    <linearGradient id="body-${id}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="${t.c1}"/>
+      <stop offset="40%"  stop-color="${t.c2}"/>
+      <stop offset="70%"  stop-color="${t.c1}" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="${t.c3}"/>
+    </linearGradient>
+
+    <!-- Radial for head 3D -->
+    <radialGradient id="head-${id}" cx="30%" cy="25%" r="90%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="30%"  stop-color="${t.c1}"/>
+      <stop offset="70%"  stop-color="${t.c2}"/>
+      <stop offset="100%" stop-color="${t.c3}"/>
+    </radialGradient>
+
+    <!-- Cosmic background -->
+    <radialGradient id="bg-${id}" cx="50%" cy="50%" r="70%">
+      <stop offset="0%"   stop-color="#1a0833"/>
+      <stop offset="40%"  stop-color="#0a0a1a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+
+    <!-- Halo glow -->
+    <radialGradient id="halo-${id}" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="${t.glow}" stop-opacity="0.6"/>
+      <stop offset="60%" stop-color="${t.glow}" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="${t.glow}" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow-${id}" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Scale pattern -->
+    <pattern id="scales-${id}" width="12" height="12" patternUnits="userSpaceOnUse">
+      <circle cx="6" cy="6" r="5" fill="none" stroke="${t.c3}" stroke-width="0.8" opacity="0.45"/>
+      <circle cx="0" cy="0" r="5" fill="none" stroke="${t.c3}" stroke-width="0.8" opacity="0.45"/>
+      <circle cx="12" cy="12" r="5" fill="none" stroke="${t.c3}" stroke-width="0.8" opacity="0.45"/>
+    </pattern>
+  </defs>
+
+  <!-- Background cosmic -->
+  <rect width="350" height="350" fill="url(#bg-${id})"/>
+
+  <!-- Stars -->
+  <g fill="#fff" opacity="0.7">
+    <circle cx="30" cy="40" r="1"/>
+    <circle cx="320" cy="70" r="1.5"/>
+    <circle cx="50" cy="280" r="1"/>
+    <circle cx="310" cy="310" r="1.2"/>
+    <circle cx="270" cy="30" r="0.8"/>
+    <circle cx="40" cy="200" r="0.8"/>
+    <circle cx="330" cy="210" r="0.9"/>
+    <circle cx="180" cy="25" r="0.6"/>
+    <circle cx="25" cy="330" r="1.1"/>
+    <circle cx="295" cy="150" r="0.7"/>
+  </g>
+
+  <!-- Halo aura behind snake -->
+  <circle cx="175" cy="170" r="130" fill="url(#halo-${id})"/>
+
+  <!-- Ornament above (crown/stars/laurel/flame) -->
+  ${buildOrnament(t.ornament, t.c1)}
+
+  <!-- Snake body coiled (infinity-like path) -->
+  <g filter="url(#glow-${id})">
+    <!-- Outer coil -->
+    <path d="M 175 90
+             C 90 90, 70 160, 135 180
+             C 200 200, 280 170, 275 110
+             C 270 70, 210 60, 175 90 Z"
+          fill="url(#body-${id})" stroke="#000" stroke-width="2.5"/>
+    <path d="M 175 90
+             C 90 90, 70 160, 135 180
+             C 200 200, 280 170, 275 110
+             C 270 70, 210 60, 175 90 Z"
+          fill="url(#scales-${id})" opacity="0.8"/>
+
+    <!-- Lower coil -->
+    <path d="M 135 180
+             C 70 200, 70 270, 175 275
+             C 275 280, 280 210, 215 195
+             C 195 190, 150 200, 135 180 Z"
+          fill="url(#body-${id})" stroke="#000" stroke-width="2.5" opacity="0.95"/>
+    <path d="M 135 180
+             C 70 200, 70 270, 175 275
+             C 275 280, 280 210, 215 195
+             C 195 190, 150 200, 135 180 Z"
+          fill="url(#scales-${id})" opacity="0.7"/>
+  </g>
+
+  <!-- Snake head on top of coils -->
+  <g transform="translate(185,100)">
+    <!-- Head shape -->
+    <path d="M -38 0 Q -42 -28 -5 -32 Q 35 -30 38 -5 Q 40 20 15 28 Q -15 30 -32 20 Q -42 12 -38 0 Z"
+          fill="url(#head-${id})" stroke="#000" stroke-width="2"/>
+    <!-- Scales overlay on head -->
+    <path d="M -38 0 Q -42 -28 -5 -32 Q 35 -30 38 -5 Q 40 20 15 28 Q -15 30 -32 20 Q -42 12 -38 0 Z"
+          fill="url(#scales-${id})" opacity="0.6"/>
+    <!-- Specular highlight -->
+    <ellipse cx="-15" cy="-18" rx="12" ry="6" fill="#fff" opacity="0.5"/>
+    <!-- Eyes (glowing) -->
+    <circle cx="-18" cy="-8" r="7" fill="#000"/>
+    <circle cx="18" cy="-8" r="7" fill="#000"/>
+    <circle cx="-18" cy="-8" r="5" fill="${t.glow}"/>
+    <circle cx="18" cy="-8" r="5" fill="${t.glow}"/>
+    <circle cx="-18" cy="-8" r="2.5" fill="#000"/>
+    <circle cx="18" cy="-8" r="2.5" fill="#000"/>
+    <!-- Eye shine -->
+    <circle cx="-16" cy="-10" r="1" fill="#fff"/>
+    <circle cx="20" cy="-10" r="1" fill="#fff"/>
+    <!-- Fangs -->
+    <polygon points="-10,15 -7,28 -4,15" fill="#fff" stroke="#000" stroke-width="0.5"/>
+    <polygon points="4,15 7,28 10,15" fill="#fff" stroke="#000" stroke-width="0.5"/>
+    <!-- Tongue (forked, red) -->
+    <path d="M -2 26 L 0 42 L 2 26 Z" fill="#ff0055" stroke="#880022" stroke-width="0.5"/>
+    <path d="M -5 40 L 0 42 L -2 46 M 5 40 L 0 42 L 2 46" stroke="#ff0055" stroke-width="2" fill="none"/>
+    <!-- Nostrils -->
+    <ellipse cx="-3" cy="-25" rx="1" ry="2" fill="#000"/>
+    <ellipse cx="3" cy="-25" rx="1" ry="2" fill="#000"/>
+  </g>
+
+  <!-- Central medallion with rank -->
+  <g transform="translate(175,200)">
+    <circle cx="0" cy="0" r="32" fill="#000" stroke="url(#body-${id})" stroke-width="3"/>
+    <text x="0" y="14" text-anchor="middle" font-family="serif" font-weight="900"
+          font-size="42" fill="url(#body-${id})" stroke="#000" stroke-width="0.5">#${rank}</text>
+  </g>
+
+  <!-- Tier label banner -->
+  <g transform="translate(175,295)">
+    <rect x="-90" y="-14" width="180" height="28" rx="14" ry="14"
+          fill="#000" stroke="${t.c1}" stroke-width="1.5" opacity="0.85"/>
+    <text x="0" y="5" text-anchor="middle" font-family="monospace" font-weight="bold"
+          font-size="16" fill="${t.c1}" letter-spacing="2">${t.name.toUpperCase()} TROPHY</text>
+  </g>
+
+  <!-- Season -->
+  <text x="175" y="328" text-anchor="middle" font-family="monospace"
+        font-size="13" fill="#888" letter-spacing="3">SEASON ${season}</text>
+
+  <!-- Footer -->
+  <text x="175" y="343" text-anchor="middle" font-family="monospace"
+        font-size="9" fill="#00ff88" letter-spacing="1">snowdiablo.xyz</text>
+</svg>
+  `;
+}
+
+const grid = document.getElementById('grid');
+const examples = [
+  { season: 1, rank: 1 },
+  { season: 1, rank: 2 },
+  { season: 1, rank: 3 },
+  { season: 1, rank: 4 },
+  { season: 1, rank: 7 },
+  { season: 5, rank: 1 },
+];
+examples.forEach(({season, rank}) => {
+  const t = tierFor(rank);
+  const card = document.createElement('div');
+  card.className = 'trophy-card';
+  card.innerHTML = `
+    <h3>Saison ${season} · Rank #${rank}</h3>
+    ${buildSVG(season, rank)}
+    <div class="meta">
+      <div class="price">${t.priceUsd} $ USD</div><br>
+      <strong>${t.name}</strong> Trophy · tokenId ${season * 1000 + rank}<br>
+      <div class="util">⚡ +${t.mult}% multiplier permanent $SNAKE · skin in-game</div>
+    </div>
+  `;
+  grid.appendChild(card);
+});
+</script>
+</body>
+</html>

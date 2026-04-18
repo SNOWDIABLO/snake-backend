@@ -1,0 +1,33 @@
+{
+  "name": "SnakeCoin Trophy S9 #3",
+  "description": "Top 3 Bronze trophy — the rising threat of Season 9 on SnakeCoin P2E. Grants permanent $SNAKE claim multiplier and in-game cosmic skin. Earn yours at snowdiablo.xyz",
+  "image": "ipfs://bafkreid4iii6xivnzjoowiqlr3y3b53trifammfdwf6tsmyxceino7iy6y",
+  "external_url": "https://snowdiablo.xyz",
+  "background_color": "0A0A1A",
+  "attributes": [
+    {
+      "trait_type": "Season",
+      "value": 9
+    },
+    {
+      "trait_type": "Rank",
+      "value": 3
+    },
+    {
+      "trait_type": "Tier",
+      "value": "Bronze"
+    },
+    {
+      "trait_type": "Multiplier",
+      "value": "+10%"
+    },
+    {
+      "trait_type": "Game",
+      "value": "SnakeCoin P2E"
+    },
+    {
+      "trait_type": "Chain",
+      "value": "Polygon"
+    }
+  ]
+}

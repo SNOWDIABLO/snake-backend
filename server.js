@@ -9,6 +9,12 @@ const path       = require('path');
 
 const app = express();
 
+// Railway / Heroku / Cloudflare → 1 reverse proxy devant l'app.
+// Sans ça, express-rate-limit throw ValidationError ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// et le process crash à chaque requête rate-limitée.
+// "1" = trust le 1er proxy (Railway). Ne PAS mettre "true" en prod (IP spoofable).
+app.set('trust proxy', 1);
+
 // ─── DB PATH (persistent volume aware) ────────────────────────────────────────
 const DB_PATH = process.env.DB_PATH || 'snake.db';
 const DB_DIR  = path.dirname(DB_PATH);

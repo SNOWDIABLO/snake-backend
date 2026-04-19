@@ -39,3 +39,14 @@ npm-debug.log*
 .idea/
 *.swp
 *.swo
+
+# Admin / runbook / secrets — NEVER push
+ADMIN_RUNBOOK.md
+RUNBOOK*.md
+*.runbook
+.env*
+*.kdbx
+secrets/
+ssh-keys/
+snake.db*
+backup/

@@ -506,6 +506,54 @@
     0%   { left: -100%; }
     100% { left: 100%;  }
   }
+
+  /* Task #73 — Accordion collapsible panels (Pseudo / Quêtes / Trophées) */
+  .panel-collapsible { cursor: default; }
+  .panel-collapsible .panel-toggle {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+  }
+  .panel-collapsible .panel-toggle:hover .title { filter: brightness(1.15); }
+  .panel-collapsible .panel-toggle::after {
+    content: '▸';
+    display: inline-block;
+    color: #888;
+    font-size: 0.85rem;
+    transition: transform 0.25s ease;
+    margin-left: 6px;
+    transform: rotate(0deg);
+  }
+  .panel-collapsible.expanded .panel-toggle::after {
+    transform: rotate(90deg);
+    color: #00ff88;
+  }
+  .panel-collapsible .panel-body {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.35s ease, opacity 0.25s ease, margin-top 0.25s ease;
+    margin-top: 0;
+  }
+  .panel-collapsible.expanded .panel-body {
+    max-height: 800px;
+    opacity: 1;
+    margin-top: 10px;
+  }
+  /* Hint visuel "clique pour ouvrir" sous le header quand collapsed */
+  .panel-collapsible:not(.expanded) .panel-toggle .meta {
+    opacity: 0.75;
+  }
+  /* Compactage : les 3 panneaux collés avec marge réduite */
+  .username-box,
+  .quests-box,
+  .trophies-box {
+    margin-top: 8px;
+  }
 </style>
 </head>
 <body>
@@ -551,21 +599,23 @@
   <div id="wallet-address" data-i18n="not_connected">Non connecté</div>
 </div>
 
-<!-- Task #68 Username / Pseudo -->
-<div class="username-box" id="username-box" style="display:none">
-  <div class="username-header">
+<!-- Task #68 Username / Pseudo — Task #73 collapsible -->
+<div class="username-box panel-collapsible" id="username-box" style="display:none">
+  <div class="username-header panel-toggle" onclick="togglePanel('username-box')">
     <span class="title">👤 <span data-i18n="username_title">Pseudo</span></span>
     <span class="meta" id="username-current">—</span>
   </div>
-  <div class="username-body">
-    <input id="username-input" maxlength="16" autocomplete="off" spellcheck="false" placeholder="snowdiablo_42" />
-    <button id="username-save-btn" onclick="saveUsername()" data-i18n="username_save">Enregistrer</button>
+  <div class="panel-body">
+    <div class="username-body">
+      <input id="username-input" maxlength="16" autocomplete="off" spellcheck="false" placeholder="snowdiablo_42" />
+      <button id="username-save-btn" onclick="saveUsername()" data-i18n="username_save">Enregistrer</button>
+    </div>
+    <div id="username-hint" class="username-hint" data-i18n="username_hint">3-16 caractères · lettres/chiffres/_/- · 1 changement gratuit par mois</div>
+    <div id="username-status" class="username-status"></div>
+    <button id="username-paid-btn" class="username-paid-btn" onclick="openUsernamePaidModal()" style="display:none">
+      🔥 <span data-i18n="username_paid_btn">Changer maintenant (burn 1000 $SNAKE)</span>
+    </button>
   </div>
-  <div id="username-hint" class="username-hint" data-i18n="username_hint">3-16 caractères · lettres/chiffres/_/- · 1 changement gratuit par mois</div>
-  <div id="username-status" class="username-status"></div>
-  <button id="username-paid-btn" class="username-paid-btn" onclick="openUsernamePaidModal()" style="display:none">
-    🔥 <span data-i18n="username_paid_btn">Changer maintenant (burn 1000 $SNAKE)</span>
-  </button>
 </div>
 
 <!-- Modal burn username -->
@@ -589,23 +639,27 @@
   <div class="countdown" id="golden-countdown">—</div>
 </div>
 
-<!-- Task #19 Daily Quests -->
-<div class="quests-box" id="quests-box" style="display:none">
-  <div class="quests-header">
-    <span class="title">🎯 Quêtes du jour</span>
+<!-- Task #19 Daily Quests — Task #73 collapsible -->
+<div class="quests-box panel-collapsible" id="quests-box" style="display:none">
+  <div class="quests-header panel-toggle" onclick="togglePanel('quests-box')">
+    <span class="title">🎯 <span data-i18n="quests_title">Quêtes du jour</span></span>
     <span class="meta" id="quests-meta">—</span>
   </div>
-  <div id="quests-list"></div>
-  <div id="quests-alldone" class="quests-allDone" style="display:none">🎉 Toutes les quêtes complétées !</div>
+  <div class="panel-body">
+    <div id="quests-list"></div>
+    <div id="quests-alldone" class="quests-allDone" style="display:none">🎉 <span data-i18n="quests_all_done">Toutes les quêtes complétées !</span></div>
+  </div>
 </div>
 
-<!-- Task #22 NFT Trophées -->
-<div class="trophies-box" id="trophies-box" style="display:none">
-  <div class="trophies-header">
-    <span class="title">🏆 Mes Trophées NFT</span>
-    <span class="meta" style="font-size:0.7rem;color:#888">On-chain · Polygon</span>
+<!-- Task #22 NFT Trophées — Task #73 collapsible -->
+<div class="trophies-box panel-collapsible" id="trophies-box" style="display:none">
+  <div class="trophies-header panel-toggle" onclick="togglePanel('trophies-box')">
+    <span class="title">🏆 <span data-i18n="trophies_title">Mes Trophées NFT</span></span>
+    <span class="meta" id="trophies-meta" style="font-size:0.7rem;color:#888">—</span>
   </div>
-  <div id="trophies-list"></div>
+  <div class="panel-body">
+    <div id="trophies-list"></div>
+  </div>
 </div>
 
 <!-- Wallet picker modal -->
@@ -953,6 +1007,7 @@ const USERNAME_I18N = {
     username_burn_verify:'Vérification serveur', username_format_ok:'format valide',
     burn_not_found:'Burn non trouvé on-chain',
     tx_not_found:'Transaction introuvable', tx_already_used:'Transaction déjà utilisée',
+    quests_title:'Quêtes du jour', quests_all_done:'Toutes les quêtes complétées !', trophies_title:'Mes Trophées NFT',
   },
   en: {
     username_title:'Username', username_save:'Save', username_change:'Change',
@@ -976,6 +1031,7 @@ const USERNAME_I18N = {
     username_burn_verify:'Server verification', username_format_ok:'valid format',
     burn_not_found:'Burn not found on-chain',
     tx_not_found:'Transaction not found', tx_already_used:'Transaction already used',
+    quests_title:'Daily Quests', quests_all_done:'All quests completed!', trophies_title:'My NFT Trophies',
   },
   es: {
     username_title:'Nombre', username_save:'Guardar', username_change:'Cambiar',
@@ -999,6 +1055,7 @@ const USERNAME_I18N = {
     username_burn_verify:'Verificación servidor', username_format_ok:'formato válido',
     burn_not_found:'Burn no encontrado', tx_not_found:'Transacción no encontrada',
     tx_already_used:'Transacción ya usada',
+    quests_title:'Misiones del día', quests_all_done:'¡Todas las misiones completadas!', trophies_title:'Mis Trofeos NFT',
   },
   pt: {
     username_title:'Nome', username_save:'Salvar', username_change:'Trocar',
@@ -1022,6 +1079,7 @@ const USERNAME_I18N = {
     username_burn_verify:'Verificação servidor', username_format_ok:'formato válido',
     burn_not_found:'Burn não encontrado', tx_not_found:'Transação não encontrada',
     tx_already_used:'Transação já usada',
+    quests_title:'Missões diárias', quests_all_done:'Todas as missões concluídas!', trophies_title:'Meus Troféus NFT',
   },
   de: {
     username_title:'Nutzername', username_save:'Speichern', username_change:'Ändern',
@@ -1045,6 +1103,7 @@ const USERNAME_I18N = {
     username_burn_verify:'Server-Verifizierung', username_format_ok:'gültiges Format',
     burn_not_found:'Burn nicht gefunden', tx_not_found:'Transaktion nicht gefunden',
     tx_already_used:'Transaktion bereits verwendet',
+    quests_title:'Tägliche Aufgaben', quests_all_done:'Alle Aufgaben erledigt!', trophies_title:'Meine NFT-Trophäen',
   },
   it: {
     username_title:'Nome', username_save:'Salva', username_change:'Cambia',
@@ -1068,6 +1127,7 @@ const USERNAME_I18N = {
     username_burn_verify:'Verifica server', username_format_ok:'formato valido',
     burn_not_found:'Burn non trovato', tx_not_found:'Transazione non trovata',
     tx_already_used:'Transazione già usata',
+    quests_title:'Missioni giornaliere', quests_all_done:'Tutte le missioni completate!', trophies_title:'I miei Trofei NFT',
   },
   ru: {
     username_title:'Ник', username_save:'Сохранить', username_change:'Сменить',
@@ -1091,6 +1151,7 @@ const USERNAME_I18N = {
     username_burn_verify:'Проверка сервера', username_format_ok:'формат верный',
     burn_not_found:'Burn не найден', tx_not_found:'Транзакция не найдена',
     tx_already_used:'Транзакция уже использована',
+    quests_title:'Ежедневные задания', quests_all_done:'Все задания выполнены!', trophies_title:'Мои NFT трофеи',
   },
   zh: {
     username_title:'昵称', username_save:'保存', username_change:'更改',
@@ -1114,6 +1175,7 @@ const USERNAME_I18N = {
     username_burn_verify:'服务器验证', username_format_ok:'格式正确',
     burn_not_found:'未找到销毁', tx_not_found:'交易未找到',
     tx_already_used:'交易已使用',
+    quests_title:'每日任务', quests_all_done:'所有任务已完成！', trophies_title:'我的 NFT 奖杯',
   },
   ja: {
     username_title:'ユーザー名', username_save:'保存', username_change:'変更',
@@ -1137,6 +1199,7 @@ const USERNAME_I18N = {
     username_burn_verify:'サーバー検証', username_format_ok:'有効な形式',
     burn_not_found:'バーン未確認', tx_not_found:'トランザクション未検出',
     tx_already_used:'トランザクション使用済み',
+    quests_title:'デイリークエスト', quests_all_done:'すべてのクエスト完了！', trophies_title:'私のNFTトロフィー',
   },
   ko: {
     username_title:'닉네임', username_save:'저장', username_change:'변경',
@@ -1160,6 +1223,7 @@ const USERNAME_I18N = {
     username_burn_verify:'서버 검증', username_format_ok:'유효한 형식',
     burn_not_found:'소각 미확인', tx_not_found:'거래 찾을 수 없음',
     tx_already_used:'거래 사용됨',
+    quests_title:'일일 퀘스트', quests_all_done:'모든 퀘스트 완료!', trophies_title:'내 NFT 트로피',
   },
   ar: {
     username_title:'الاسم المستعار', username_save:'حفظ', username_change:'تغيير',
@@ -1183,6 +1247,7 @@ const USERNAME_I18N = {
     username_burn_verify:'التحقق من الخادم', username_format_ok:'تنسيق صحيح',
     burn_not_found:'الحرق غير موجود', tx_not_found:'المعاملة غير موجودة',
     tx_already_used:'المعاملة مستخدمة',
+    quests_title:'المهام اليومية', quests_all_done:'اكتملت جميع المهام!', trophies_title:'جوائزي NFT',
   },
   tr: {
     username_title:'Kullanıcı Adı', username_save:'Kaydet', username_change:'Değiştir',
@@ -1206,6 +1271,7 @@ const USERNAME_I18N = {
     username_burn_verify:'Sunucu doğrulama', username_format_ok:'geçerli format',
     burn_not_found:'Yakma bulunamadı', tx_not_found:'İşlem bulunamadı',
     tx_already_used:'İşlem kullanılmış',
+    quests_title:'Günlük Görevler', quests_all_done:'Tüm görevler tamamlandı!', trophies_title:'NFT Kupalarım',
   },
 };
 // Merge into LANGS[lang].t
@@ -1527,6 +1593,27 @@ function renderNftMultiplier(d) {
   box.title = '🏆 ' + d.tier + ' NFT actif · +' + d.bonus_pct + '% permanent sur toutes tes rewards $SNAKE (rank ' + d.rank + ')';
 }
 
+// ─── ACCORDION COLLAPSIBLE PANELS (Task #73) ───────────────────────────────
+// Un seul panel ouvert à la fois pour UI clean.
+function togglePanel(panelId) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  const isOpen = panel.classList.contains('expanded');
+  // Ferme tous les autres panels collapsibles
+  document.querySelectorAll('.panel-collapsible.expanded').forEach(p => {
+    if (p.id !== panelId) p.classList.remove('expanded');
+  });
+  panel.classList.toggle('expanded', !isOpen);
+}
+function openPanel(panelId) {
+  const p = document.getElementById(panelId);
+  if (p && !p.classList.contains('expanded')) togglePanel(panelId);
+}
+function closePanel(panelId) {
+  const p = document.getElementById(panelId);
+  if (p) p.classList.remove('expanded');
+}
+
 // ─── USERNAME / PSEUDO (Task #68) ───────────────────────────────────────────
 let _usernameCache = null;
 let _usernameCheckTimer = null;
@@ -1578,6 +1665,8 @@ function renderUsername(d) {
     paidBtn.style.display = 'none';
     input.value = '';
     if (hint) hint.textContent = t('username_hint') || '3-16 caractères · lettres/chiffres/_/-';
+    // Auto-expand onboarding si pas de pseudo set
+    openPanel('username-box');
   }
 }
 
@@ -1735,11 +1824,19 @@ async function loadTrophies() {
 function renderTrophies(d) {
   const box = document.getElementById('trophies-box');
   const list = document.getElementById('trophies-list');
+  const meta = document.getElementById('trophies-meta');
   if (!box || !d || !Array.isArray(d.drops) || d.drops.length === 0) {
     if (box) box.style.display = 'none';
     return;
   }
   box.style.display = '';
+  if (meta) {
+    const minted = d.drops.filter(t => t.status === 'minted').length;
+    const pending = d.drops.length - minted;
+    meta.textContent = pending > 0
+      ? `${pending} à mint · ${minted} minté${minted > 1 ? 's' : ''}`
+      : `${minted} trophée${minted > 1 ? 's' : ''} minté${minted > 1 ? 's' : ''}`;
+  }
   list.innerHTML = d.drops.map(t => {
     const tierClass = t.tier.toLowerCase(); // gold | silver | bronze | top10
     const rankDisplay = t.rank === 1 ? '🥇' : t.rank === 2 ? '🥈' : t.rank === 3 ? '🥉' : '#' + t.rank;

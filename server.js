@@ -162,6 +162,57 @@ function adminAuth(req, res, next) {
   next();
 }
 
+// ─── WALLET PROOF (EIP-191) — task #56 hardening ─────────────────────────────
+// Force le caller à prouver ownership du wallet via signMessage avant actions sensibles
+// (/api/claim, /api/nft/mint-sig). Défense contre griefing (attacker force claim
+// pour wallet victime) et MITM frontend.
+// REQUIRE_WALLET_PROOF=1 pour enforce, sinon warn-only (rollout progressif).
+const REQUIRE_WALLET_PROOF  = process.env.REQUIRE_WALLET_PROOF === '1';
+const PROOF_MAX_AGE_SEC     = parseInt(process.env.PROOF_MAX_AGE_SEC || '300', 10); // 5 min window
+const seenProofNonces       = new Map(); // nonce -> timestamp expiry (anti-replay)
+// GC toutes les 10 min des nonces expirés
+setInterval(() => {
+  const now = Date.now();
+  for (const [n, exp] of seenProofNonces) if (exp < now) seenProofNonces.delete(n);
+}, 10 * 60 * 1000).unref?.();
+
+function buildProofMessage(action, address, ts, nonce) {
+  return `SnakeCoin ${action}\nAddress: ${address.toLowerCase()}\nTimestamp: ${ts}\nNonce: ${nonce}`;
+}
+/**
+ * Verify EIP-191 signature for ownership proof.
+ * @param {string} action     - 'Claim' | 'MintTrophy' | 'LinkDiscord'
+ * @param {string} address    - wallet claimed by caller
+ * @param {object} proof      - { ts: number, nonce: string, signature: string }
+ * @returns {{ok: boolean, error?: string}}
+ */
+function verifyWalletProof(action, address, proof) {
+  if (!proof || typeof proof !== 'object') return { ok: false, error: 'Proof manquante' };
+  const { ts, nonce, signature } = proof;
+  if (!Number.isInteger(ts))   return { ok: false, error: 'Proof.ts invalide' };
+  if (!nonce || typeof nonce !== 'string' || nonce.length < 8) return { ok: false, error: 'Proof.nonce invalide' };
+  if (!signature || typeof signature !== 'string') return { ok: false, error: 'Proof.signature manquante' };
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSec - ts) > PROOF_MAX_AGE_SEC) {
+    return { ok: false, error: `Proof expirée (max ${PROOF_MAX_AGE_SEC}s)` };
+  }
+  // Anti-replay : nonce unique (TTL = 2× window)
+  if (seenProofNonces.has(nonce)) return { ok: false, error: 'Proof déjà utilisée (replay)' };
+
+  let recovered;
+  try {
+    recovered = ethers.verifyMessage(buildProofMessage(action, address, ts, nonce), signature);
+  } catch (e) {
+    return { ok: false, error: 'Signature invalide (format)' };
+  }
+  if (recovered.toLowerCase() !== address.toLowerCase()) {
+    return { ok: false, error: 'Signature ne correspond pas à cette adresse' };
+  }
+  seenProofNonces.set(nonce, Date.now() + PROOF_MAX_AGE_SEC * 2000);
+  return { ok: true };
+}
+
 if (!SIGNER_PK) { console.error('❌ SIGNER_PK manquant dans .env'); process.exit(1); }
 
 const wallet = new ethers.Wallet(SIGNER_PK);
@@ -617,10 +668,48 @@ const limiter = rateLimit({
   message: { error: 'Trop de requêtes. Réessaie dans une heure.' }
 });
 
+// Limiter public pour endpoints GET lourds (lecture DB) — 60 req/min/IP
+// Évite scraping abusif de /api/nft/eligibility & /api/nft/multiplier
+const publicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de requêtes (60/min).' }
+});
+
+// Limiter spécifique pour les endpoints "challenge" (préparation proof)
+const proofLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: 'Trop de demandes de challenge.' }
+});
+
 // ─── ROUTES ───────────────────────────────────────────────────────────────────
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', signer: wallet.address });
+});
+
+// ─── WALLET PROOF CHALLENGE (task #56) ────────────────────────────────────────
+// Retourne un message déterministe à signer côté wallet pour prouver ownership.
+// Le client appelle /api/proof/challenge?action=Claim&address=0x...
+// → signe message côté wallet → renvoie { ts, nonce, signature } dans payload
+// des routes protégées (/api/claim, /api/nft/mint-sig).
+app.get('/api/proof/challenge', proofLimiter, (req, res) => {
+  const action  = String(req.query.action || '').replace(/[^A-Za-z]/g, '').slice(0, 32);
+  const address = String(req.query.address || '');
+  const ALLOWED = new Set(['Claim', 'MintTrophy', 'LinkDiscord']);
+  if (!ALLOWED.has(action)) {
+    return res.status(400).json({ error: 'action invalide (Claim|MintTrophy|LinkDiscord)' });
+  }
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Adresse invalide' });
+  }
+  const ts    = Math.floor(Date.now() / 1000);
+  const nonce = ethers.hexlify(ethers.randomBytes(12)); // 24 hex chars
+  const message = buildProofMessage(action, address, ts, nonce);
+  res.json({ action, address: address.toLowerCase(), ts, nonce, message, max_age_sec: PROOF_MAX_AGE_SEC });
 });
 
 app.post('/api/session/start', (req, res) => {
@@ -667,7 +756,7 @@ app.post('/api/session/end', (req, res) => {
   // Trop rapide = bot
   if (cappedScore > 0 && duration < MIN_SESSION_SEC) {
     db.prepare('UPDATE sessions SET validated=1, score=0, reward=0 WHERE id=?').run(sessionId);
-    console.warn(`[CHEAT] ${session.address} score=${cappedScore} duration=${duration}s`);
+    console.warn(`[CHEAT] ${shortAddr(session.address)} score=${cappedScore} duration=${duration}s`);
     discordNotify({
       title: '🚨 Anti-cheat trigger',
       color: 0xff3333,
@@ -685,7 +774,7 @@ app.post('/api/session/end', (req, res) => {
   // Trop de points/seconde = speed hack
   if (ratio > MAX_PTS_PER_SEC) {
     db.prepare('UPDATE sessions SET validated=1, score=0, reward=0 WHERE id=?').run(sessionId);
-    console.warn(`[CHEAT] ${session.address} ratio=${ratio.toFixed(2)} pts/sec`);
+    console.warn(`[CHEAT] ${shortAddr(session.address)} ratio=${ratio.toFixed(2)} pts/sec`);
     discordNotify({
       title: '🚨 Anti-cheat trigger',
       color: 0xff3333,
@@ -856,13 +945,28 @@ app.post('/api/session/end', (req, res) => {
 });
 
 app.post('/api/claim', limiter, async (req, res) => {
-  const { address, sessionId } = req.body;
+  const { address, sessionId, proof } = req.body;
 
   if (!address || !ethers.isAddress(address)) {
     return res.status(400).json({ error: 'Adresse invalide' });
   }
   if (!CONTRACT_ADDRESS) {
     return res.status(503).json({ error: 'Contrat non configuré' });
+  }
+
+  // ─── EIP-191 ownership proof (task #56) ─────────────────────────────────
+  // En mode enforce : rejet si proof absente/invalide.
+  // En mode warn : log si absente (permet rollout progressif sans breaking).
+  if (proof || REQUIRE_WALLET_PROOF) {
+    const v = verifyWalletProof('Claim', address, proof);
+    if (!v.ok) {
+      if (REQUIRE_WALLET_PROOF) {
+        return res.status(401).json({ error: `Proof wallet : ${v.error}` });
+      }
+      console.warn(`[CLAIM] proof invalide pour ${shortAddr(address)} : ${v.error}`);
+    }
+  } else {
+    console.warn(`[CLAIM] ${shortAddr(address)} sans proof EIP-191 (legacy path)`);
   }
 
   const addr = address.toLowerCase();
@@ -978,7 +1082,7 @@ app.post('/api/claim', limiter, async (req, res) => {
 
 // ─── NFT TROPHY DROPS (Task #22) ──────────────────────────────────────────────
 // GET /api/nft/eligibility/:address — retourne les trophées mintables pour ce wallet
-app.get('/api/nft/eligibility/:address', (req, res) => {
+app.get('/api/nft/eligibility/:address', publicLimiter, (req, res) => {
   const address = (req.params.address || '').toLowerCase();
   if (!ethers.isAddress(address)) {
     return res.status(400).json({ error: 'Adresse invalide' });
@@ -1022,7 +1126,7 @@ app.get('/api/nft/eligibility/:address', (req, res) => {
 });
 
 // GET /api/nft/multiplier/:address — endpoint léger pour UI (badge multiplier en temps réel)
-app.get('/api/nft/multiplier/:address', (req, res) => {
+app.get('/api/nft/multiplier/:address', publicLimiter, (req, res) => {
   const address = (req.params.address || '').toLowerCase();
   if (!ethers.isAddress(address)) {
     return res.status(400).json({ error: 'Adresse invalide' });
@@ -1040,7 +1144,7 @@ app.get('/api/nft/multiplier/:address', (req, res) => {
 
 // POST /api/nft/mint-sig — retourne une signature de mint pour un trophée éligible
 app.post('/api/nft/mint-sig', limiter, async (req, res) => {
-  const { address, season, rank } = req.body || {};
+  const { address, season, rank, proof } = req.body || {};
   if (!address || !ethers.isAddress(address)) {
     return res.status(400).json({ error: 'Adresse invalide' });
   }
@@ -1052,6 +1156,19 @@ app.post('/api/nft/mint-sig', limiter, async (req, res) => {
   }
   if (!NFT_CONTRACT_ADDRESS) {
     return res.status(503).json({ error: 'Contrat NFT non configuré' });
+  }
+
+  // ─── EIP-191 ownership proof (task #56) ─────────────────────────────────
+  if (proof || REQUIRE_WALLET_PROOF) {
+    const v = verifyWalletProof('MintTrophy', address, proof);
+    if (!v.ok) {
+      if (REQUIRE_WALLET_PROOF) {
+        return res.status(401).json({ error: `Proof wallet : ${v.error}` });
+      }
+      console.warn(`[MINT-SIG] proof invalide pour ${shortAddr(address)} : ${v.error}`);
+    }
+  } else {
+    console.warn(`[MINT-SIG] ${shortAddr(address)} sans proof EIP-191 (legacy path)`);
   }
 
   const addr = address.toLowerCase();
@@ -1754,10 +1871,18 @@ app.get('/api/admin/growth', adminAuth, (req, res) => {
 });
 
 app.get('/api/admin/stats', adminAuth, (req, res) => {
+  // Pagination (task #56 : ne pas vomir toute la DB en un seul call)
+  const topLimit      = Math.min(Math.max(parseInt(req.query.top_limit || '10', 10) || 10, 1), 50);
+  const topOffset     = Math.max(parseInt(req.query.top_offset || '0', 10) || 0, 0);
+  const claimsLimit   = Math.min(Math.max(parseInt(req.query.claims_limit || '20', 10) || 20, 1), 100);
+  const claimsOffset  = Math.max(parseInt(req.query.claims_offset || '0', 10) || 0, 0);
+
   const sessions24h = db.prepare(`SELECT COUNT(*) as c FROM score_history WHERE created_at > strftime('%s','now','-1 day')`).get().c;
   const cheatAttempts = db.prepare(`SELECT COUNT(*) as c FROM sessions WHERE validated=1 AND reward=0 AND score=0`).get().c;
-  const topWallets  = db.prepare(`SELECT address, best_score, total_claimed, games_played FROM leaderboard ORDER BY total_claimed DESC LIMIT 20`).all();
-  const recentClaims = db.prepare(`SELECT address, amount, claimed_at FROM claims ORDER BY claimed_at DESC LIMIT 50`).all();
+  const topCount     = db.prepare(`SELECT COUNT(*) as c FROM leaderboard WHERE total_claimed > 0`).get().c;
+  const claimsCount  = db.prepare(`SELECT COUNT(*) as c FROM claims`).get().c;
+  const topWallets   = db.prepare(`SELECT address, best_score, total_claimed, games_played FROM leaderboard ORDER BY total_claimed DESC LIMIT ? OFFSET ?`).all(topLimit, topOffset);
+  const recentClaims = db.prepare(`SELECT address, amount, claimed_at FROM claims ORDER BY claimed_at DESC LIMIT ? OFFSET ?`).all(claimsLimit, claimsOffset);
   const totalDistributed = db.prepare('SELECT COALESCE(SUM(total_claimed),0) as s FROM leaderboard').get().s;
   res.json({
     sessions24h,
@@ -1765,6 +1890,10 @@ app.get('/api/admin/stats', adminAuth, (req, res) => {
     totalDistributed,
     topWallets,
     recentClaims,
+    pagination: {
+      top:     { limit: topLimit,    offset: topOffset,    total: topCount },
+      claims:  { limit: claimsLimit, offset: claimsOffset, total: claimsCount },
+    },
   });
 });
 
@@ -1775,4 +1904,5 @@ app.listen(PORT, () => {
   if (DISCORD_WEBHOOK)     console.log('🤖 Discord webhook enabled (staff)');
   if (PUBLIC_FEED_WEBHOOK) console.log('📢 Public feed webhook enabled (#snake-feed)');
   if (ADMIN_TOKEN)         console.log('🔐 Admin token configured');
+  console.log(`🛡️  Wallet proof (EIP-191) : ${REQUIRE_WALLET_PROOF ? 'ENFORCE' : 'warn-only (set REQUIRE_WALLET_PROOF=1 to enforce)'}`);
 });

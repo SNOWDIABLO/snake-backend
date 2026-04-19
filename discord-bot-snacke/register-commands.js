@@ -31,9 +31,15 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('link')
-    .setDescription('Link a wallet to your Discord account (for Snake Hodler role)')
+    .setDescription('Link a wallet to your Discord account (requires signature proof)')
     .addStringOption(opt =>
       opt.setName('address').setDescription('Polygon wallet address you own').setRequired(true)
+    )
+    .addStringOption(opt =>
+      opt.setName('signature').setDescription('EIP-191 signature of the link message (0x...)').setRequired(false)
+    )
+    .addStringOption(opt =>
+      opt.setName('timestamp').setDescription('Unix timestamp used when signing').setRequired(false)
     ),
 
   new SlashCommandBuilder()

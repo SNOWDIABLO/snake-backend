@@ -145,12 +145,75 @@ async function cmdWallet(interaction) {
   }
 }
 
+// /link — requires EIP-191 signature proof (task #56 hardening)
+// User signs off-chain: "SnakeCoin LinkDiscord\nDiscord: <uid>\nAddress: <addr>\nTimestamp: <ts>"
+// → bot verifies recovered signer == address + ts within 5min window
+// Prevents anyone claiming someone else's wallet on Discord
+const LINK_PROOF_MAX_AGE_SEC = 300;
+const seenLinkNonces = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [n, exp] of seenLinkNonces) if (exp < now) seenLinkNonces.delete(n);
+}, 10 * 60 * 1000).unref?.();
+
+function buildLinkMessage(discordId, address, ts) {
+  return `SnakeCoin LinkDiscord\nDiscord: ${discordId}\nAddress: ${address.toLowerCase()}\nTimestamp: ${ts}`;
+}
+
 async function cmdLink(interaction) {
-  const address = interaction.options.getString('address');
+  const address   = interaction.options.getString('address');
+  const signature = interaction.options.getString('signature');
+  const tsRaw     = interaction.options.getString('timestamp');
+  const ts        = parseInt(tsRaw || '', 10);
+
   if (!ethers.isAddress(address)) {
     return interaction.reply({ content: '❌ Invalid wallet address', ephemeral: true });
   }
+  if (!signature || !/^0x[0-9a-fA-F]{130}$/.test(signature)) {
+    const example = buildLinkMessage(interaction.user.id, address, Math.floor(Date.now()/1000));
+    return interaction.reply({
+      content:
+        '❌ **Signature required** — prove wallet ownership.\n\n' +
+        '**Steps:**\n' +
+        '1. Go to https://snowdiablo.xyz and connect your wallet\n' +
+        '2. Open browser console (F12) and run:\n' +
+        '```js\n' +
+        `const ts=Math.floor(Date.now()/1000);\n` +
+        `const msg=\`SnakeCoin LinkDiscord\\nDiscord: ${interaction.user.id}\\nAddress: \${walletAddress.toLowerCase()}\\nTimestamp: \${ts}\`;\n` +
+        `const sig=await ethereum.request({method:'personal_sign',params:[msg,walletAddress]});\n` +
+        `console.log('ts:',ts,'\\nsig:',sig);\n` +
+        '```\n' +
+        '3. Run `/link address:0x... signature:0x... timestamp:...` with the values shown.',
+      ephemeral: true,
+    });
+  }
+  if (!Number.isInteger(ts)) {
+    return interaction.reply({ content: '❌ Invalid timestamp (expected Unix seconds).', ephemeral: true });
+  }
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSec - ts) > LINK_PROOF_MAX_AGE_SEC) {
+    return interaction.reply({ content: `❌ Signature expired (must be < ${LINK_PROOF_MAX_AGE_SEC}s old).`, ephemeral: true });
+  }
+
   const addr = address.toLowerCase();
+  const message = buildLinkMessage(interaction.user.id, addr, ts);
+
+  // Anti-replay: bind nonce = discordId|ts|addr
+  const replayKey = `${interaction.user.id}|${ts}|${addr}`;
+  if (seenLinkNonces.has(replayKey)) {
+    return interaction.reply({ content: '❌ Signature already used (replay).', ephemeral: true });
+  }
+
+  let recovered;
+  try {
+    recovered = ethers.verifyMessage(message, signature);
+  } catch (e) {
+    return interaction.reply({ content: '❌ Signature format invalid.', ephemeral: true });
+  }
+  if (recovered.toLowerCase() !== addr) {
+    return interaction.reply({ content: '❌ Signature does not match this wallet (ownership not proved).', ephemeral: true });
+  }
+  seenLinkNonces.set(replayKey, Date.now() + LINK_PROOF_MAX_AGE_SEC * 2000);
 
   // Prevent same address being linked to multiple discord users
   const existing = db.prepare('SELECT discord_id FROM wallet_links WHERE address=? AND discord_id!=?')
@@ -165,7 +228,7 @@ async function cmdLink(interaction) {
   `).run(interaction.user.id, addr);
 
   await interaction.reply({
-    content: `✅ Linked \`${shortAddr(address)}\` to your Discord account.\nHolder role will be checked automatically.`,
+    content: `✅ Linked \`${shortAddr(address)}\` to your Discord (signature verified).\nHolder role will be checked automatically.`,
     ephemeral: true,
   });
 

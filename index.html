@@ -436,13 +436,13 @@
     <div class="label" data-i18n="highscore">MEILLEUR</div>
     <div class="value" id="highscore-display">0</div>
   </div>
-  <div class="stat-box streak" id="streak-box" title="Joue chaque jour pour garder ton streak !">
+  <div class="stat-box streak" id="streak-box" data-i18n-title="streak_tt_default" title="Joue chaque jour pour garder ton streak !">
     <div class="label">🔥 STREAK</div>
     <div class="value" id="streak-display">0</div>
     <div class="mult" id="streak-mult">x1.0</div>
   </div>
   <!-- Task #46 — NFT trophy multiplier (affiché seulement si NFT minté) -->
-  <div class="stat-box trophy" id="trophy-box" title="Ton meilleur trophée NFT activé : +% permanent sur toutes les rewards $SNAKE">
+  <div class="stat-box trophy" id="trophy-box" data-i18n-title="trophy_tt_default" title="Ton meilleur trophée NFT activé : +% permanent sur toutes les rewards $SNAKE">
     <div class="label">🏆 TROPHY</div>
     <div class="value" id="trophy-tier">—</div>
     <div class="mult" id="trophy-mult">+0%</div>
@@ -456,25 +456,25 @@
 
 <!-- Task #20 Golden Snake Banner -->
 <div class="golden-banner" id="golden-banner" style="display:none">
-  <div class="title">⚡ GOLDEN SNAKE MODE ACTIVE ⚡</div>
-  <div>Multiplier <span id="golden-mult">x3</span> sur toutes les rewards !</div>
+  <div class="title" data-i18n="golden_title">⚡ GOLDEN SNAKE MODE ACTIVE ⚡</div>
+  <div id="golden-multiplier-line">Multiplier <span id="golden-mult">x3</span> sur toutes les rewards !</div>
   <div class="countdown" id="golden-countdown">—</div>
 </div>
 
 <!-- Task #19 Daily Quests -->
 <div class="quests-box" id="quests-box" style="display:none">
   <div class="quests-header">
-    <span class="title">🎯 Quêtes du jour</span>
+    <span class="title" data-i18n="quests_title">🎯 Quêtes du jour</span>
     <span class="meta" id="quests-meta">—</span>
   </div>
   <div id="quests-list"></div>
-  <div id="quests-alldone" class="quests-allDone" style="display:none">🎉 Toutes les quêtes complétées !</div>
+  <div id="quests-alldone" class="quests-allDone" style="display:none" data-i18n="quests_all_done">🎉 Toutes les quêtes complétées !</div>
 </div>
 
 <!-- Task #22 NFT Trophées -->
 <div class="trophies-box" id="trophies-box" style="display:none">
   <div class="trophies-header">
-    <span class="title">🏆 Mes Trophées NFT</span>
+    <span class="title" data-i18n="trophies_title">🏆 Mes Trophées NFT</span>
     <span class="meta" style="font-size:0.7rem;color:#888">On-chain · Polygon</span>
   </div>
   <div id="trophies-list"></div>
@@ -543,6 +543,35 @@ const LANGS = {
     status_tx:'⏳ Transaction Polygon en cours...',
     status_confirm:'⏳ Confirmation blockchain...',
     status_success:'✅ Claim réussi !',
+    golden_title:'⚡ GOLDEN SNAKE MODE ACTIVE ⚡',
+    golden_multiplier:'Multiplier {mult} sur toutes les rewards !',
+    golden_manual:'Event manuel • actif',
+    golden_expired:'termine...',
+    golden_countdown:'Fin dans {h}h{m}m{s}s',
+    streak_tt_default:'Joue chaque jour pour garder ton streak !',
+    streak_tt_milestone:'🔥 {cur}j · x{mult} → palier {milestone}j dans {days}j',
+    streak_tt_at_risk:'⚠️ Joue aujourd\'hui pour garder ton streak de {cur} jours !',
+    streak_tt_active:'🔥 {cur} jours d\'affilée (record: {max})',
+    quests_title:'🎯 Quêtes du jour',
+    quests_all_done:'🎉 Toutes les quêtes complétées !',
+    quests_reset_in:'reset {time}',
+    trophies_title:'🏆 Mes Trophées NFT',
+    trophy_tt_default:'Ton meilleur trophée NFT activé : +% permanent sur toutes les rewards $SNAKE',
+    trophy_tt_no_nft:'🏆 Aucun trophée NFT minté — termine top 10 une saison pour mint + booster tes rewards',
+    trophy_tt_active:'🏆 {tier} NFT actif · +{bonus}% permanent sur toutes tes rewards $SNAKE (rank {rank})',
+    trophy_minted:'✅ Minté',
+    trophy_contract_missing:'Contrat non déployé',
+    trophy_season:'Saison {n}',
+    wallet_injected:'Wallet injecté',
+    wallet_no_extension:'💡 Pas d\'extension ? Utilise <b>WalletConnect</b> ci-dessus (mobile) ou installe MetaMask',
+    err_wc_bundle:'❌ WalletConnect bundle pas chargé (vérifie ta connexion)',
+    err_wc_not_configured:'⚠️ WalletConnect non configuré — admin : crée un projet sur cloud.reown.com',
+    status_wc_qr:'📱 Ouverture QR WalletConnect...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ Lance une partie d\'abord !',
+    backend_connected:'✅ Backend connecté — claims actifs',
+    backend_unreachable:'⚠️ Backend injoignable (HTTP {status}) — mode démo',
+    backend_offline:'⚠️ Backend hors ligne — mode démo',
   }},
   en: { flag:'🇬🇧', name:'English', t:{
     score:'SCORE', earned:'$SNAKE EARNED', highscore:'BEST',
@@ -567,10 +596,40 @@ const LANGS = {
     status_tx:'⏳ Polygon transaction sending...',
     status_confirm:'⏳ Blockchain confirmation...',
     status_success:'✅ Claim successful!',
+    golden_title:'⚡ GOLDEN SNAKE MODE ACTIVE ⚡',
+    golden_multiplier:'Multiplier {mult} on all rewards!',
+    golden_manual:'Manual event • active',
+    golden_expired:'ending...',
+    golden_countdown:'Ends in {h}h{m}m{s}s',
+    streak_tt_default:'Play daily to keep your streak!',
+    streak_tt_milestone:'🔥 {cur}d · x{mult} → next tier {milestone}d in {days}d',
+    streak_tt_at_risk:'⚠️ Play today to keep your {cur}-day streak!',
+    streak_tt_active:'🔥 {cur} days in a row (record: {max})',
+    quests_title:'🎯 Daily Quests',
+    quests_all_done:'🎉 All quests complete!',
+    quests_reset_in:'reset {time}',
+    trophies_title:'🏆 My NFT Trophies',
+    trophy_tt_default:'Your best NFT trophy activated: permanent +% on all $SNAKE rewards',
+    trophy_tt_no_nft:'🏆 No NFT trophy minted — finish top 10 in a season to mint + boost your rewards',
+    trophy_tt_active:'🏆 {tier} NFT active · +{bonus}% permanent on all $SNAKE rewards (rank {rank})',
+    trophy_minted:'✅ Minted',
+    trophy_contract_missing:'Contract not deployed',
+    trophy_season:'Season {n}',
+    wallet_injected:'Injected wallet',
+    wallet_no_extension:'💡 No extension? Use <b>WalletConnect</b> above (mobile) or install MetaMask',
+    err_wc_bundle:'❌ WalletConnect bundle not loaded (check your connection)',
+    err_wc_not_configured:'⚠️ WalletConnect not configured — admin: create a project at cloud.reown.com',
+    status_wc_qr:'📱 Opening WalletConnect QR...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ Start a game first!',
+    backend_connected:'✅ Backend connected — claims active',
+    backend_unreachable:'⚠️ Backend unreachable (HTTP {status}) — demo mode',
+    backend_offline:'⚠️ Backend offline — demo mode',
   }},
   es: { flag:'🇪🇸', name:'Español', t:{
     score:'PUNTOS', earned:'$SNAKE GANADO', highscore:'RÉCORD',
     connect:'Conectar MetaMask', not_connected:'No conectado',
+    choose_wallet:'Elige tu wallet', cancel:'Cancelar',
     new_game:'Nueva Partida', claim:'Reclamar $SNAKE',
     how_title:'¿Cómo ganar $SNAKE?',
     how_1:'Come manzanas 🍎 → +1 punto',
@@ -590,10 +649,40 @@ const LANGS = {
     status_tx:'⏳ Enviando transacción Polygon...',
     status_confirm:'⏳ Confirmación blockchain...',
     status_success:'✅ ¡Reclamo exitoso!',
+    golden_title:'⚡ MODO GOLDEN SNAKE ACTIVO ⚡',
+    golden_multiplier:'¡Multiplicador {mult} en todas las recompensas!',
+    golden_manual:'Evento manual • activo',
+    golden_expired:'terminando...',
+    golden_countdown:'Termina en {h}h{m}m{s}s',
+    streak_tt_default:'¡Juega cada día para mantener tu racha!',
+    streak_tt_milestone:'🔥 {cur}d · x{mult} → siguiente nivel {milestone}d en {days}d',
+    streak_tt_at_risk:'⚠️ ¡Juega hoy para mantener tu racha de {cur} días!',
+    streak_tt_active:'🔥 {cur} días seguidos (récord: {max})',
+    quests_title:'🎯 Misiones Diarias',
+    quests_all_done:'🎉 ¡Todas las misiones completadas!',
+    quests_reset_in:'reinicio {time}',
+    trophies_title:'🏆 Mis Trofeos NFT',
+    trophy_tt_default:'Tu mejor trofeo NFT activado: +% permanente en todas las recompensas $SNAKE',
+    trophy_tt_no_nft:'🏆 Sin trofeo NFT — termina top 10 en una temporada para mintear + boostear tus recompensas',
+    trophy_tt_active:'🏆 {tier} NFT activo · +{bonus}% permanente en todas tus recompensas $SNAKE (rango {rank})',
+    trophy_minted:'✅ Minteado',
+    trophy_contract_missing:'Contrato no desplegado',
+    trophy_season:'Temporada {n}',
+    wallet_injected:'Wallet inyectada',
+    wallet_no_extension:'💡 ¿Sin extensión? Usa <b>WalletConnect</b> arriba (móvil) o instala MetaMask',
+    err_wc_bundle:'❌ WalletConnect bundle no cargado (revisa tu conexión)',
+    err_wc_not_configured:'⚠️ WalletConnect no configurado — admin: crea un proyecto en cloud.reown.com',
+    status_wc_qr:'📱 Abriendo QR WalletConnect...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ ¡Inicia una partida primero!',
+    backend_connected:'✅ Backend conectado — reclamos activos',
+    backend_unreachable:'⚠️ Backend inalcanzable (HTTP {status}) — modo demo',
+    backend_offline:'⚠️ Backend fuera de línea — modo demo',
   }},
   pt: { flag:'🇧🇷', name:'Português', t:{
     score:'PONTOS', earned:'$SNAKE GANHO', highscore:'RECORDE',
     connect:'Conectar MetaMask', not_connected:'Não conectado',
+    choose_wallet:'Escolha sua carteira', cancel:'Cancelar',
     new_game:'Nova Partida', claim:'Resgatar $SNAKE',
     how_title:'Como ganhar $SNAKE?',
     how_1:'Coma maçãs 🍎 → +1 ponto',
@@ -613,10 +702,40 @@ const LANGS = {
     status_tx:'⏳ Enviando transação Polygon...',
     status_confirm:'⏳ Confirmação blockchain...',
     status_success:'✅ Resgate realizado com sucesso!',
+    golden_title:'⚡ MODO GOLDEN SNAKE ATIVO ⚡',
+    golden_multiplier:'Multiplicador {mult} em todas as recompensas!',
+    golden_manual:'Evento manual • ativo',
+    golden_expired:'terminando...',
+    golden_countdown:'Termina em {h}h{m}m{s}s',
+    streak_tt_default:'Jogue todos os dias para manter sua sequência!',
+    streak_tt_milestone:'🔥 {cur}d · x{mult} → próximo nível {milestone}d em {days}d',
+    streak_tt_at_risk:'⚠️ Jogue hoje para manter sua sequência de {cur} dias!',
+    streak_tt_active:'🔥 {cur} dias seguidos (recorde: {max})',
+    quests_title:'🎯 Missões Diárias',
+    quests_all_done:'🎉 Todas as missões completas!',
+    quests_reset_in:'reset {time}',
+    trophies_title:'🏆 Meus Troféus NFT',
+    trophy_tt_default:'Seu melhor troféu NFT ativado: +% permanente em todas as recompensas $SNAKE',
+    trophy_tt_no_nft:'🏆 Nenhum troféu NFT cunhado — termine top 10 em uma temporada para cunhar + boostar suas recompensas',
+    trophy_tt_active:'🏆 {tier} NFT ativo · +{bonus}% permanente em todas as suas recompensas $SNAKE (rank {rank})',
+    trophy_minted:'✅ Cunhado',
+    trophy_contract_missing:'Contrato não implantado',
+    trophy_season:'Temporada {n}',
+    wallet_injected:'Carteira injetada',
+    wallet_no_extension:'💡 Sem extensão? Use <b>WalletConnect</b> acima (mobile) ou instale MetaMask',
+    err_wc_bundle:'❌ WalletConnect bundle não carregado (verifique sua conexão)',
+    err_wc_not_configured:'⚠️ WalletConnect não configurado — admin: crie um projeto em cloud.reown.com',
+    status_wc_qr:'📱 Abrindo QR WalletConnect...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ Inicie uma partida primeiro!',
+    backend_connected:'✅ Backend conectado — resgates ativos',
+    backend_unreachable:'⚠️ Backend inacessível (HTTP {status}) — modo demo',
+    backend_offline:'⚠️ Backend offline — modo demo',
   }},
   de: { flag:'🇩🇪', name:'Deutsch', t:{
     score:'PUNKTE', earned:'$SNAKE VERDIENT', highscore:'REKORD',
     connect:'MetaMask verbinden', not_connected:'Nicht verbunden',
+    choose_wallet:'Wähle deine Wallet', cancel:'Abbrechen',
     new_game:'Neues Spiel', claim:'$SNAKE abholen',
     how_title:'Wie $SNAKE verdienen?',
     how_1:'Äpfel essen 🍎 → +1 Punkt',
@@ -636,10 +755,40 @@ const LANGS = {
     status_tx:'⏳ Polygon-Transaktion senden...',
     status_confirm:'⏳ Blockchain-Bestätigung...',
     status_success:'✅ Claim erfolgreich!',
+    golden_title:'⚡ GOLDEN SNAKE MODUS AKTIV ⚡',
+    golden_multiplier:'Multiplikator {mult} auf alle Belohnungen!',
+    golden_manual:'Manuelles Event • aktiv',
+    golden_expired:'endet...',
+    golden_countdown:'Endet in {h}h{m}m{s}s',
+    streak_tt_default:'Spiele täglich, um deine Serie zu halten!',
+    streak_tt_milestone:'🔥 {cur}T · x{mult} → nächste Stufe {milestone}T in {days}T',
+    streak_tt_at_risk:'⚠️ Spiele heute, um deine {cur}-Tage-Serie zu halten!',
+    streak_tt_active:'🔥 {cur} Tage in Folge (Rekord: {max})',
+    quests_title:'🎯 Tägliche Quests',
+    quests_all_done:'🎉 Alle Quests abgeschlossen!',
+    quests_reset_in:'Reset {time}',
+    trophies_title:'🏆 Meine NFT-Trophäen',
+    trophy_tt_default:'Deine beste NFT-Trophäe aktiv: dauerhaft +% auf alle $SNAKE-Belohnungen',
+    trophy_tt_no_nft:'🏆 Keine NFT-Trophäe geprägt — erreiche Top 10 einer Saison, um zu prägen + Belohnungen zu boosten',
+    trophy_tt_active:'🏆 {tier} NFT aktiv · dauerhaft +{bonus}% auf alle $SNAKE-Belohnungen (Rang {rank})',
+    trophy_minted:'✅ Geprägt',
+    trophy_contract_missing:'Vertrag nicht bereitgestellt',
+    trophy_season:'Saison {n}',
+    wallet_injected:'Injizierte Wallet',
+    wallet_no_extension:'💡 Keine Erweiterung? Nutze <b>WalletConnect</b> oben (mobil) oder installiere MetaMask',
+    err_wc_bundle:'❌ WalletConnect-Bundle nicht geladen (Verbindung prüfen)',
+    err_wc_not_configured:'⚠️ WalletConnect nicht konfiguriert — Admin: Projekt auf cloud.reown.com anlegen',
+    status_wc_qr:'📱 WalletConnect-QR wird geöffnet...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ Starte zuerst ein Spiel!',
+    backend_connected:'✅ Backend verbunden — Claims aktiv',
+    backend_unreachable:'⚠️ Backend nicht erreichbar (HTTP {status}) — Demo-Modus',
+    backend_offline:'⚠️ Backend offline — Demo-Modus',
   }},
   it: { flag:'🇮🇹', name:'Italiano', t:{
     score:'PUNTEGGIO', earned:'$SNAKE GUADAGNATO', highscore:'RECORD',
     connect:'Connetti MetaMask', not_connected:'Non connesso',
+    choose_wallet:'Scegli il wallet', cancel:'Annulla',
     new_game:'Nuova Partita', claim:'Preleva $SNAKE',
     how_title:'Come guadagnare $SNAKE?',
     how_1:'Mangia le mele 🍎 → +1 punto',
@@ -659,10 +808,40 @@ const LANGS = {
     status_tx:'⏳ Transazione Polygon in corso...',
     status_confirm:'⏳ Conferma blockchain...',
     status_success:'✅ Prelievo riuscito!',
+    golden_title:'⚡ MODALITÀ GOLDEN SNAKE ATTIVA ⚡',
+    golden_multiplier:'Moltiplicatore {mult} su tutte le ricompense!',
+    golden_manual:'Evento manuale • attivo',
+    golden_expired:'terminando...',
+    golden_countdown:'Finisce tra {h}h{m}m{s}s',
+    streak_tt_default:'Gioca ogni giorno per mantenere la streak!',
+    streak_tt_milestone:'🔥 {cur}g · x{mult} → prossimo livello {milestone}g tra {days}g',
+    streak_tt_at_risk:'⚠️ Gioca oggi per mantenere la tua streak di {cur} giorni!',
+    streak_tt_active:'🔥 {cur} giorni di fila (record: {max})',
+    quests_title:'🎯 Missioni del giorno',
+    quests_all_done:'🎉 Tutte le missioni completate!',
+    quests_reset_in:'reset {time}',
+    trophies_title:'🏆 I miei Trofei NFT',
+    trophy_tt_default:'Miglior trofeo NFT attivo: +% permanente su tutte le ricompense $SNAKE',
+    trophy_tt_no_nft:'🏆 Nessun trofeo NFT coniato — finisci top 10 in una stagione per coniare + boostare le ricompense',
+    trophy_tt_active:'🏆 {tier} NFT attivo · +{bonus}% permanente su tutte le ricompense $SNAKE (rank {rank})',
+    trophy_minted:'✅ Coniato',
+    trophy_contract_missing:'Contratto non distribuito',
+    trophy_season:'Stagione {n}',
+    wallet_injected:'Wallet iniettato',
+    wallet_no_extension:'💡 Niente estensione? Usa <b>WalletConnect</b> sopra (mobile) o installa MetaMask',
+    err_wc_bundle:'❌ Bundle WalletConnect non caricato (controlla la connessione)',
+    err_wc_not_configured:'⚠️ WalletConnect non configurato — admin: crea un progetto su cloud.reown.com',
+    status_wc_qr:'📱 Apertura QR WalletConnect...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ Avvia prima una partita!',
+    backend_connected:'✅ Backend connesso — prelievi attivi',
+    backend_unreachable:'⚠️ Backend non raggiungibile (HTTP {status}) — modalità demo',
+    backend_offline:'⚠️ Backend offline — modalità demo',
   }},
   ru: { flag:'🇷🇺', name:'Русский', t:{
     score:'ОЧКИ', earned:'$SNAKE ЗАРАБОТАНО', highscore:'РЕКОРД',
     connect:'Подключить MetaMask', not_connected:'Не подключен',
+    choose_wallet:'Выбери кошелёк', cancel:'Отмена',
     new_game:'Новая Игра', claim:'Получить $SNAKE',
     how_title:'Как заработать $SNAKE?',
     how_1:'Ешь яблоки 🍎 → +1 очко',
@@ -682,10 +861,40 @@ const LANGS = {
     status_tx:'⏳ Отправка транзакции Polygon...',
     status_confirm:'⏳ Подтверждение блокчейна...',
     status_success:'✅ Вывод выполнен!',
+    golden_title:'⚡ РЕЖИМ GOLDEN SNAKE АКТИВЕН ⚡',
+    golden_multiplier:'Множитель {mult} на все награды!',
+    golden_manual:'Ручное событие • активно',
+    golden_expired:'завершается...',
+    golden_countdown:'Окончание через {h}ч{m}м{s}с',
+    streak_tt_default:'Играй каждый день, чтобы сохранить серию!',
+    streak_tt_milestone:'🔥 {cur}д · x{mult} → следующий уровень {milestone}д через {days}д',
+    streak_tt_at_risk:'⚠️ Сыграй сегодня, чтобы сохранить серию {cur} дней!',
+    streak_tt_active:'🔥 {cur} дней подряд (рекорд: {max})',
+    quests_title:'🎯 Ежедневные задания',
+    quests_all_done:'🎉 Все задания выполнены!',
+    quests_reset_in:'сброс через {time}',
+    trophies_title:'🏆 Мои NFT-трофеи',
+    trophy_tt_default:'Лучший NFT-трофей активен: +% навсегда ко всем наградам $SNAKE',
+    trophy_tt_no_nft:'🏆 NFT-трофей не отчеканен — попади в топ 10 сезона, чтобы отчеканить + буст наград',
+    trophy_tt_active:'🏆 {tier} NFT активен · +{bonus}% навсегда ко всем наградам $SNAKE (ранг {rank})',
+    trophy_minted:'✅ Отчеканен',
+    trophy_contract_missing:'Контракт не развёрнут',
+    trophy_season:'Сезон {n}',
+    wallet_injected:'Встроенный кошелёк',
+    wallet_no_extension:'💡 Нет расширения? Используй <b>WalletConnect</b> выше (мобильный) или установи MetaMask',
+    err_wc_bundle:'❌ Пакет WalletConnect не загружен (проверь соединение)',
+    err_wc_not_configured:'⚠️ WalletConnect не настроен — админ: создай проект на cloud.reown.com',
+    status_wc_qr:'📱 Открытие QR WalletConnect...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ Сначала начни игру!',
+    backend_connected:'✅ Бэкенд подключен — выводы активны',
+    backend_unreachable:'⚠️ Бэкенд недоступен (HTTP {status}) — демо-режим',
+    backend_offline:'⚠️ Бэкенд офлайн — демо-режим',
   }},
   zh: { flag:'🇨🇳', name:'中文', t:{
     score:'分数', earned:'$SNAKE 已赚', highscore:'最高分',
     connect:'连接 MetaMask', not_connected:'未连接',
+    choose_wallet:'选择钱包', cancel:'取消',
     new_game:'新游戏', claim:'领取 $SNAKE',
     how_title:'如何赚取 $SNAKE？',
     how_1:'吃苹果 🍎 → +1 分',
@@ -705,10 +914,40 @@ const LANGS = {
     status_tx:'⏳ 发送 Polygon 交易...',
     status_confirm:'⏳ 区块链确认中...',
     status_success:'✅ 领取成功！',
+    golden_title:'⚡ 黄金蛇模式激活 ⚡',
+    golden_multiplier:'所有奖励 {mult} 倍！',
+    golden_manual:'手动活动 • 激活中',
+    golden_expired:'结束中...',
+    golden_countdown:'{h}小时{m}分{s}秒后结束',
+    streak_tt_default:'每天游戏以保持连胜！',
+    streak_tt_milestone:'🔥 {cur}天 · x{mult} → 下一级 {milestone}天 还剩 {days}天',
+    streak_tt_at_risk:'⚠️ 今天玩一下保持 {cur} 天连胜！',
+    streak_tt_active:'🔥 连续 {cur} 天（记录：{max}）',
+    quests_title:'🎯 每日任务',
+    quests_all_done:'🎉 所有任务已完成！',
+    quests_reset_in:'{time} 后重置',
+    trophies_title:'🏆 我的 NFT 奖杯',
+    trophy_tt_default:'最佳 NFT 奖杯激活：$SNAKE 奖励永久 +%',
+    trophy_tt_no_nft:'🏆 未铸造 NFT 奖杯 — 赛季前 10 名以铸造 + 提升奖励',
+    trophy_tt_active:'🏆 {tier} NFT 激活 · $SNAKE 奖励永久 +{bonus}%（排名 {rank}）',
+    trophy_minted:'✅ 已铸造',
+    trophy_contract_missing:'合约未部署',
+    trophy_season:'赛季 {n}',
+    wallet_injected:'注入钱包',
+    wallet_no_extension:'💡 没有扩展？在上方使用 <b>WalletConnect</b>（移动）或安装 MetaMask',
+    err_wc_bundle:'❌ WalletConnect 未加载（检查连接）',
+    err_wc_not_configured:'⚠️ WalletConnect 未配置 — 管理员：在 cloud.reown.com 创建项目',
+    status_wc_qr:'📱 正在打开 WalletConnect 二维码...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ 请先开始游戏！',
+    backend_connected:'✅ 后端已连接 — 领取激活',
+    backend_unreachable:'⚠️ 后端不可达 (HTTP {status}) — 演示模式',
+    backend_offline:'⚠️ 后端离线 — 演示模式',
   }},
   ja: { flag:'🇯🇵', name:'日本語', t:{
     score:'スコア', earned:'$SNAKE 獲得', highscore:'最高記録',
     connect:'MetaMask 接続', not_connected:'未接続',
+    choose_wallet:'ウォレットを選択', cancel:'キャンセル',
     new_game:'新しいゲーム', claim:'$SNAKE を受け取る',
     how_title:'$SNAKE の稼ぎ方',
     how_1:'りんごを食べる 🍎 → +1ポイント',
@@ -728,10 +967,40 @@ const LANGS = {
     status_tx:'⏳ Polygon トランザクション送信中...',
     status_confirm:'⏳ ブロックチェーン確認中...',
     status_success:'✅ 請求成功！',
+    golden_title:'⚡ ゴールデンスネークモード発動 ⚡',
+    golden_multiplier:'全報酬が {mult} 倍！',
+    golden_manual:'手動イベント • 実行中',
+    golden_expired:'終了中...',
+    golden_countdown:'{h}時間{m}分{s}秒で終了',
+    streak_tt_default:'毎日プレイして連続記録を保とう！',
+    streak_tt_milestone:'🔥 {cur}日 · x{mult} → 次のレベル {milestone}日まで {days}日',
+    streak_tt_at_risk:'⚠️ {cur}日の連続記録を保つため今日プレイしよう！',
+    streak_tt_active:'🔥 {cur}日連続（記録：{max}）',
+    quests_title:'🎯 デイリークエスト',
+    quests_all_done:'🎉 全てのクエスト達成！',
+    quests_reset_in:'{time} でリセット',
+    trophies_title:'🏆 マイ NFT トロフィー',
+    trophy_tt_default:'最良のNFTトロフィー有効：全$SNAKE報酬に恒久的に+%',
+    trophy_tt_no_nft:'🏆 NFTトロフィー未ミント — シーズントップ10に入ってミント+報酬ブースト',
+    trophy_tt_active:'🏆 {tier} NFT有効 · 全$SNAKE報酬に恒久的に+{bonus}%（ランク {rank}）',
+    trophy_minted:'✅ ミント済み',
+    trophy_contract_missing:'コントラクト未展開',
+    trophy_season:'シーズン {n}',
+    wallet_injected:'インジェクトウォレット',
+    wallet_no_extension:'💡 拡張機能なし？上の <b>WalletConnect</b>（モバイル）または MetaMask をインストール',
+    err_wc_bundle:'❌ WalletConnect バンドル未読込（接続確認）',
+    err_wc_not_configured:'⚠️ WalletConnect 未設定 — 管理者：cloud.reown.com でプロジェクト作成',
+    status_wc_qr:'📱 WalletConnect QR を開いています...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ 先にゲームを開始してください！',
+    backend_connected:'✅ バックエンド接続済み — 請求有効',
+    backend_unreachable:'⚠️ バックエンド到達不能 (HTTP {status}) — デモモード',
+    backend_offline:'⚠️ バックエンドオフライン — デモモード',
   }},
   ko: { flag:'🇰🇷', name:'한국어', t:{
     score:'점수', earned:'$SNAKE 획득', highscore:'최고점수',
     connect:'MetaMask 연결', not_connected:'연결 안됨',
+    choose_wallet:'지갑 선택', cancel:'취소',
     new_game:'새 게임', claim:'$SNAKE 받기',
     how_title:'$SNAKE 버는 방법',
     how_1:'사과 먹기 🍎 → +1 점',
@@ -751,10 +1020,40 @@ const LANGS = {
     status_tx:'⏳ Polygon 트랜잭션 전송 중...',
     status_confirm:'⏳ 블록체인 확인 중...',
     status_success:'✅ 청구 성공!',
+    golden_title:'⚡ 골든 스네이크 모드 활성화 ⚡',
+    golden_multiplier:'모든 보상 {mult}배!',
+    golden_manual:'수동 이벤트 • 활성',
+    golden_expired:'종료 중...',
+    golden_countdown:'{h}시간{m}분{s}초 후 종료',
+    streak_tt_default:'매일 플레이해서 연속 기록을 유지하세요!',
+    streak_tt_milestone:'🔥 {cur}일 · x{mult} → 다음 단계 {milestone}일까지 {days}일',
+    streak_tt_at_risk:'⚠️ {cur}일 연속 기록 유지를 위해 오늘 플레이하세요!',
+    streak_tt_active:'🔥 {cur}일 연속 (기록: {max})',
+    quests_title:'🎯 일일 퀘스트',
+    quests_all_done:'🎉 모든 퀘스트 완료!',
+    quests_reset_in:'{time} 후 리셋',
+    trophies_title:'🏆 내 NFT 트로피',
+    trophy_tt_default:'최고 NFT 트로피 활성: 모든 $SNAKE 보상에 영구 +%',
+    trophy_tt_no_nft:'🏆 NFT 트로피 미발행 — 시즌 탑 10에 들어 발행 + 보상 부스트',
+    trophy_tt_active:'🏆 {tier} NFT 활성 · 모든 $SNAKE 보상에 영구 +{bonus}% (랭크 {rank})',
+    trophy_minted:'✅ 발행됨',
+    trophy_contract_missing:'컨트랙트 미배포',
+    trophy_season:'시즌 {n}',
+    wallet_injected:'주입된 지갑',
+    wallet_no_extension:'💡 확장 프로그램 없음? 위의 <b>WalletConnect</b> (모바일) 또는 MetaMask 설치',
+    err_wc_bundle:'❌ WalletConnect 번들 미로드 (연결 확인)',
+    err_wc_not_configured:'⚠️ WalletConnect 미설정 — 관리자: cloud.reown.com에서 프로젝트 생성',
+    status_wc_qr:'📱 WalletConnect QR 열기 중...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ 먼저 게임을 시작하세요!',
+    backend_connected:'✅ 백엔드 연결됨 — 청구 활성',
+    backend_unreachable:'⚠️ 백엔드 도달 불가 (HTTP {status}) — 데모 모드',
+    backend_offline:'⚠️ 백엔드 오프라인 — 데모 모드',
   }},
   ar: { flag:'🇸🇦', name:'العربية', t:{
     score:'النقاط', earned:'$SNAKE المكتسب', highscore:'أعلى نقطة',
     connect:'ربط MetaMask', not_connected:'غير متصل',
+    choose_wallet:'اختر محفظتك', cancel:'إلغاء',
     new_game:'لعبة جديدة', claim:'اطلب $SNAKE',
     how_title:'كيف تكسب $SNAKE؟',
     how_1:'كُل التفاح 🍎 → +1 نقطة',
@@ -774,10 +1073,40 @@ const LANGS = {
     status_tx:'⏳ جارٍ إرسال معاملة Polygon...',
     status_confirm:'⏳ تأكيد البلوكتشين...',
     status_success:'✅ تم الطلب بنجاح!',
+    golden_title:'⚡ وضع الثعبان الذهبي نشط ⚡',
+    golden_multiplier:'مضاعف {mult} على جميع المكافآت!',
+    golden_manual:'حدث يدوي • نشط',
+    golden_expired:'ينتهي...',
+    golden_countdown:'ينتهي خلال {h}س{m}د{s}ث',
+    streak_tt_default:'العب يوميًا للحفاظ على سلسلتك!',
+    streak_tt_milestone:'🔥 {cur}ي · x{mult} → المستوى التالي {milestone}ي خلال {days}ي',
+    streak_tt_at_risk:'⚠️ العب اليوم للحفاظ على سلسلة {cur} أيام!',
+    streak_tt_active:'🔥 {cur} يوم متتالي (الرقم القياسي: {max})',
+    quests_title:'🎯 مهام اليوم',
+    quests_all_done:'🎉 تم إكمال جميع المهام!',
+    quests_reset_in:'إعادة {time}',
+    trophies_title:'🏆 جوائزي NFT',
+    trophy_tt_default:'أفضل جائزة NFT نشطة: +% دائم على جميع مكافآت $SNAKE',
+    trophy_tt_no_nft:'🏆 لا توجد جائزة NFT مسكوكة — أكمل أفضل 10 في الموسم لسك + تعزيز المكافآت',
+    trophy_tt_active:'🏆 {tier} NFT نشط · +{bonus}% دائم على جميع مكافآت $SNAKE (المرتبة {rank})',
+    trophy_minted:'✅ مسكوك',
+    trophy_contract_missing:'العقد غير منشور',
+    trophy_season:'الموسم {n}',
+    wallet_injected:'محفظة مدمجة',
+    wallet_no_extension:'💡 لا توجد إضافة؟ استخدم <b>WalletConnect</b> أعلاه (جوال) أو ثبّت MetaMask',
+    err_wc_bundle:'❌ حزمة WalletConnect لم تُحمَّل (تحقق من اتصالك)',
+    err_wc_not_configured:'⚠️ WalletConnect غير مُهيَّأ — المسؤول: أنشئ مشروعًا في cloud.reown.com',
+    status_wc_qr:'📱 فتح QR WalletConnect...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ ابدأ لعبة أولًا!',
+    backend_connected:'✅ الخادم متصل — الطلبات نشطة',
+    backend_unreachable:'⚠️ الخادم غير متاح (HTTP {status}) — وضع تجريبي',
+    backend_offline:'⚠️ الخادم غير متصل — وضع تجريبي',
   }},
   tr: { flag:'🇹🇷', name:'Türkçe', t:{
     score:'PUAN', earned:'$SNAKE KAZANILAN', highscore:'EN YÜKSEK',
     connect:'MetaMask Bağla', not_connected:'Bağlı değil',
+    choose_wallet:'Cüzdanını seç', cancel:'İptal',
     new_game:'Yeni Oyun', claim:'$SNAKE Al',
     how_title:'$SNAKE nasıl kazanılır?',
     how_1:'Elma ye 🍎 → +1 puan',
@@ -797,6 +1126,35 @@ const LANGS = {
     status_tx:'⏳ Polygon işlemi gönderiliyor...',
     status_confirm:'⏳ Blockchain onayı...',
     status_success:'✅ Talep başarılı!',
+    golden_title:'⚡ GOLDEN SNAKE MODU AKTİF ⚡',
+    golden_multiplier:'Tüm ödüllerde {mult} çarpan!',
+    golden_manual:'Manuel etkinlik • aktif',
+    golden_expired:'bitiyor...',
+    golden_countdown:'{h}s{m}d{s}sn içinde bitiyor',
+    streak_tt_default:'Serini korumak için her gün oyna!',
+    streak_tt_milestone:'🔥 {cur}g · x{mult} → sonraki seviye {milestone}g, {days}g kaldı',
+    streak_tt_at_risk:'⚠️ {cur} günlük serini korumak için bugün oyna!',
+    streak_tt_active:'🔥 {cur} gün üst üste (rekor: {max})',
+    quests_title:'🎯 Günlük Görevler',
+    quests_all_done:'🎉 Tüm görevler tamamlandı!',
+    quests_reset_in:'{time} içinde reset',
+    trophies_title:'🏆 NFT Kupalarım',
+    trophy_tt_default:'En iyi NFT kupası aktif: tüm $SNAKE ödüllerinde kalıcı +%',
+    trophy_tt_no_nft:'🏆 NFT kupası yok — bir sezonun ilk 10\'una gir, bas + ödülleri artır',
+    trophy_tt_active:'🏆 {tier} NFT aktif · tüm $SNAKE ödüllerinde kalıcı +{bonus}% (sıra {rank})',
+    trophy_minted:'✅ Basıldı',
+    trophy_contract_missing:'Kontrat dağıtılmadı',
+    trophy_season:'Sezon {n}',
+    wallet_injected:'Enjekte cüzdan',
+    wallet_no_extension:'💡 Uzantı yok mu? Yukarıdaki <b>WalletConnect</b> (mobil) veya MetaMask yükle',
+    err_wc_bundle:'❌ WalletConnect paketi yüklenmedi (bağlantını kontrol et)',
+    err_wc_not_configured:'⚠️ WalletConnect yapılandırılmadı — admin: cloud.reown.com\'da proje oluştur',
+    status_wc_qr:'📱 WalletConnect QR açılıyor...',
+    err_wc_failed:'❌ WalletConnect: {msg}',
+    err_launch_game_first:'❌ Önce bir oyun başlat!',
+    backend_connected:'✅ Backend bağlı — talepler aktif',
+    backend_unreachable:'⚠️ Backend erişilemez (HTTP {status}) — demo modu',
+    backend_offline:'⚠️ Backend çevrimdışı — demo modu',
   }},
 };
 
@@ -807,10 +1165,29 @@ function t(key) {
   return LANGS[currentLang]?.t[key] || LANGS['en'].t[key] || key;
 }
 
+// Task #55 — helper pour substituer {placeholder} dans une trad
+function tformat(key, params = {}) {
+  let s = t(key);
+  for (const [k, v] of Object.entries(params)) {
+    s = s.split('{' + k + '}').join(v);
+  }
+  return s;
+}
+
 function applyLang() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
-    el.textContent = t(key);
+    // Task #55 — data-i18n-html pour autoriser balises (ex: wallet_no_extension)
+    if (el.hasAttribute('data-i18n-html')) {
+      el.innerHTML = t(key);
+    } else {
+      el.textContent = t(key);
+    }
+  });
+  // Task #55 — attributs title traduits via data-i18n-title
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    el.setAttribute('title', t(key));
   });
   document.querySelectorAll('#lang-bar .lang-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === currentLang);
@@ -819,6 +1196,13 @@ function applyLang() {
   document.body.style.direction = currentLang === 'ar' ? 'rtl' : 'ltr';
   // Re-draw welcome if not running
   if (!running) drawWelcome();
+  // Task #55 — refresh UI dynamique (tooltips, banners) dans la nouvelle langue
+  try { if (typeof renderGolden === 'function' && goldenState) renderGolden(); } catch(_){}
+  try { if (typeof loadStreak === 'function' && walletAddress) loadStreak(); } catch(_){}
+  try { if (typeof loadNftMultiplier === 'function' && walletAddress) loadNftMultiplier(); } catch(_){}
+  try { if (typeof loadQuests === 'function' && walletAddress) loadQuests(); } catch(_){}
+  try { if (typeof loadTrophies === 'function' && walletAddress) loadTrophies(); } catch(_){}
+  try { if (typeof updateBackendStatus === 'function') updateBackendStatus(); } catch(_){}
 }
 
 function buildLangBar() {
@@ -995,20 +1379,28 @@ function renderGolden() {
     return;
   }
   banner.style.display = '';
-  document.getElementById('golden-mult').textContent = 'x' + goldenState.multiplier;
+  const multStr = 'x' + goldenState.multiplier;
+  document.getElementById('golden-mult').textContent = multStr;
+  // Task #55 — ligne multiplier traduite dynamiquement (le span #golden-mult reste inchangé)
+  const multLine = document.getElementById('golden-multiplier-line');
+  if (multLine) multLine.textContent = tformat('golden_multiplier', { mult: multStr });
   const tick = () => {
     const cd = document.getElementById('golden-countdown');
     if (!cd) return;
     if (goldenState.mode === 'manual') {
-      cd.textContent = 'Event manuel • actif';
+      cd.textContent = t('golden_manual');
       return;
     }
     const remain = (goldenState.ends_at || 0) - Math.floor(Date.now()/1000);
-    if (remain <= 0) { cd.textContent = 'termine...'; loadGolden(); return; }
+    if (remain <= 0) { cd.textContent = t('golden_expired'); loadGolden(); return; }
     const h = Math.floor(remain / 3600);
     const m = Math.floor((remain % 3600) / 60);
     const sec = remain % 60;
-    cd.textContent = `Fin dans ${h}h${m.toString().padStart(2,'0')}m${sec.toString().padStart(2,'0')}s`;
+    cd.textContent = tformat('golden_countdown', {
+      h,
+      m: m.toString().padStart(2,'0'),
+      s: sec.toString().padStart(2,'0')
+    });
   };
   tick();
   if (goldenTimer) clearInterval(goldenTimer);
@@ -1031,7 +1423,7 @@ function renderQuests(d) {
   const allDone = document.getElementById('quests-alldone');
   if (!box || !d || !d.quests) return;
   box.style.display = '';
-  meta.textContent = `${d.completed}/${d.total}` + (d.reset_in_seconds ? ` • reset ${formatCountdown(d.reset_in_seconds)}` : '');
+  meta.textContent = `${d.completed}/${d.total}` + (d.reset_in_seconds ? ' • ' + tformat('quests_reset_in', { time: formatCountdown(d.reset_in_seconds) }) : '');
   list.innerHTML = d.quests.map(q => `
     <div class="quest-item ${q.done ? 'done' : ''}">
       <span class="icon">${q.icon}</span>
@@ -1075,11 +1467,16 @@ function renderStreak(d) {
   box.classList.add('active');
   if (cur > 0 && d.at_risk) box.classList.add('at-risk');
   if (d.next_milestone && d.days_to_next != null) {
-    box.title = '🔥 ' + cur + 'j · x' + (d.multiplier||1).toFixed(2) + ' → palier ' + d.next_milestone + 'j dans ' + d.days_to_next + 'j';
+    box.title = tformat('streak_tt_milestone', {
+      cur,
+      mult: (d.multiplier||1).toFixed(2),
+      milestone: d.next_milestone,
+      days: d.days_to_next
+    });
   } else if (d.at_risk) {
-    box.title = '⚠️ Joue aujourd hui pour garder ton streak de ' + cur + ' jours !';
+    box.title = tformat('streak_tt_at_risk', { cur });
   } else {
-    box.title = '🔥 ' + cur + ' jours d affilee (record: ' + (d.max||0) + ')';
+    box.title = tformat('streak_tt_active', { cur, max: d.max||0 });
   }
 }
 
@@ -1100,14 +1497,14 @@ function renderNftMultiplier(d) {
   if (!box) return;
   box.classList.remove('active', 'gold', 'silver', 'bronze', 'top10');
   if (!d || !d.tier) {
-    box.title = '🏆 Aucun trophée NFT minté — termine top 10 une saison pour mint + booster tes rewards';
+    box.title = t('trophy_tt_no_nft');
     return;
   }
   const cls = d.tier.toLowerCase(); // gold | silver | bronze | top10
   box.classList.add('active', cls);
   tier.textContent = d.tier.toUpperCase();
   mult.textContent = '+' + (d.bonus_pct || 0) + '%';
-  box.title = '🏆 ' + d.tier + ' NFT actif · +' + d.bonus_pct + '% permanent sur toutes tes rewards $SNAKE (rank ' + d.rank + ')';
+  box.title = tformat('trophy_tt_active', { tier: d.tier, bonus: d.bonus_pct, rank: d.rank });
 }
 
 // ─── NFT TROPHÉES (Task #22) ────────────────────────────────────────────────
@@ -1128,25 +1525,25 @@ function renderTrophies(d) {
     return;
   }
   box.style.display = '';
-  list.innerHTML = d.drops.map(t => {
-    const tierClass = t.tier.toLowerCase(); // gold | silver | bronze | top10
-    const rankDisplay = t.rank === 1 ? '🥇' : t.rank === 2 ? '🥈' : t.rank === 3 ? '🥉' : '#' + t.rank;
-    const tierLabel = t.tier === 'Top10' ? 'Top 10' : t.tier;
+  list.innerHTML = d.drops.map(drop => {
+    const tierClass = drop.tier.toLowerCase(); // gold | silver | bronze | top10
+    const rankDisplay = drop.rank === 1 ? '🥇' : drop.rank === 2 ? '🥈' : drop.rank === 3 ? '🥉' : '#' + drop.rank;
+    const tierLabel = drop.tier === 'Top10' ? 'Top 10' : drop.tier;
     let action;
-    if (t.status === 'minted') {
-      const link = t.tx_hash ? `<a href="https://polygonscan.com/tx/${t.tx_hash}" target="_blank">tx ↗</a>` : '';
-      action = `<span class="trophy-minted">✅ Minté<br>${link}</span>`;
+    if (drop.status === 'minted') {
+      const link = drop.tx_hash ? `<a href="https://polygonscan.com/tx/${drop.tx_hash}" target="_blank">tx ↗</a>` : '';
+      action = `<span class="trophy-minted">${t('trophy_minted')}<br>${link}</span>`;
     } else if (!d.contract) {
-      action = `<span style="color:#888;font-size:0.75rem">Contrat non<br>déployé</span>`;
+      action = `<span style="color:#888;font-size:0.75rem">${t('trophy_contract_missing')}</span>`;
     } else {
-      action = `<button onclick="mintTrophy(${t.season},${t.rank})">Mint<br><small style="font-weight:400">${d.mintFee_pol} POL</small></button>`;
+      action = `<button onclick="mintTrophy(${drop.season},${drop.rank})">Mint<br><small style="font-weight:400">${d.mintFee_pol} POL</small></button>`;
     }
     return `
       <div class="trophy-item">
         <div class="trophy-icon ${tierClass}">${rankDisplay}</div>
         <div class="trophy-info">
           <div class="tier-name">${tierLabel} Trophy</div>
-          <div class="season">Saison ${t.season}</div>
+          <div class="season">${tformat('trophy_season', { n: drop.season })}</div>
         </div>
         <div class="trophy-action">${action}</div>
       </div>
@@ -1356,7 +1753,7 @@ function openWalletPicker() {
     // Fallback legacy
     const btn = document.createElement('div');
     btn.className = 'wallet-option';
-    btn.innerHTML = '<span style="font-size:1.5rem">🦊</span><span>Wallet injecté</span>';
+    btn.innerHTML = '<span style="font-size:1.5rem">🦊</span><span>' + t('wallet_injected') + '</span>';
     btn.onclick = () => connectWithProvider(window.ethereum, 'Wallet');
     list.appendChild(btn);
   }
@@ -1366,7 +1763,7 @@ function openWalletPicker() {
   wcBtn.className = 'wallet-option';
   wcBtn.innerHTML = `
     <span style="font-size:1.5rem">📱</span>
-    <span>WalletConnect<br><small style="opacity:.6">Trust · Phantom · MetaMask Mobile · Rainbow…</small></span>
+    <span>WalletConnect</span>
   `;
   wcBtn.onclick = () => connectWalletConnect();
   list.appendChild(wcBtn);
@@ -1376,7 +1773,7 @@ function openWalletPicker() {
     const hint = document.createElement('div');
     hint.className = 'no-wallet';
     hint.style.marginTop = '12px';
-    hint.innerHTML = '💡 Pas d\'extension ? Utilise <b>WalletConnect</b> ci-dessus (mobile) ou installe <a href="https://metamask.io" target="_blank">MetaMask</a> · <a href="https://rabby.io" target="_blank">Rabby</a> · <a href="https://www.okx.com/web3" target="_blank">OKX</a>';
+    hint.innerHTML = t('wallet_no_extension') + ' · <a href="https://metamask.io" target="_blank">MetaMask</a> · <a href="https://rabby.io" target="_blank">Rabby</a> · <a href="https://www.okx.com/web3" target="_blank">OKX</a>';
     list.appendChild(hint);
   }
 
@@ -1388,15 +1785,15 @@ let wcProvider = null;
 async function connectWalletConnect() {
   closeWalletPicker();
   if (!window.EthereumProvider) {
-    setStatus('❌ WalletConnect bundle pas chargé (vérifie ta connexion)');
+    setStatus(t('err_wc_bundle'));
     return;
   }
   if (!WC_PROJECT_ID || WC_PROJECT_ID === 'REPLACE_WITH_YOUR_REOWN_PROJECT_ID') {
-    setStatus('⚠️ WalletConnect non configuré — admin : crée un projet sur cloud.reown.com');
+    setStatus(t('err_wc_not_configured'));
     return;
   }
   try {
-    setStatus('📱 Ouverture QR WalletConnect...');
+    setStatus(t('status_wc_qr'));
     // Init singleton (évite reconnect-loop si user clique 2x)
     if (!wcProvider) {
       wcProvider = await window.EthereumProvider.init({
@@ -1416,7 +1813,7 @@ async function connectWalletConnect() {
     await wcProvider.connect(); // ouvre le QR modal / deep-link
     await connectWithProvider(wcProvider, 'WalletConnect');
   } catch (e) {
-    setStatus('❌ WalletConnect: ' + (e.message || 'annulé'));
+    setStatus(tformat('err_wc_failed', { msg: e.message || 'cancelled' }));
   }
 }
 
@@ -1468,7 +1865,7 @@ async function claimTokens() {
     try {
       setStatus(t('status_sign'));
       document.getElementById('claim-btn').disabled=true;
-      if (!sessionId) { setStatus('❌ Lance une partie d\'abord !'); document.getElementById('claim-btn').disabled=false; return; }
+      if (!sessionId) { setStatus(t('err_launch_game_first')); document.getElementById('claim-btn').disabled=false; return; }
       const res = await fetch(BACKEND_URL+'/api/claim',{
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({address:walletAddress, sessionId})
@@ -1510,25 +1907,26 @@ drawWelcome();
   });
 
   // Task #54 — Backend health indicator (remplace le "Mode démo" statique)
+  // Task #55 — messages traduits via système i18n
   async function updateBackendStatus() {
     const el = document.getElementById('backendStatus');
     if (!el) return;
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 4000);
+      const to = setTimeout(() => ctrl.abort(), 4000);
       const r = await fetch(BACKEND_URL + '/health', { signal: ctrl.signal, cache: 'no-store' });
-      clearTimeout(t);
+      clearTimeout(to);
       if (r.ok) {
-        el.textContent = '✅ Backend connecté — claims actifs';
+        el.textContent = t('backend_connected');
         el.style.color = '#4ade80';
         el.classList.remove('warn');
       } else {
-        el.textContent = '⚠️ Backend injoignable (HTTP ' + r.status + ') — mode démo';
+        el.textContent = tformat('backend_unreachable', { status: r.status });
         el.style.color = '';
         el.classList.add('warn');
       }
     } catch (e) {
-      el.textContent = '⚠️ Backend hors ligne — mode démo';
+      el.textContent = t('backend_offline');
       el.style.color = '';
       el.classList.add('warn');
     }

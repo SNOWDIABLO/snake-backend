@@ -187,18 +187,20 @@
 <body>
 
 <div class="container">
-  <a class="back-link" href="/">← Retour au jeu</a>
+  <a class="back-link" href="/" data-i18n="back_to_game">← Retour au jeu</a>
+
+  <div class="lang-bar" id="lang-bar" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:12px 0 18px"></div>
 
   <header>
-    <h1>🏆 Leaderboard</h1>
-    <p>Top 100 des meilleurs joueurs SnakeCoin — Play to Earn sur Polygon. Classement live, auto-refresh 60s.</p>
+    <h1>🏆 <span data-i18n="leaderboard">Leaderboard</span></h1>
+    <p data-i18n="hof_desc">Top 100 des meilleurs joueurs SnakeCoin — Play to Earn sur Polygon. Classement live, auto-refresh 60s.</p>
   </header>
 
   <div class="stats-row" id="stats-row">
-    <div class="stat-card"><div class="label">Joueurs classés</div><div class="value" id="stat-players">—</div></div>
-    <div class="stat-card"><div class="label">Top score</div><div class="value" id="stat-top">—</div></div>
-    <div class="stat-card"><div class="label">$SNAKE distribué</div><div class="value" id="stat-snake">—</div></div>
-    <div class="stat-card"><div class="label">Parties jouées</div><div class="value" id="stat-games">—</div></div>
+    <div class="stat-card"><div class="label" data-i18n="stat_players">Joueurs classés</div><div class="value" id="stat-players">—</div></div>
+    <div class="stat-card"><div class="label" data-i18n="stat_top">Top score</div><div class="value" id="stat-top">—</div></div>
+    <div class="stat-card"><div class="label" data-i18n="stat_distributed">$SNAKE distribué</div><div class="value" id="stat-snake">—</div></div>
+    <div class="stat-card"><div class="label" data-i18n="stat_games">Parties jouées</div><div class="value" id="stat-games">—</div></div>
   </div>
 
   <div id="podium" class="podium" style="display:none"></div>
@@ -208,26 +210,186 @@
       <thead>
         <tr>
           <th class="num">#</th>
-          <th>Wallet</th>
-          <th class="num">Best Score</th>
-          <th class="num">Parties</th>
+          <th data-i18n="th_wallet">Wallet</th>
+          <th class="num" data-i18n="th_best_score">Best Score</th>
+          <th class="num" data-i18n="th_games">Parties</th>
           <th class="num hide-mobile">$SNAKE</th>
-          <th class="hide-mobile">Streak</th>
+          <th class="hide-mobile" data-i18n="th_streak">Streak</th>
         </tr>
       </thead>
       <tbody id="hof-body">
-        <tr><td colspan="6" class="loading">Chargement du classement…</td></tr>
+        <tr><td colspan="6" class="loading" data-i18n="loading">Chargement du classement…</td></tr>
       </tbody>
     </table>
   </div>
 
   <p class="footer">
-    Dernière mise à jour : <span id="last-sync">—</span> · Auto-refresh 60s ·
+    <span data-i18n="last_update">Dernière mise à jour</span> : <span id="last-sync">—</span> · <span data-i18n="auto_refresh">Auto-refresh 60s</span> ·
     <a href="https://polygonscan.com/" target="_blank" rel="noopener">Polygonscan</a>
   </p>
 </div>
 
 <script>
+  // ═══════════════════════════════════════════════════════════════
+  // i18n — 12 langues, clé localStorage partagée avec index.html
+  // ═══════════════════════════════════════════════════════════════
+  const LANGS = {
+    fr: { flag:'🇫🇷', name:'FR', t:{
+      back_to_game:'← Retour au jeu', leaderboard:'Leaderboard',
+      hof_desc:'Top 100 des meilleurs joueurs SnakeCoin — Play to Earn sur Polygon. Classement live, auto-refresh 60s.',
+      stat_players:'Joueurs classés', stat_top:'Top score', stat_distributed:'$SNAKE distribué', stat_games:'Parties jouées',
+      th_wallet:'Wallet', th_best_score:'Meilleur score', th_games:'Parties', th_streak:'Streak',
+      loading:'Chargement du classement…', empty:'Aucun joueur classé pour le moment.',
+      last_update:'Dernière mise à jour', auto_refresh:'Auto-refresh 60s',
+      podium_1st:'1ER', podium_2nd:'2E', podium_3rd:'3E', sub_games:'parties', sub_snake:'SNAKE'
+    }},
+    en: { flag:'🇬🇧', name:'EN', t:{
+      back_to_game:'← Back to game', leaderboard:'Leaderboard',
+      hof_desc:'Top 100 SnakeCoin players — Play to Earn on Polygon. Live ranking, auto-refresh 60s.',
+      stat_players:'Ranked players', stat_top:'Top score', stat_distributed:'$SNAKE distributed', stat_games:'Games played',
+      th_wallet:'Wallet', th_best_score:'Best Score', th_games:'Games', th_streak:'Streak',
+      loading:'Loading leaderboard…', empty:'No ranked players yet.',
+      last_update:'Last update', auto_refresh:'Auto-refresh 60s',
+      podium_1st:'1ST', podium_2nd:'2ND', podium_3rd:'3RD', sub_games:'games', sub_snake:'SNAKE'
+    }},
+    es: { flag:'🇪🇸', name:'ES', t:{
+      back_to_game:'← Volver al juego', leaderboard:'Clasificación',
+      hof_desc:'Los 100 mejores jugadores de SnakeCoin — Play to Earn en Polygon. Ranking en vivo, auto-refresh 60s.',
+      stat_players:'Jugadores clasificados', stat_top:'Puntuación máxima', stat_distributed:'$SNAKE distribuido', stat_games:'Partidas jugadas',
+      th_wallet:'Cartera', th_best_score:'Mejor puntuación', th_games:'Partidas', th_streak:'Racha',
+      loading:'Cargando clasificación…', empty:'Aún no hay jugadores clasificados.',
+      last_update:'Última actualización', auto_refresh:'Auto-refresh 60s',
+      podium_1st:'1º', podium_2nd:'2º', podium_3rd:'3º', sub_games:'partidas', sub_snake:'SNAKE'
+    }},
+    pt: { flag:'🇧🇷', name:'PT', t:{
+      back_to_game:'← Voltar ao jogo', leaderboard:'Classificação',
+      hof_desc:'Top 100 jogadores de SnakeCoin — Play to Earn na Polygon. Ranking ao vivo, auto-refresh 60s.',
+      stat_players:'Jogadores classificados', stat_top:'Pontuação máxima', stat_distributed:'$SNAKE distribuído', stat_games:'Partidas jogadas',
+      th_wallet:'Carteira', th_best_score:'Melhor pontuação', th_games:'Partidas', th_streak:'Sequência',
+      loading:'Carregando classificação…', empty:'Ainda não há jogadores classificados.',
+      last_update:'Última atualização', auto_refresh:'Auto-refresh 60s',
+      podium_1st:'1º', podium_2nd:'2º', podium_3rd:'3º', sub_games:'partidas', sub_snake:'SNAKE'
+    }},
+    de: { flag:'🇩🇪', name:'DE', t:{
+      back_to_game:'← Zurück zum Spiel', leaderboard:'Bestenliste',
+      hof_desc:'Top 100 SnakeCoin-Spieler — Play to Earn auf Polygon. Live-Rangliste, Auto-Refresh 60s.',
+      stat_players:'Gerankte Spieler', stat_top:'Höchstpunktzahl', stat_distributed:'$SNAKE verteilt', stat_games:'Gespielte Partien',
+      th_wallet:'Wallet', th_best_score:'Bestpunktzahl', th_games:'Partien', th_streak:'Serie',
+      loading:'Bestenliste wird geladen…', empty:'Noch keine gerankten Spieler.',
+      last_update:'Letzte Aktualisierung', auto_refresh:'Auto-Refresh 60s',
+      podium_1st:'1.', podium_2nd:'2.', podium_3rd:'3.', sub_games:'Partien', sub_snake:'SNAKE'
+    }},
+    it: { flag:'🇮🇹', name:'IT', t:{
+      back_to_game:'← Torna al gioco', leaderboard:'Classifica',
+      hof_desc:'I migliori 100 giocatori SnakeCoin — Play to Earn su Polygon. Classifica live, auto-refresh 60s.',
+      stat_players:'Giocatori classificati', stat_top:'Punteggio massimo', stat_distributed:'$SNAKE distribuito', stat_games:'Partite giocate',
+      th_wallet:'Wallet', th_best_score:'Miglior punteggio', th_games:'Partite', th_streak:'Serie',
+      loading:'Caricamento classifica…', empty:'Nessun giocatore classificato.',
+      last_update:'Ultimo aggiornamento', auto_refresh:'Auto-refresh 60s',
+      podium_1st:'1°', podium_2nd:'2°', podium_3rd:'3°', sub_games:'partite', sub_snake:'SNAKE'
+    }},
+    ru: { flag:'🇷🇺', name:'RU', t:{
+      back_to_game:'← Вернуться к игре', leaderboard:'Таблица лидеров',
+      hof_desc:'Топ 100 игроков SnakeCoin — Play to Earn на Polygon. Рейтинг в реальном времени, обновление 60с.',
+      stat_players:'Игроков в рейтинге', stat_top:'Лучший счёт', stat_distributed:'$SNAKE распределено', stat_games:'Сыграно игр',
+      th_wallet:'Кошелёк', th_best_score:'Лучший счёт', th_games:'Игры', th_streak:'Серия',
+      loading:'Загрузка рейтинга…', empty:'Пока нет игроков в рейтинге.',
+      last_update:'Последнее обновление', auto_refresh:'Обновление 60с',
+      podium_1st:'1-й', podium_2nd:'2-й', podium_3rd:'3-й', sub_games:'игр', sub_snake:'SNAKE'
+    }},
+    zh: { flag:'🇨🇳', name:'ZH', t:{
+      back_to_game:'← 返回游戏', leaderboard:'排行榜',
+      hof_desc:'SnakeCoin 前 100 名玩家 — Polygon 上的 Play to Earn。实时排行，60 秒自动刷新。',
+      stat_players:'排名玩家', stat_top:'最高分', stat_distributed:'$SNAKE 已分发', stat_games:'游戏局数',
+      th_wallet:'钱包', th_best_score:'最佳分数', th_games:'局数', th_streak:'连胜',
+      loading:'正在加载排行榜…', empty:'暂无排名玩家。',
+      last_update:'最后更新', auto_refresh:'60 秒自动刷新',
+      podium_1st:'第 1', podium_2nd:'第 2', podium_3rd:'第 3', sub_games:'局', sub_snake:'SNAKE'
+    }},
+    ja: { flag:'🇯🇵', name:'JA', t:{
+      back_to_game:'← ゲームに戻る', leaderboard:'ランキング',
+      hof_desc:'SnakeCoin トップ 100 プレイヤー — Polygon での Play to Earn。ライブランキング、60 秒自動更新。',
+      stat_players:'ランク入りプレイヤー', stat_top:'最高スコア', stat_distributed:'$SNAKE 配布済み', stat_games:'プレイ回数',
+      th_wallet:'ウォレット', th_best_score:'最高スコア', th_games:'回数', th_streak:'連続',
+      loading:'ランキングを読み込み中…', empty:'ランク入りプレイヤーはまだいません。',
+      last_update:'最終更新', auto_refresh:'60 秒自動更新',
+      podium_1st:'1位', podium_2nd:'2位', podium_3rd:'3位', sub_games:'回', sub_snake:'SNAKE'
+    }},
+    ko: { flag:'🇰🇷', name:'KO', t:{
+      back_to_game:'← 게임으로 돌아가기', leaderboard:'순위표',
+      hof_desc:'SnakeCoin 상위 100 플레이어 — Polygon의 Play to Earn. 실시간 순위, 60초 자동 새로 고침.',
+      stat_players:'순위 플레이어', stat_top:'최고 점수', stat_distributed:'$SNAKE 분배됨', stat_games:'플레이 횟수',
+      th_wallet:'지갑', th_best_score:'최고 점수', th_games:'횟수', th_streak:'연속',
+      loading:'순위 로딩 중…', empty:'아직 순위에 오른 플레이어가 없습니다.',
+      last_update:'마지막 업데이트', auto_refresh:'60초 자동 새로 고침',
+      podium_1st:'1위', podium_2nd:'2위', podium_3rd:'3위', sub_games:'회', sub_snake:'SNAKE'
+    }},
+    ar: { flag:'🇸🇦', name:'AR', t:{
+      back_to_game:'← العودة إلى اللعبة', leaderboard:'لوحة المتصدرين',
+      hof_desc:'أفضل 100 لاعب في SnakeCoin — Play to Earn على Polygon. ترتيب مباشر، تحديث كل 60 ثانية.',
+      stat_players:'لاعبون مصنفون', stat_top:'أعلى نقاط', stat_distributed:'$SNAKE موزعة', stat_games:'الجولات الملعوبة',
+      th_wallet:'محفظة', th_best_score:'أفضل نتيجة', th_games:'جولات', th_streak:'سلسلة',
+      loading:'جارٍ تحميل الترتيب…', empty:'لا يوجد لاعبون مصنفون بعد.',
+      last_update:'آخر تحديث', auto_refresh:'تحديث كل 60 ث',
+      podium_1st:'الأول', podium_2nd:'الثاني', podium_3rd:'الثالث', sub_games:'جولات', sub_snake:'SNAKE'
+    }},
+    tr: { flag:'🇹🇷', name:'TR', t:{
+      back_to_game:'← Oyuna dön', leaderboard:'Sıralama',
+      hof_desc:'SnakeCoin en iyi 100 oyuncu — Polygon üzerinde Play to Earn. Canlı sıralama, 60 sn otomatik yenileme.',
+      stat_players:'Sıralanan oyuncular', stat_top:'En yüksek skor', stat_distributed:'$SNAKE dağıtıldı', stat_games:'Oynanan maçlar',
+      th_wallet:'Cüzdan', th_best_score:'En iyi skor', th_games:'Maçlar', th_streak:'Seri',
+      loading:'Sıralama yükleniyor…', empty:'Henüz sıralanan oyuncu yok.',
+      last_update:'Son güncelleme', auto_refresh:'60 sn otomatik yenileme',
+      podium_1st:'1.', podium_2nd:'2.', podium_3rd:'3.', sub_games:'maç', sub_snake:'SNAKE'
+    }}
+  };
+
+  let currentLang = localStorage.getItem('snakeLang') || (navigator.language||'en').slice(0,2) || 'en';
+  if (!LANGS[currentLang]) currentLang = 'en';
+
+  function t(key) {
+    return LANGS[currentLang]?.t[key] || LANGS.en.t[key] || key;
+  }
+
+  function applyLang() {
+    document.documentElement.lang = currentLang;
+    document.body.style.direction = currentLang === 'ar' ? 'rtl' : 'ltr';
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const k = el.dataset.i18n;
+      if (LANGS[currentLang]?.t[k]) el.textContent = LANGS[currentLang].t[k];
+    });
+    // Mettre à jour les boutons langue (état actif)
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.lang === currentLang);
+    });
+    // Mettre à jour title + meta description dynamiquement
+    document.title = '🏆 ' + t('leaderboard') + ' — SnakeCoin Top 100';
+  }
+
+  function buildLangBar() {
+    const bar = document.getElementById('lang-bar');
+    if (!bar) return;
+    bar.innerHTML = '';
+    Object.entries(LANGS).forEach(([code, data]) => {
+      const btn = document.createElement('button');
+      btn.className = 'lang-btn' + (code === currentLang ? ' active' : '');
+      btn.dataset.lang = code;
+      btn.innerHTML = data.flag + ' ' + data.name;
+      btn.style.cssText = 'padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--dim);cursor:pointer;font-size:0.85em;transition:all 0.2s';
+      if (code === currentLang) btn.style.cssText += ';border-color:var(--accent);color:var(--accent);background:rgba(74,222,128,0.1)';
+      btn.onclick = () => {
+        currentLang = code;
+        localStorage.setItem('snakeLang', code);
+        applyLang();
+        buildLangBar();
+        // re-render data fetched already
+        if (window._lastData) { renderStats(window._lastData); renderPodium(window._lastData); renderTable(window._lastData); }
+        syncLastUpdate();
+      };
+      bar.appendChild(btn);
+    });
+  }
+
   const API = 'https://snake-backend-production-e5e8.up.railway.app';
   const REFRESH_MS = 60000;
   const POLYGONSCAN = 'https://polygonscan.com/address/';
@@ -265,7 +427,7 @@
     // order: 2, 1, 3 (1 in center)
     const order = [1, 0, 2];
     const medals = ['🥇', '🥈', '🥉'];
-    const labels = ['1ER', '2E', '3E'];
+    const labels = [t('podium_1st'), t('podium_2nd'), t('podium_3rd')];
     el.innerHTML = order.map(i => {
       const r = top3[i];
       return `
@@ -274,7 +436,7 @@
           <div class="rank-label">${labels[i]}</div>
           <div class="score">${fmt(r.best_score)}</div>
           <div class="wallet"><a href="${POLYGONSCAN}${r.address}" target="_blank" rel="noopener">${shortAddr(r.address)}</a></div>
-          <div class="sub">${fmt(r.games_played)} parties · ${fmtSnake(r.total_claimed)} SNAKE</div>
+          <div class="sub">${fmt(r.games_played)} ${t('sub_games')} · ${fmtSnake(r.total_claimed)} ${t('sub_snake')}</div>
         </div>`;
     }).join('');
   }
@@ -282,7 +444,7 @@
   function renderTable(rows) {
     const body = document.getElementById('hof-body');
     if (!rows.length) {
-      body.innerHTML = '<tr><td colspan="6" class="loading">Aucun joueur classé pour le moment.</td></tr>';
+      body.innerHTML = `<tr><td colspan="6" class="loading">${t('empty')}</td></tr>`;
       return;
     }
     body.innerHTML = rows.map((r, idx) => {
@@ -317,21 +479,39 @@
     document.getElementById('stat-games').textContent = fmt(totalGames);
   }
 
+  // map langue → locale BCP-47 pour toLocaleTimeString
+  const LOCALES = {
+    fr:'fr-FR', en:'en-GB', es:'es-ES', pt:'pt-BR', de:'de-DE', it:'it-IT',
+    ru:'ru-RU', zh:'zh-CN', ja:'ja-JP', ko:'ko-KR', ar:'ar-SA', tr:'tr-TR'
+  };
+  function syncLastUpdate() {
+    const el = document.getElementById('last-sync');
+    if (el && window._lastSyncDate) {
+      el.textContent = window._lastSyncDate.toLocaleTimeString(LOCALES[currentLang] || 'en-GB');
+    }
+  }
+
   async function loadHOF() {
     try {
       const res = await fetch(`${API}/api/leaderboard?limit=100&period=all`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const rows = data.leaderboard || [];
+      window._lastData = rows;
+      window._lastSyncDate = new Date();
       renderStats(rows);
       renderPodium(rows);
       renderTable(rows);
-      document.getElementById('last-sync').textContent = new Date().toLocaleTimeString('fr-FR');
+      syncLastUpdate();
     } catch (e) {
       document.getElementById('hof-body').innerHTML =
-        `<tr><td colspan="6" class="err">Erreur : ${e.message}</td></tr>`;
+        `<tr><td colspan="6" class="err">Error: ${e.message}</td></tr>`;
     }
   }
+
+  // init i18n avant le premier fetch
+  applyLang();
+  buildLangBar();
 
   loadHOF();
   setInterval(loadHOF, REFRESH_MS);

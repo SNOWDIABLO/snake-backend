@@ -3,7 +3,7 @@
 > A Play-to-Earn Snake game on **Polygon**. Earn real on-chain rewards and mint seasonal NFT trophies.
 
 🎮 **Play:** [snowdiablo.xyz](https://snowdiablo.xyz)
-🏆 **Leaderboard:** [Hall of Fame](https://snowdiablo.xyz/hall-of-fame.html)
+🏆 **Leaderboard:** [snowdiablo.xyz/hall-of-fame.html](https://snowdiablo.xyz/hall-of-fame.html)
 🎨 **NFT Collection:** available on OpenSea, Rarible, Blur and directly in-game.
 
 ---

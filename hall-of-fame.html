@@ -293,7 +293,7 @@
       const sCls = streakClass(streak, active);
       const sIcon = active ? '🔥' : '🧊';
       const streakHTML = streak > 0
-        ? `<span class="streak-badge ${sCls}">${sIcon} ${streak}j</span>`
+        ? `<span class="streak-badge ${sCls}">${streak}j ${sIcon}</span>`
         : `<span style="color:var(--dim)">—</span>`;
       return `
         <tr>

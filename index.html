@@ -512,7 +512,7 @@
   <span data-i18n="how_1">Mange les pommes 🍎 → +1 point</span><br>
   <span data-i18n="how_2">Chaque 10 points = 1 $SNAKE claimable</span><br>
   <span data-i18n="how_3">Limite journalière : 100 $SNAKE / wallet</span><br><br>
-  <span class="warn" data-i18n="demo_mode">⚠️ Mode démo — Backend requis pour le vrai claim</span>
+  <span id="backendStatus" class="warn" data-i18n="demo_mode">⚠️ Mode démo — Backend requis pour le vrai claim</span>
 </div>
 
 <script>
@@ -850,8 +850,8 @@ const CONTRACT_ABI = [
   "function balanceOf(address account) view returns (uint256)"
 ];
 // Task #22 — SnakeTrophyNFT (ERC-721 saisonniers top 10)
-// À remplir après deploy du contract sur Polygon mainnet (voir snake-contract/SnakeTrophyNFT.sol)
-const NFT_CONTRACT_ADDRESS = '';
+// Deployed sur Polygon mainnet 2026-04-18, verified sur Polygonscan
+const NFT_CONTRACT_ADDRESS = '0xda4167D97caAa90DAf5510bcE338a90134BBdfA9';
 const NFT_CONTRACT_ABI = [
   "function mint(uint256 season, uint256 rank, bytes32 nonce, bytes calldata sig) payable",
   "function mintFee() view returns (uint256)",
@@ -1507,6 +1507,35 @@ drawWelcome();
       loadGolden();
       setInterval(loadGolden, 60000);
     }
+  });
+
+  // Task #54 — Backend health indicator (remplace le "Mode démo" statique)
+  async function updateBackendStatus() {
+    const el = document.getElementById('backendStatus');
+    if (!el) return;
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 4000);
+      const r = await fetch(BACKEND_URL + '/health', { signal: ctrl.signal, cache: 'no-store' });
+      clearTimeout(t);
+      if (r.ok) {
+        el.textContent = '✅ Backend connecté — claims actifs';
+        el.style.color = '#4ade80';
+        el.classList.remove('warn');
+      } else {
+        el.textContent = '⚠️ Backend injoignable (HTTP ' + r.status + ') — mode démo';
+        el.style.color = '';
+        el.classList.add('warn');
+      }
+    } catch (e) {
+      el.textContent = '⚠️ Backend hors ligne — mode démo';
+      el.style.color = '';
+      el.classList.add('warn');
+    }
+  }
+  window.addEventListener('DOMContentLoaded', () => {
+    updateBackendStatus();
+    setInterval(updateBackendStatus, 60000);
   });
 </script>
 </body>

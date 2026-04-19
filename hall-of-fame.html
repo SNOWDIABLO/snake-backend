@@ -299,7 +299,7 @@
     }},
     zh: { flag:'🇨🇳', name:'ZH', t:{
       back_to_game:'← 返回游戏', leaderboard:'排行榜',
-      hof_desc:'SnakeCoin 前 100 名玩家 — Polygon 上的 Play to Earn。实时排行，60 秒自动刷新。',
+      hof_desc:'SnakeCoin 前 100 名玩家 — Polygon 上的 Play to Earn。实时排行,60 秒自动刷新。',
       stat_players:'排名玩家', stat_top:'最高分', stat_distributed:'$SNAKE 已分发', stat_games:'游戏局数',
       th_wallet:'钱包', th_best_score:'最佳分数', th_games:'局数', th_streak:'连胜',
       loading:'正在加载排行榜…', empty:'暂无排名玩家。',
@@ -358,11 +358,9 @@
       const k = el.dataset.i18n;
       if (LANGS[currentLang]?.t[k]) el.textContent = LANGS[currentLang].t[k];
     });
-    // Mettre à jour les boutons langue (état actif)
     document.querySelectorAll('.lang-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.lang === currentLang);
     });
-    // Mettre à jour title + meta description dynamiquement
     document.title = '🏆 ' + t('leaderboard') + ' — SnakeCoin Top 100';
   }
 
@@ -382,7 +380,6 @@
         localStorage.setItem('snakeLang', code);
         applyLang();
         buildLangBar();
-        // re-render data fetched already
         if (window._lastData) { renderStats(window._lastData); renderPodium(window._lastData); renderTable(window._lastData); }
         syncLastUpdate();
       };
@@ -394,17 +391,28 @@
   const REFRESH_MS = 60000;
   const POLYGONSCAN = 'https://polygonscan.com/address/';
 
+  // map langue → locale BCP-47 pour toLocaleTimeString
+  const LOCALES = {
+    fr:'fr-FR', en:'en-GB', es:'es-ES', pt:'pt-BR', de:'de-DE', it:'it-IT',
+    ru:'ru-RU', zh:'zh-CN', ja:'ja-JP', ko:'ko-KR', ar:'ar-SA', tr:'tr-TR'
+  };
+  function syncLastUpdate() {
+    const el = document.getElementById('last-sync');
+    if (el && window._lastSyncDate) {
+      el.textContent = window._lastSyncDate.toLocaleTimeString(LOCALES[currentLang] || 'en-GB');
+    }
+  }
+
   function shortAddr(addr) {
     if (!addr) return '—';
     return addr.slice(0, 6) + '…' + addr.slice(-4);
   }
   function fmt(n, dec = 0) {
-    return Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    return Number(n || 0).toLocaleString(LOCALES[currentLang] || 'en-GB', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   }
   function fmtSnake(weiLike) {
-    // total_claimed stored in SNAKE units already (REAL)
     const n = Number(weiLike || 0);
-    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return n.toLocaleString(LOCALES[currentLang] || 'en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function streakClass(streak, active) {
     if (!active) return 'inactive';
@@ -477,18 +485,6 @@
     const totalGames = rows.reduce((a, r) => a + Number(r.games_played || 0), 0);
     document.getElementById('stat-snake').textContent = fmtSnake(totalSnake);
     document.getElementById('stat-games').textContent = fmt(totalGames);
-  }
-
-  // map langue → locale BCP-47 pour toLocaleTimeString
-  const LOCALES = {
-    fr:'fr-FR', en:'en-GB', es:'es-ES', pt:'pt-BR', de:'de-DE', it:'it-IT',
-    ru:'ru-RU', zh:'zh-CN', ja:'ja-JP', ko:'ko-KR', ar:'ar-SA', tr:'tr-TR'
-  };
-  function syncLastUpdate() {
-    const el = document.getElementById('last-sync');
-    if (el && window._lastSyncDate) {
-      el.textContent = window._lastSyncDate.toLocaleTimeString(LOCALES[currentLang] || 'en-GB');
-    }
   }
 
   async function loadHOF() {

@@ -407,6 +407,14 @@
     if (!addr) return '—';
     return addr.slice(0, 6) + '…' + addr.slice(-4);
   }
+  // Task #68 : affiche username si défini, sinon addr tronquée
+  function displayName(r) {
+    if (r && r.display_name) {
+      const safe = String(r.display_name).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+      return safe;
+    }
+    return shortAddr(r.address);
+  }
   function fmt(n, dec = 0) {
     return Number(n || 0).toLocaleString(LOCALES[currentLang] || 'en-GB', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   }
@@ -443,7 +451,7 @@
           <div class="medal">${medals[i]}</div>
           <div class="rank-label">${labels[i]}</div>
           <div class="score">${fmt(r.best_score)}</div>
-          <div class="wallet"><a href="${POLYGONSCAN}${r.address}" target="_blank" rel="noopener">${shortAddr(r.address)}</a></div>
+          <div class="wallet"><a href="${POLYGONSCAN}${r.address}" target="_blank" rel="noopener" title="${r.address}">${displayName(r)}</a></div>
           <div class="sub">${fmt(r.games_played)} ${t('sub_games')} · ${fmtSnake(r.total_claimed)} ${t('sub_snake')}</div>
         </div>`;
     }).join('');
@@ -468,7 +476,7 @@
       return `
         <tr>
           <td class="rank-cell ${rankCls} num">#${rank}</td>
-          <td class="wallet-cell"><a href="${POLYGONSCAN}${r.address}" target="_blank" rel="noopener">${shortAddr(r.address)}</a></td>
+          <td class="wallet-cell"><a href="${POLYGONSCAN}${r.address}" target="_blank" rel="noopener" title="${r.address}">${displayName(r)}</a></td>
           <td class="num score-cell">${fmt(r.best_score)}</td>
           <td class="num">${fmt(r.games_played)}</td>
           <td class="num snake-cell hide-mobile">${fmtSnake(r.total_claimed)}</td>

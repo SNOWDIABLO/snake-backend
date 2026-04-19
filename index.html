@@ -357,6 +357,99 @@
   }
   .trophy-minted a { color: #4ade80; text-decoration: underline; }
 
+  /* Task #68 Username */
+  .username-box {
+    max-width: 480px;
+    margin: 10px auto 0;
+    background: linear-gradient(180deg, rgba(15,25,20,0.9), rgba(10,15,12,0.9));
+    border: 1px solid #1f3d2f;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 0.85rem;
+  }
+  .username-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .username-header .title { font-weight: 700; color: #00ff88; letter-spacing: 0.3px; }
+  .username-header .meta  { color: #aaa; font-size: 0.78rem; }
+  .username-body {
+    display: flex;
+    gap: 8px;
+  }
+  .username-body input {
+    flex: 1;
+    background: #0a0f0c;
+    border: 1px solid #1f3d2f;
+    color: #fff;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .username-body input:focus { border-color: #00ff88; }
+  .username-body input.invalid { border-color: #ff4444; }
+  .username-body input.valid   { border-color: #4ade80; }
+  .username-body button {
+    background: linear-gradient(135deg,#00ff88,#009944);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .username-body button:disabled { background: #333; color: #888; cursor: not-allowed; }
+  .username-hint   { color: #888; font-size: 0.72rem; margin-top: 6px; }
+  .username-status { font-size: 0.78rem; margin-top: 6px; min-height: 1em; }
+  .username-status.ok  { color: #4ade80; }
+  .username-status.err { color: #ff6b6b; }
+  .username-paid-btn {
+    width: 100%;
+    margin-top: 8px;
+    background: linear-gradient(135deg,#ff6b00,#cc3300);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.82rem;
+  }
+  .username-paid-btn:hover { opacity: 0.9; }
+  .modal .modal-sub { color: #aaa; font-size: 0.82rem; margin: 4px 0 12px; }
+  .modal input {
+    width: 100%;
+    background: #0a0f0c;
+    border: 1px solid #1f3d2f;
+    color: #fff;
+    border-radius: 6px;
+    padding: 9px 10px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .modal-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #username-paid-confirm {
+    background: linear-gradient(135deg,#ff6b00,#cc3300);
+    color: #fff;
+  }
+
   .quests-allDone {
     text-align: center;
     color: #ffd700;
@@ -456,6 +549,37 @@
 <div class="top-bar">
   <button id="connect-btn" onclick="openWalletPicker()">🦊 <span data-i18n="connect">Connecter Wallet</span></button>
   <div id="wallet-address" data-i18n="not_connected">Non connecté</div>
+</div>
+
+<!-- Task #68 Username / Pseudo -->
+<div class="username-box" id="username-box" style="display:none">
+  <div class="username-header">
+    <span class="title">👤 <span data-i18n="username_title">Pseudo</span></span>
+    <span class="meta" id="username-current">—</span>
+  </div>
+  <div class="username-body">
+    <input id="username-input" maxlength="16" autocomplete="off" spellcheck="false" placeholder="snowdiablo_42" />
+    <button id="username-save-btn" onclick="saveUsername()" data-i18n="username_save">Enregistrer</button>
+  </div>
+  <div id="username-hint" class="username-hint" data-i18n="username_hint">3-16 caractères · lettres/chiffres/_/- · 1 changement gratuit par mois</div>
+  <div id="username-status" class="username-status"></div>
+  <button id="username-paid-btn" class="username-paid-btn" onclick="openUsernamePaidModal()" style="display:none">
+    🔥 <span data-i18n="username_paid_btn">Changer maintenant (burn 1000 $SNAKE)</span>
+  </button>
+</div>
+
+<!-- Modal burn username -->
+<div class="modal-overlay" id="username-paid-modal">
+  <div class="modal">
+    <h3 data-i18n="username_paid_title">Burn 1000 $SNAKE pour changer</h3>
+    <p class="modal-sub" data-i18n="username_paid_desc">Envoie 1000 $SNAKE vers l'adresse de burn pour débloquer un changement immédiat.</p>
+    <input id="username-paid-input" maxlength="16" autocomplete="off" spellcheck="false" placeholder="nouveau-pseudo" />
+    <div class="modal-actions">
+      <button onclick="confirmUsernameBurn()" id="username-paid-confirm" data-i18n="username_paid_confirm">🔥 Burn + Changer</button>
+      <button class="modal-close" onclick="closeUsernamePaidModal()" data-i18n="cancel">Annuler</button>
+    </div>
+    <div id="username-paid-status" class="username-status"></div>
+  </div>
 </div>
 
 <!-- Task #20 Golden Snake Banner -->
@@ -804,6 +928,291 @@ const LANGS = {
   }},
 };
 
+// ─── USERNAME I18N (Task #68) ───────────────────────────────────────────────
+// Merged post-hoc dans LANGS[lang].t. Clefs partagées pour frontend + hall-of-fame.
+const USERNAME_I18N = {
+  fr: {
+    username_title:'Pseudo', username_save:'Enregistrer', username_change:'Changer',
+    username_not_set:'Non défini',
+    username_hint:'3-16 caractères · lettres/chiffres/_/- · 1 changement gratuit par mois',
+    username_hint_free_change:'Changement gratuit disponible ce mois.',
+    username_hint_wait:'Prochain changement gratuit',
+    username_available:'disponible', username_taken:'déjà pris',
+    username_length:'Longueur : 3 à 16 caractères',
+    username_invalid_chars:'Caractères invalides (a-z, 0-9, _, -)',
+    username_forbidden:'Pseudo interdit', username_missing:'Pseudo manquant',
+    username_error:'Erreur serveur', username_saved:'Pseudo enregistré !',
+    username_free_change_used:'Changement gratuit déjà utilisé ce mois',
+    username_signing:'Signature en cours...',
+    username_paid_btn:'Changer maintenant (burn 1000 $SNAKE)',
+    username_paid_title:'Burn 1000 $SNAKE pour changer',
+    username_paid_desc:'Envoie 1000 $SNAKE vers l\'adresse de burn pour débloquer un changement immédiat.',
+    username_paid_confirm:'🔥 Burn + Changer',
+    username_insufficient:'Solde $SNAKE insuffisant (1000 requis)',
+    username_burn_send:'Envoi du burn...', username_burn_confirm:'Attente confirmation',
+    username_burn_verify:'Vérification serveur', username_format_ok:'format valide',
+    burn_not_found:'Burn non trouvé on-chain',
+    tx_not_found:'Transaction introuvable', tx_already_used:'Transaction déjà utilisée',
+  },
+  en: {
+    username_title:'Username', username_save:'Save', username_change:'Change',
+    username_not_set:'Not set',
+    username_hint:'3-16 chars · letters/digits/_/- · 1 free change per month',
+    username_hint_free_change:'Free change available this month.',
+    username_hint_wait:'Next free change',
+    username_available:'available', username_taken:'already taken',
+    username_length:'Length: 3 to 16 characters',
+    username_invalid_chars:'Invalid characters (a-z, 0-9, _, -)',
+    username_forbidden:'Username forbidden', username_missing:'Username required',
+    username_error:'Server error', username_saved:'Username saved!',
+    username_free_change_used:'Free change already used this month',
+    username_signing:'Signing...',
+    username_paid_btn:'Change now (burn 1000 $SNAKE)',
+    username_paid_title:'Burn 1000 $SNAKE to change',
+    username_paid_desc:'Send 1000 $SNAKE to the burn address to unlock an instant change.',
+    username_paid_confirm:'🔥 Burn & Change',
+    username_insufficient:'Insufficient $SNAKE balance (1000 required)',
+    username_burn_send:'Sending burn tx...', username_burn_confirm:'Awaiting confirmation',
+    username_burn_verify:'Server verification', username_format_ok:'valid format',
+    burn_not_found:'Burn not found on-chain',
+    tx_not_found:'Transaction not found', tx_already_used:'Transaction already used',
+  },
+  es: {
+    username_title:'Nombre', username_save:'Guardar', username_change:'Cambiar',
+    username_not_set:'No definido',
+    username_hint:'3-16 caracteres · letras/números/_/- · 1 cambio gratis/mes',
+    username_hint_free_change:'Cambio gratis disponible este mes.',
+    username_hint_wait:'Próximo cambio gratis',
+    username_available:'disponible', username_taken:'ya tomado',
+    username_length:'Longitud: 3 a 16 caracteres',
+    username_invalid_chars:'Caracteres inválidos (a-z, 0-9, _, -)',
+    username_forbidden:'Nombre prohibido', username_missing:'Nombre requerido',
+    username_error:'Error servidor', username_saved:'¡Guardado!',
+    username_free_change_used:'Cambio gratis ya usado este mes',
+    username_signing:'Firmando...',
+    username_paid_btn:'Cambiar ahora (quemar 1000 $SNAKE)',
+    username_paid_title:'Quemar 1000 $SNAKE para cambiar',
+    username_paid_desc:'Envía 1000 $SNAKE a la dirección de quema para desbloquear cambio inmediato.',
+    username_paid_confirm:'🔥 Quemar y Cambiar',
+    username_insufficient:'Saldo $SNAKE insuficiente (1000 requeridos)',
+    username_burn_send:'Enviando burn...', username_burn_confirm:'Esperando confirmación',
+    username_burn_verify:'Verificación servidor', username_format_ok:'formato válido',
+    burn_not_found:'Burn no encontrado', tx_not_found:'Transacción no encontrada',
+    tx_already_used:'Transacción ya usada',
+  },
+  pt: {
+    username_title:'Nome', username_save:'Salvar', username_change:'Trocar',
+    username_not_set:'Não definido',
+    username_hint:'3-16 caracteres · letras/números/_/- · 1 troca grátis/mês',
+    username_hint_free_change:'Troca gratuita disponível este mês.',
+    username_hint_wait:'Próxima troca grátis',
+    username_available:'disponível', username_taken:'já em uso',
+    username_length:'Tamanho: 3 a 16 caracteres',
+    username_invalid_chars:'Caracteres inválidos (a-z, 0-9, _, -)',
+    username_forbidden:'Nome proibido', username_missing:'Nome obrigatório',
+    username_error:'Erro servidor', username_saved:'Salvo!',
+    username_free_change_used:'Troca grátis já usada este mês',
+    username_signing:'Assinando...',
+    username_paid_btn:'Trocar agora (queimar 1000 $SNAKE)',
+    username_paid_title:'Queimar 1000 $SNAKE para trocar',
+    username_paid_desc:'Envie 1000 $SNAKE para o endereço de queima para liberar troca imediata.',
+    username_paid_confirm:'🔥 Queimar e Trocar',
+    username_insufficient:'Saldo $SNAKE insuficiente (1000 necessários)',
+    username_burn_send:'Enviando burn...', username_burn_confirm:'Aguardando confirmação',
+    username_burn_verify:'Verificação servidor', username_format_ok:'formato válido',
+    burn_not_found:'Burn não encontrado', tx_not_found:'Transação não encontrada',
+    tx_already_used:'Transação já usada',
+  },
+  de: {
+    username_title:'Nutzername', username_save:'Speichern', username_change:'Ändern',
+    username_not_set:'Nicht gesetzt',
+    username_hint:'3-16 Zeichen · Buchstaben/Zahlen/_/- · 1 kostenlose Änderung/Monat',
+    username_hint_free_change:'Kostenlose Änderung in diesem Monat verfügbar.',
+    username_hint_wait:'Nächste kostenlose Änderung',
+    username_available:'verfügbar', username_taken:'bereits vergeben',
+    username_length:'Länge: 3 bis 16 Zeichen',
+    username_invalid_chars:'Ungültige Zeichen (a-z, 0-9, _, -)',
+    username_forbidden:'Nutzername verboten', username_missing:'Nutzername erforderlich',
+    username_error:'Serverfehler', username_saved:'Gespeichert!',
+    username_free_change_used:'Kostenlose Änderung bereits verbraucht',
+    username_signing:'Signieren...',
+    username_paid_btn:'Jetzt ändern (1000 $SNAKE burn)',
+    username_paid_title:'1000 $SNAKE burnen zum Ändern',
+    username_paid_desc:'Sende 1000 $SNAKE an die Burn-Adresse für sofortige Änderung.',
+    username_paid_confirm:'🔥 Burn & Ändern',
+    username_insufficient:'$SNAKE-Guthaben nicht ausreichend (1000 benötigt)',
+    username_burn_send:'Burn wird gesendet...', username_burn_confirm:'Bestätigung wird erwartet',
+    username_burn_verify:'Server-Verifizierung', username_format_ok:'gültiges Format',
+    burn_not_found:'Burn nicht gefunden', tx_not_found:'Transaktion nicht gefunden',
+    tx_already_used:'Transaktion bereits verwendet',
+  },
+  it: {
+    username_title:'Nome', username_save:'Salva', username_change:'Cambia',
+    username_not_set:'Non impostato',
+    username_hint:'3-16 caratteri · lettere/numeri/_/- · 1 cambio gratis/mese',
+    username_hint_free_change:'Cambio gratuito disponibile questo mese.',
+    username_hint_wait:'Prossimo cambio gratis',
+    username_available:'disponibile', username_taken:'già preso',
+    username_length:'Lunghezza: 3 a 16 caratteri',
+    username_invalid_chars:'Caratteri non validi (a-z, 0-9, _, -)',
+    username_forbidden:'Nome proibito', username_missing:'Nome richiesto',
+    username_error:'Errore server', username_saved:'Salvato!',
+    username_free_change_used:'Cambio gratuito già usato questo mese',
+    username_signing:'Firma in corso...',
+    username_paid_btn:'Cambia ora (brucia 1000 $SNAKE)',
+    username_paid_title:'Brucia 1000 $SNAKE per cambiare',
+    username_paid_desc:'Invia 1000 $SNAKE all\'indirizzo di burn per sbloccare un cambio immediato.',
+    username_paid_confirm:'🔥 Brucia e Cambia',
+    username_insufficient:'Saldo $SNAKE insufficiente (1000 richiesti)',
+    username_burn_send:'Invio burn...', username_burn_confirm:'Attesa conferma',
+    username_burn_verify:'Verifica server', username_format_ok:'formato valido',
+    burn_not_found:'Burn non trovato', tx_not_found:'Transazione non trovata',
+    tx_already_used:'Transazione già usata',
+  },
+  ru: {
+    username_title:'Ник', username_save:'Сохранить', username_change:'Сменить',
+    username_not_set:'Не задан',
+    username_hint:'3-16 символов · буквы/цифры/_/- · 1 бесплатная смена в месяц',
+    username_hint_free_change:'Бесплатная смена доступна в этом месяце.',
+    username_hint_wait:'Следующая бесплатная смена',
+    username_available:'свободно', username_taken:'уже занят',
+    username_length:'Длина: от 3 до 16 символов',
+    username_invalid_chars:'Неверные символы (a-z, 0-9, _, -)',
+    username_forbidden:'Ник запрещён', username_missing:'Укажите ник',
+    username_error:'Ошибка сервера', username_saved:'Сохранено!',
+    username_free_change_used:'Бесплатная смена уже использована',
+    username_signing:'Подписываю...',
+    username_paid_btn:'Сменить сейчас (сжечь 1000 $SNAKE)',
+    username_paid_title:'Сжечь 1000 $SNAKE для смены',
+    username_paid_desc:'Отправьте 1000 $SNAKE на адрес сжигания для мгновенной смены.',
+    username_paid_confirm:'🔥 Сжечь и сменить',
+    username_insufficient:'Недостаточно $SNAKE (нужно 1000)',
+    username_burn_send:'Отправка burn...', username_burn_confirm:'Ожидание подтверждения',
+    username_burn_verify:'Проверка сервера', username_format_ok:'формат верный',
+    burn_not_found:'Burn не найден', tx_not_found:'Транзакция не найдена',
+    tx_already_used:'Транзакция уже использована',
+  },
+  zh: {
+    username_title:'昵称', username_save:'保存', username_change:'更改',
+    username_not_set:'未设置',
+    username_hint:'3-16 字符 · 字母/数字/_/- · 每月免费更改 1 次',
+    username_hint_free_change:'本月有免费更改机会。',
+    username_hint_wait:'下次免费更改',
+    username_available:'可用', username_taken:'已被占用',
+    username_length:'长度：3 到 16 个字符',
+    username_invalid_chars:'无效字符 (a-z, 0-9, _, -)',
+    username_forbidden:'昵称被禁止', username_missing:'昵称必填',
+    username_error:'服务器错误', username_saved:'已保存！',
+    username_free_change_used:'本月免费更改已使用',
+    username_signing:'签名中...',
+    username_paid_btn:'立即更改 (销毁 1000 $SNAKE)',
+    username_paid_title:'销毁 1000 $SNAKE 以更改',
+    username_paid_desc:'发送 1000 $SNAKE 到销毁地址以立即更改。',
+    username_paid_confirm:'🔥 销毁并更改',
+    username_insufficient:'$SNAKE 余额不足（需要 1000）',
+    username_burn_send:'发送销毁交易...', username_burn_confirm:'等待确认',
+    username_burn_verify:'服务器验证', username_format_ok:'格式正确',
+    burn_not_found:'未找到销毁', tx_not_found:'交易未找到',
+    tx_already_used:'交易已使用',
+  },
+  ja: {
+    username_title:'ユーザー名', username_save:'保存', username_change:'変更',
+    username_not_set:'未設定',
+    username_hint:'3-16文字 · 英数字/_/- · 月1回無料変更',
+    username_hint_free_change:'今月の無料変更が利用可能です。',
+    username_hint_wait:'次の無料変更',
+    username_available:'利用可能', username_taken:'使用中',
+    username_length:'長さ：3〜16文字',
+    username_invalid_chars:'無効な文字 (a-z, 0-9, _, -)',
+    username_forbidden:'禁止名', username_missing:'ユーザー名が必要',
+    username_error:'サーバーエラー', username_saved:'保存しました！',
+    username_free_change_used:'今月の無料変更は使用済み',
+    username_signing:'署名中...',
+    username_paid_btn:'今すぐ変更 (1000 $SNAKE バーン)',
+    username_paid_title:'1000 $SNAKEをバーンして変更',
+    username_paid_desc:'1000 $SNAKEをバーンアドレスに送信して即時変更。',
+    username_paid_confirm:'🔥 バーンして変更',
+    username_insufficient:'$SNAKE残高不足 (1000必要)',
+    username_burn_send:'バーン送信中...', username_burn_confirm:'確認待ち',
+    username_burn_verify:'サーバー検証', username_format_ok:'有効な形式',
+    burn_not_found:'バーン未確認', tx_not_found:'トランザクション未検出',
+    tx_already_used:'トランザクション使用済み',
+  },
+  ko: {
+    username_title:'닉네임', username_save:'저장', username_change:'변경',
+    username_not_set:'미설정',
+    username_hint:'3-16자 · 문자/숫자/_/- · 월 1회 무료 변경',
+    username_hint_free_change:'이번 달 무료 변경 가능.',
+    username_hint_wait:'다음 무료 변경',
+    username_available:'사용 가능', username_taken:'사용 중',
+    username_length:'길이: 3~16자',
+    username_invalid_chars:'잘못된 문자 (a-z, 0-9, _, -)',
+    username_forbidden:'금지된 닉네임', username_missing:'닉네임 필요',
+    username_error:'서버 오류', username_saved:'저장됨!',
+    username_free_change_used:'무료 변경 이미 사용',
+    username_signing:'서명 중...',
+    username_paid_btn:'지금 변경 (1000 $SNAKE 소각)',
+    username_paid_title:'1000 $SNAKE 소각하여 변경',
+    username_paid_desc:'1000 $SNAKE를 소각 주소로 전송하여 즉시 변경.',
+    username_paid_confirm:'🔥 소각 후 변경',
+    username_insufficient:'$SNAKE 잔액 부족 (1000 필요)',
+    username_burn_send:'소각 전송 중...', username_burn_confirm:'확인 대기',
+    username_burn_verify:'서버 검증', username_format_ok:'유효한 형식',
+    burn_not_found:'소각 미확인', tx_not_found:'거래 찾을 수 없음',
+    tx_already_used:'거래 사용됨',
+  },
+  ar: {
+    username_title:'الاسم المستعار', username_save:'حفظ', username_change:'تغيير',
+    username_not_set:'غير محدد',
+    username_hint:'3-16 حرف · أحرف/أرقام/_/- · تغيير مجاني واحد شهرياً',
+    username_hint_free_change:'تغيير مجاني متاح هذا الشهر.',
+    username_hint_wait:'التغيير المجاني القادم',
+    username_available:'متاح', username_taken:'مأخوذ',
+    username_length:'الطول: 3 إلى 16 حرفاً',
+    username_invalid_chars:'أحرف غير صالحة (a-z, 0-9, _, -)',
+    username_forbidden:'اسم محظور', username_missing:'الاسم مطلوب',
+    username_error:'خطأ في الخادم', username_saved:'تم الحفظ!',
+    username_free_change_used:'تم استخدام التغيير المجاني',
+    username_signing:'جاري التوقيع...',
+    username_paid_btn:'تغيير الآن (حرق 1000 $SNAKE)',
+    username_paid_title:'حرق 1000 $SNAKE للتغيير',
+    username_paid_desc:'أرسل 1000 $SNAKE إلى عنوان الحرق لتغيير فوري.',
+    username_paid_confirm:'🔥 حرق وتغيير',
+    username_insufficient:'رصيد $SNAKE غير كافٍ (1000 مطلوب)',
+    username_burn_send:'إرسال الحرق...', username_burn_confirm:'في انتظار التأكيد',
+    username_burn_verify:'التحقق من الخادم', username_format_ok:'تنسيق صحيح',
+    burn_not_found:'الحرق غير موجود', tx_not_found:'المعاملة غير موجودة',
+    tx_already_used:'المعاملة مستخدمة',
+  },
+  tr: {
+    username_title:'Kullanıcı Adı', username_save:'Kaydet', username_change:'Değiştir',
+    username_not_set:'Ayarlanmadı',
+    username_hint:'3-16 karakter · harf/rakam/_/- · Ayda 1 ücretsiz değişim',
+    username_hint_free_change:'Bu ay ücretsiz değişim mevcut.',
+    username_hint_wait:'Sonraki ücretsiz değişim',
+    username_available:'kullanılabilir', username_taken:'kullanımda',
+    username_length:'Uzunluk: 3 ila 16 karakter',
+    username_invalid_chars:'Geçersiz karakter (a-z, 0-9, _, -)',
+    username_forbidden:'Yasak kullanıcı adı', username_missing:'Kullanıcı adı gerekli',
+    username_error:'Sunucu hatası', username_saved:'Kaydedildi!',
+    username_free_change_used:'Ücretsiz değişim bu ay kullanıldı',
+    username_signing:'İmzalanıyor...',
+    username_paid_btn:'Şimdi değiştir (1000 $SNAKE yak)',
+    username_paid_title:'Değiştirmek için 1000 $SNAKE yak',
+    username_paid_desc:'Anında değişim için 1000 $SNAKE\'i yakma adresine gönder.',
+    username_paid_confirm:'🔥 Yak ve Değiştir',
+    username_insufficient:'$SNAKE bakiyesi yetersiz (1000 gerekli)',
+    username_burn_send:'Yakma gönderiliyor...', username_burn_confirm:'Onay bekleniyor',
+    username_burn_verify:'Sunucu doğrulama', username_format_ok:'geçerli format',
+    burn_not_found:'Yakma bulunamadı', tx_not_found:'İşlem bulunamadı',
+    tx_already_used:'İşlem kullanılmış',
+  },
+};
+// Merge into LANGS[lang].t
+Object.entries(USERNAME_I18N).forEach(([lang, strings]) => {
+  if (LANGS[lang]) Object.assign(LANGS[lang].t, strings);
+});
+
 // ─── LANG INIT ───────────────────────────────────────────────────────────────
 let currentLang = localStorage.getItem('snakeLang') || 'fr';
 
@@ -851,8 +1260,12 @@ const CONTRACT_ADDRESS = '0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1';
 const WC_PROJECT_ID    = '9cd7a0fb185b1551d56dea7016233713';
 const CONTRACT_ABI = [
   "function claimReward(uint256 amount, bytes32 nonce, bytes calldata sig) external",
-  "function balanceOf(address account) view returns (uint256)"
+  "function balanceOf(address account) view returns (uint256)",
+  "function transfer(address to, uint256 amount) returns (bool)"
 ];
+// Task #68 — burn address (pour paid username change)
+const BURN_ADDRESS_FE = '0x000000000000000000000000000000000000dEaD';
+const USERNAME_BURN_AMOUNT_FE = '1000'; // 1000 $SNAKE
 // Task #22 — SnakeTrophyNFT (ERC-721 saisonniers top 10)
 // Deployed sur Polygon mainnet 2026-04-18, verified sur Polygonscan
 const NFT_CONTRACT_ADDRESS = '0xda4167D97caAa90DAf5510bcE338a90134BBdfA9';
@@ -1112,6 +1525,201 @@ function renderNftMultiplier(d) {
   tier.textContent = d.tier.toUpperCase();
   mult.textContent = '+' + (d.bonus_pct || 0) + '%';
   box.title = '🏆 ' + d.tier + ' NFT actif · +' + d.bonus_pct + '% permanent sur toutes tes rewards $SNAKE (rank ' + d.rank + ')';
+}
+
+// ─── USERNAME / PSEUDO (Task #68) ───────────────────────────────────────────
+let _usernameCache = null;
+let _usernameCheckTimer = null;
+const USERNAME_REGEX_FE = /^[A-Za-z0-9_-]{3,16}$/;
+
+function showUsernameStatus(el, type, msg) {
+  el.className = 'username-status ' + (type || '');
+  el.textContent = msg || '';
+}
+
+async function loadUsername() {
+  if (!walletAddress || !BACKEND_URL) return;
+  const box = document.getElementById('username-box');
+  if (!box) return;
+  box.style.display = 'block';
+  try {
+    const r = await fetch(BACKEND_URL + '/api/username/' + walletAddress);
+    if (!r.ok) return;
+    const d = await r.json();
+    _usernameCache = d;
+    renderUsername(d);
+  } catch (e) { console.log('username load:', e); }
+}
+
+function renderUsername(d) {
+  const curEl  = document.getElementById('username-current');
+  const input  = document.getElementById('username-input');
+  const saveBtn= document.getElementById('username-save-btn');
+  const paidBtn= document.getElementById('username-paid-btn');
+  const hint   = document.getElementById('username-hint');
+  if (!curEl) return;
+  if (d && d.username) {
+    curEl.textContent = d.username;
+    input.value = d.username;
+    if (d.can_free_change) {
+      saveBtn.textContent = t('username_change') || 'Changer';
+      saveBtn.disabled = false;
+      paidBtn.style.display = 'none';
+      if (hint) hint.textContent = t('username_hint_free_change') || 'Changement gratuit disponible ce mois.';
+    } else {
+      saveBtn.disabled = true;
+      paidBtn.style.display = 'block';
+      if (hint) hint.textContent = (t('username_hint_wait') || 'Prochain changement gratuit') + ' : ' + d.next_free_change_month;
+    }
+  } else {
+    curEl.textContent = t('username_not_set') || 'Non défini';
+    saveBtn.disabled = false;
+    saveBtn.textContent = t('username_save') || 'Enregistrer';
+    paidBtn.style.display = 'none';
+    input.value = '';
+    if (hint) hint.textContent = t('username_hint') || '3-16 caractères · lettres/chiffres/_/-';
+  }
+}
+
+function validateUsernameClient(u) {
+  if (!u) return 'username_missing';
+  if (u.length < 3 || u.length > 16) return 'username_length';
+  if (!USERNAME_REGEX_FE.test(u)) return 'username_invalid_chars';
+  if (/^[-_]|[-_]$/.test(u)) return 'username_invalid_chars';
+  return null;
+}
+
+function onUsernameInput(ev) {
+  const input = ev.target;
+  const statusEl = document.getElementById('username-status');
+  const val = input.value.trim();
+  const err = validateUsernameClient(val);
+  input.classList.remove('valid','invalid');
+  if (err) {
+    input.classList.add('invalid');
+    showUsernameStatus(statusEl, 'err', t(err) || err);
+    return;
+  }
+  clearTimeout(_usernameCheckTimer);
+  _usernameCheckTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(BACKEND_URL + '/api/username/check/' + encodeURIComponent(val));
+      const d = await r.json();
+      if (d.available) {
+        input.classList.add('valid');
+        showUsernameStatus(statusEl, 'ok', '✓ ' + (t('username_available') || 'disponible'));
+      } else {
+        input.classList.add('invalid');
+        showUsernameStatus(statusEl, 'err', d.reason ? (t(d.reason) || d.reason) : (t('username_taken') || 'déjà pris'));
+      }
+    } catch (e) {}
+  }, 400);
+}
+
+async function saveUsername() {
+  if (!walletAddress || !BACKEND_URL) { setStatus('⚠️ ' + t('connect')); return; }
+  const input = document.getElementById('username-input');
+  const statusEl = document.getElementById('username-status');
+  const val = (input.value || '').trim();
+  const err = validateUsernameClient(val);
+  if (err) { showUsernameStatus(statusEl, 'err', t(err) || err); return; }
+  const btn = document.getElementById('username-save-btn');
+  btn.disabled = true;
+  showUsernameStatus(statusEl, '', '⏳ ' + (t('username_signing') || 'Signature...'));
+  try {
+    let proof = null;
+    try { proof = await getWalletProof('SetUsername'); } catch (e) {}
+    const r = await fetch(BACKEND_URL + '/api/username/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: walletAddress, username: val, proof }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      const key = d.error || 'username_error';
+      showUsernameStatus(statusEl, 'err', t(key) || key);
+      if (d.error === 'username_free_change_used') {
+        document.getElementById('username-paid-btn').style.display = 'block';
+      }
+      btn.disabled = false;
+      return;
+    }
+    showUsernameStatus(statusEl, 'ok', '✓ ' + (t('username_saved') || 'Enregistré !'));
+    await loadUsername();
+  } catch (e) {
+    showUsernameStatus(statusEl, 'err', '❌ ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+function openUsernamePaidModal() {
+  const m = document.getElementById('username-paid-modal');
+  if (m) m.classList.add('active');
+  const input = document.getElementById('username-paid-input');
+  if (input) input.value = '';
+  const s = document.getElementById('username-paid-status');
+  if (s) showUsernameStatus(s, '', '');
+}
+function closeUsernamePaidModal() {
+  const m = document.getElementById('username-paid-modal');
+  if (m) m.classList.remove('active');
+}
+
+async function confirmUsernameBurn() {
+  if (!walletAddress || !signer) { setStatus('⚠️ ' + t('connect')); return; }
+  if (!CONTRACT_ADDRESS) { setStatus('❌ $SNAKE contract manquant'); return; }
+  const input = document.getElementById('username-paid-input');
+  const statusEl = document.getElementById('username-paid-status');
+  const val = (input.value || '').trim();
+  const err = validateUsernameClient(val);
+  if (err) { showUsernameStatus(statusEl, 'err', t(err) || err); return; }
+  // Check availability before burning
+  try {
+    const rc = await fetch(BACKEND_URL + '/api/username/check/' + encodeURIComponent(val));
+    const dc = await rc.json();
+    if (!dc.available) {
+      showUsernameStatus(statusEl, 'err', dc.reason ? (t(dc.reason) || dc.reason) : (t('username_taken') || 'déjà pris'));
+      return;
+    }
+  } catch (e) {}
+
+  const btn = document.getElementById('username-paid-confirm');
+  btn.disabled = true;
+  try {
+    showUsernameStatus(statusEl, '', '⏳ ' + (t('username_burn_send') || 'Envoi du burn...'));
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    const amount = ethers.parseUnits(USERNAME_BURN_AMOUNT_FE, 18);
+    // Check balance first to avoid failed tx
+    const bal = await contract.balanceOf(walletAddress);
+    if (bal < amount) {
+      showUsernameStatus(statusEl, 'err', '❌ ' + (t('username_insufficient') || 'Solde $SNAKE insuffisant (1000 requis)'));
+      btn.disabled = false;
+      return;
+    }
+    const tx = await contract.transfer(BURN_ADDRESS_FE, amount);
+    showUsernameStatus(statusEl, '', '⏳ ' + (t('username_burn_confirm') || 'Attente confirmation') + '...');
+    const rcpt = await tx.wait(1);
+    showUsernameStatus(statusEl, '', '⏳ ' + (t('username_burn_verify') || 'Vérification serveur') + '...');
+
+    let proof = await getWalletProof('BurnUsername');
+    const r = await fetch(BACKEND_URL + '/api/username/paid-change', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: walletAddress, username: val, tx_hash: rcpt.hash, proof }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      const key = d.error || 'username_error';
+      showUsernameStatus(statusEl, 'err', (t(key) || key) + (d.message ? ' — ' + d.message : ''));
+      btn.disabled = false;
+      return;
+    }
+    showUsernameStatus(statusEl, 'ok', '✓ ' + (t('username_saved') || 'Enregistré !'));
+    setTimeout(() => { closeUsernamePaidModal(); loadUsername(); }, 1200);
+  } catch (e) {
+    showUsernameStatus(statusEl, 'err', '❌ ' + (e.shortMessage || e.message));
+    btn.disabled = false;
+  }
 }
 
 // ─── NFT TROPHÉES (Task #22) ────────────────────────────────────────────────
@@ -1461,6 +2069,24 @@ async function connectWithProvider(eip1193Provider, walletName) {
     loadGolden();
     loadTrophies();        // Task #22 — check trophées éligibles
     loadNftMultiplier();   // Task #46 — badge multiplier actif
+    loadUsername();        // Task #68 — pseudo wallet-linked
+    // Debounced availability check
+    const ui = document.getElementById('username-input');
+    if (ui && !ui.dataset.bound) {
+      ui.addEventListener('input', onUsernameInput);
+      ui.dataset.bound = '1';
+    }
+    const uip = document.getElementById('username-paid-input');
+    if (uip && !uip.dataset.bound) {
+      uip.addEventListener('input', (ev) => {
+        const s = document.getElementById('username-paid-status');
+        const err = validateUsernameClient(ev.target.value.trim());
+        ev.target.classList.remove('valid','invalid');
+        if (err) { ev.target.classList.add('invalid'); showUsernameStatus(s, 'err', t(err) || err); }
+        else     { ev.target.classList.add('valid');   showUsernameStatus(s, 'ok',  '✓ ' + (t('username_format_ok') || 'format valide')); }
+      });
+      uip.dataset.bound = '1';
+    }
   } catch (e) { setStatus('❌ ' + e.message); }
 }
 

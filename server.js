@@ -137,6 +137,34 @@ if (!hasStreakCol) {
   console.log('✅ Streak columns added to leaderboard');
 }
 
+// ─── MIGRATION : usernames (task #68) ─────────────────────────────────────────
+// Pseudo lié à un wallet. 3-16 chars ASCII [a-zA-Z0-9_-].
+// Unicité case-insensitive (COLLATE NOCASE).
+// First setup = free. Ensuite : 1 free change par mois calendrier OU paid change (burn 1000 $SNAKE).
+// last_free_change_month au format 'YYYY-MM' UTC.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS usernames (
+    wallet                 TEXT PRIMARY KEY,
+    username               TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    set_at                 INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+    last_changed_at        INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+    last_free_change_month TEXT,
+    paid_changes_count     INTEGER DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_usernames_username ON usernames(username COLLATE NOCASE);
+`);
+console.log('✅ Usernames table ready');
+
+// Tracking des tx de burn consommées (anti-replay)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS username_burns (
+    tx_hash     TEXT PRIMARY KEY,
+    wallet      TEXT NOT NULL,
+    amount      TEXT NOT NULL,
+    consumed_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+  );
+`);
+
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SIGNER_PK            = process.env.SIGNER_PK;
 const CONTRACT_ADDRESS     = process.env.CONTRACT_ADDRESS;        // $SNAKE ERC-20
@@ -217,6 +245,27 @@ if (!SIGNER_PK) { console.error('❌ SIGNER_PK manquant dans .env'); process.exi
 
 const wallet = new ethers.Wallet(SIGNER_PK);
 console.log('✅ Signer wallet:', wallet.address);
+
+// ─── RPC provider (task #68 : verif on-chain burn tx pour username paid-change) ─
+// Lazy init. Si POLYGON_RPC absent, /api/username/paid-change refusera avec 503.
+const POLYGON_RPC  = process.env.POLYGON_RPC || '';
+const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
+let rpcProvider = null;
+function getProvider() {
+  if (rpcProvider) return rpcProvider;
+  if (!POLYGON_RPC) return null;
+  try {
+    rpcProvider = new ethers.JsonRpcProvider(POLYGON_RPC);
+    console.log('✅ Polygon RPC provider ready');
+    return rpcProvider;
+  } catch (e) {
+    console.warn('⚠️ RPC provider init failed:', e.message);
+    return null;
+  }
+}
+
+// ERC-20 Transfer event topic : keccak256("Transfer(address,address,uint256)")
+const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
 // ─── Discord webhook helper (non-blocking) ──────────────────────────────────
 async function discordNotify(embed) {
@@ -699,9 +748,9 @@ app.get('/health', (req, res) => {
 app.get('/api/proof/challenge', proofLimiter, (req, res) => {
   const action  = String(req.query.action || '').replace(/[^A-Za-z]/g, '').slice(0, 32);
   const address = String(req.query.address || '');
-  const ALLOWED = new Set(['Claim', 'MintTrophy', 'LinkDiscord']);
+  const ALLOWED = new Set(['Claim', 'MintTrophy', 'LinkDiscord', 'SetUsername', 'BurnUsername']);
   if (!ALLOWED.has(action)) {
-    return res.status(400).json({ error: 'action invalide (Claim|MintTrophy|LinkDiscord)' });
+    return res.status(400).json({ error: 'action invalide (Claim|MintTrophy|LinkDiscord|SetUsername|BurnUsername)' });
   }
   if (!ethers.isAddress(address)) {
     return res.status(400).json({ error: 'Adresse invalide' });
@@ -1244,6 +1293,303 @@ app.post('/api/nft/confirm', (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── USERNAMES (task #68 — wallet-linked pseudo) ──────────────────────────────
+// Blacklist username (admin env var JSON array OR default common slurs/reserved).
+// Force NOCASE compare. Regex anti-unicode + anti-confusion.
+const USERNAME_BLACKLIST_DEFAULT = [
+  'admin','administrator','snowdiablo','snakecoin','anthropic','claude','system',
+  'root','mod','moderator','support','staff','owner','null','undefined','deleted',
+  'snake','official','team','bot','discord','polygon','ethereum',
+  'nigger','nigga','fag','faggot','retard','rape','kike','chink','tranny',
+].map(s => s.toLowerCase());
+let USERNAME_BLACKLIST = [...USERNAME_BLACKLIST_DEFAULT];
+try {
+  if (process.env.USERNAME_BLACKLIST) {
+    const extra = JSON.parse(process.env.USERNAME_BLACKLIST);
+    if (Array.isArray(extra)) USERNAME_BLACKLIST.push(...extra.map(s => String(s).toLowerCase()));
+  }
+} catch (e) { console.warn('⚠️ USERNAME_BLACKLIST parse err:', e.message); }
+
+const USERNAME_REGEX   = /^[A-Za-z0-9_-]{3,16}$/;
+const USERNAME_MIN_LEN = 3;
+const USERNAME_MAX_LEN = 16;
+const USERNAME_BURN_AMOUNT = '1000'; // 1000 $SNAKE (unité entière, converti en wei plus bas)
+
+function validateUsername(raw) {
+  if (typeof raw !== 'string') return { ok: false, error: 'username_missing' };
+  const u = raw.trim();
+  if (u.length < USERNAME_MIN_LEN || u.length > USERNAME_MAX_LEN) {
+    return { ok: false, error: 'username_length' };
+  }
+  if (!USERNAME_REGEX.test(u)) return { ok: false, error: 'username_invalid_chars' };
+  if (USERNAME_BLACKLIST.includes(u.toLowerCase())) return { ok: false, error: 'username_forbidden' };
+  // Interdit commencer/finir par - ou _ (esthétique + anti-confusion)
+  if (/^[-_]|[-_]$/.test(u)) return { ok: false, error: 'username_invalid_chars' };
+  return { ok: true, username: u };
+}
+
+function currentMonthUTC() {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function getUsernameByWallet(wallet) {
+  if (!wallet) return null;
+  return db.prepare('SELECT * FROM usernames WHERE wallet = ?').get(wallet.toLowerCase());
+}
+function isUsernameTaken(username, exceptWallet = null) {
+  const row = db.prepare('SELECT wallet FROM usernames WHERE username = ? COLLATE NOCASE').get(username);
+  if (!row) return false;
+  if (exceptWallet && row.wallet.toLowerCase() === exceptWallet.toLowerCase()) return false;
+  return true;
+}
+
+// GET /api/username/:wallet → resolve
+app.get('/api/username/:wallet', publicLimiter, (req, res) => {
+  const addr = (req.params.wallet || '').toLowerCase();
+  if (!ethers.isAddress(addr)) return res.status(400).json({ error: 'Adresse invalide' });
+  const row = getUsernameByWallet(addr);
+  if (!row) return res.json({ wallet: addr, username: null });
+  const currentMonth = currentMonthUTC();
+  const can_free_change = row.last_free_change_month !== currentMonth;
+  res.json({
+    wallet: addr,
+    username: row.username,
+    set_at: row.set_at,
+    last_changed_at: row.last_changed_at,
+    last_free_change_month: row.last_free_change_month,
+    can_free_change,
+    next_free_change_month: can_free_change ? currentMonth : nextMonthUTC(),
+    paid_changes_count: row.paid_changes_count || 0,
+  });
+});
+
+function nextMonthUTC() {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// GET /api/username/check/:name → availability
+app.get('/api/username/check/:name', publicLimiter, (req, res) => {
+  const v = validateUsername(req.params.name || '');
+  if (!v.ok) return res.json({ available: false, valid: false, reason: v.error });
+  const taken = isUsernameTaken(v.username);
+  res.json({ available: !taken, valid: true, username: v.username });
+});
+
+// POST /api/username/set
+// Body: { address, username, proof }
+// - Premier set : gratuit
+// - Changement : gratuit 1x/mois (last_free_change_month != currentMonth) sinon 403 USE /paid-change
+app.post('/api/username/set', limiter, (req, res) => {
+  const { address, username, proof } = req.body || {};
+  if (!address || !ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Adresse invalide' });
+  }
+
+  // EIP-191 proof (cohérent avec le reste du projet)
+  if (proof || REQUIRE_WALLET_PROOF) {
+    const v = verifyWalletProof('SetUsername', address, proof);
+    if (!v.ok) {
+      if (REQUIRE_WALLET_PROOF) {
+        return res.status(401).json({ error: `Proof wallet : ${v.error}` });
+      }
+      console.warn(`[USERNAME/SET] proof invalide pour ${shortAddr(address)} : ${v.error}`);
+    }
+  } else {
+    console.warn(`[USERNAME/SET] ${shortAddr(address)} sans proof EIP-191 (legacy path)`);
+  }
+
+  const val = validateUsername(username);
+  if (!val.ok) return res.status(400).json({ error: val.error });
+
+  const addr = address.toLowerCase();
+  const now = Math.floor(Date.now() / 1000);
+  const currentMonth = currentMonthUTC();
+  const existing = getUsernameByWallet(addr);
+
+  if (existing) {
+    // Si même username (case-insensitive) → idempotent
+    if (existing.username.toLowerCase() === val.username.toLowerCase()) {
+      return res.json({ ok: true, username: existing.username, idempotent: true });
+    }
+    // Sinon : limite 1 free change/mois
+    if (existing.last_free_change_month === currentMonth) {
+      return res.status(403).json({
+        error: 'username_free_change_used',
+        message: 'Changement gratuit déjà utilisé ce mois. Utilise /api/username/paid-change (burn 1000 $SNAKE) pour changer maintenant.',
+        next_free_change_month: nextMonthUTC(),
+      });
+    }
+    if (isUsernameTaken(val.username, addr)) {
+      return res.status(409).json({ error: 'username_taken' });
+    }
+    try {
+      db.prepare(`
+        UPDATE usernames
+        SET username = ?, last_changed_at = ?, last_free_change_month = ?
+        WHERE wallet = ?
+      `).run(val.username, now, currentMonth, addr);
+    } catch (e) {
+      if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'username_taken' });
+      throw e;
+    }
+    console.log(`[USERNAME] ${shortAddr(addr)} changed → ${val.username} (free monthly)`);
+    return res.json({
+      ok: true,
+      username: val.username,
+      type: 'free_change',
+      next_free_change_month: nextMonthUTC(),
+    });
+  }
+
+  // Premier set — gratuit, ne consomme PAS le free change du mois
+  if (isUsernameTaken(val.username)) {
+    return res.status(409).json({ error: 'username_taken' });
+  }
+  try {
+    db.prepare(`
+      INSERT INTO usernames (wallet, username, set_at, last_changed_at, last_free_change_month)
+      VALUES (?, ?, ?, ?, NULL)
+    `).run(addr, val.username, now, now);
+  } catch (e) {
+    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'username_taken' });
+    throw e;
+  }
+  console.log(`[USERNAME] ${shortAddr(addr)} set → ${val.username} (first)`);
+  publicFeed({
+    embeds: [{
+      title: `🆕 Nouveau pseudo enregistré`,
+      description: `[${shortAddr(addr)}](https://polygonscan.com/address/${addr}) → **${val.username}**`,
+      color: 0x00ff88,
+      timestamp: new Date().toISOString(),
+    }],
+  });
+  res.json({ ok: true, username: val.username, type: 'first_set' });
+});
+
+// POST /api/username/paid-change
+// Body: { address, username, tx_hash, proof }
+// Vérifie on-chain que tx_hash = transfer 1000 $SNAKE de `address` → BURN_ADDRESS (0x...dEaD).
+// Consomme le tx_hash (anti-replay) et autorise le changement IMMÉDIAT (override monthly lock).
+app.post('/api/username/paid-change', limiter, async (req, res) => {
+  const { address, username, tx_hash, proof } = req.body || {};
+  if (!address || !ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Adresse invalide' });
+  }
+  if (!tx_hash || typeof tx_hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(tx_hash)) {
+    return res.status(400).json({ error: 'tx_hash invalide' });
+  }
+
+  // EIP-191 proof (obligatoire ici : action destructive + coûteuse)
+  const v = verifyWalletProof('BurnUsername', address, proof);
+  if (!v.ok) return res.status(401).json({ error: `Proof wallet : ${v.error}` });
+
+  const val = validateUsername(username);
+  if (!val.ok) return res.status(400).json({ error: val.error });
+
+  const addr = address.toLowerCase();
+  if (isUsernameTaken(val.username, addr)) {
+    return res.status(409).json({ error: 'username_taken' });
+  }
+
+  if (!CONTRACT_ADDRESS) {
+    return res.status(503).json({ error: 'Contrat $SNAKE non configuré (CONTRACT_ADDRESS)' });
+  }
+  const provider = getProvider();
+  if (!provider) {
+    return res.status(503).json({ error: 'RPC Polygon non configuré (POLYGON_RPC)' });
+  }
+
+  // Anti-replay : tx_hash déjà consommé ?
+  const alreadyUsed = db.prepare('SELECT 1 FROM username_burns WHERE tx_hash = ?').get(tx_hash);
+  if (alreadyUsed) return res.status(409).json({ error: 'tx_hash_already_used' });
+
+  // Vérif on-chain du burn
+  let rcpt;
+  try {
+    rcpt = await provider.getTransactionReceipt(tx_hash);
+  } catch (e) {
+    return res.status(502).json({ error: 'RPC error fetching receipt' });
+  }
+  if (!rcpt) return res.status(400).json({ error: 'tx_not_found (en attente de confirmation ?)' });
+  if (rcpt.status !== 1) return res.status(400).json({ error: 'tx_failed_on_chain' });
+
+  // Parcours logs : cherche Transfer($SNAKE, from=addr, to=BURN, value >= 1000e18)
+  const snakeAddrLc = CONTRACT_ADDRESS.toLowerCase();
+  const burnTopic   = '0x000000000000000000000000' + BURN_ADDRESS.slice(2).toLowerCase();
+  const fromTopic   = '0x000000000000000000000000' + addr.slice(2).toLowerCase();
+  const requiredWei = ethers.parseUnits(USERNAME_BURN_AMOUNT, 18);
+
+  let matched = false;
+  let burnedAmount = 0n;
+  for (const log of rcpt.logs) {
+    if (log.address.toLowerCase() !== snakeAddrLc) continue;
+    if (log.topics[0] !== ERC20_TRANSFER_TOPIC) continue;
+    if (log.topics.length < 3) continue;
+    if (log.topics[1].toLowerCase() !== fromTopic) continue;
+    if (log.topics[2].toLowerCase() !== burnTopic) continue;
+    // value = data (uint256)
+    const value = BigInt(log.data);
+    burnedAmount += value;
+    if (burnedAmount >= requiredWei) { matched = true; break; }
+  }
+
+  if (!matched) {
+    return res.status(400).json({
+      error: 'burn_not_found',
+      message: `tx doit transférer ≥ ${USERNAME_BURN_AMOUNT} $SNAKE de ${addr} vers ${BURN_ADDRESS}`,
+    });
+  }
+
+  // Consomme le tx + apply change
+  const now = Math.floor(Date.now() / 1000);
+  const tx = db.transaction(() => {
+    db.prepare(`INSERT INTO username_burns (tx_hash, wallet, amount) VALUES (?, ?, ?)`)
+      .run(tx_hash, addr, burnedAmount.toString());
+
+    const existing = getUsernameByWallet(addr);
+    if (existing) {
+      db.prepare(`
+        UPDATE usernames
+        SET username = ?, last_changed_at = ?, paid_changes_count = paid_changes_count + 1
+        WHERE wallet = ?
+      `).run(val.username, now, addr);
+    } else {
+      db.prepare(`
+        INSERT INTO usernames (wallet, username, set_at, last_changed_at, paid_changes_count)
+        VALUES (?, ?, ?, ?, 1)
+      `).run(addr, val.username, now, now);
+    }
+  });
+  try {
+    tx();
+  } catch (e) {
+    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(409).json({ error: 'username_taken_or_tx_reused' });
+    throw e;
+  }
+
+  console.log(`[USERNAME] ${shortAddr(addr)} paid-change → ${val.username} (burn tx ${tx_hash.slice(0,10)}...)`);
+  twitchNotify(`🔥 ${shortAddr(addr)} burned 1000 $SNAKE to become "${val.username}"`);
+  publicFeed({
+    embeds: [{
+      title: `🔥 Burn Username Change`,
+      description: `[${shortAddr(addr)}](https://polygonscan.com/address/${addr}) burned **1000 $SNAKE** → nouveau pseudo : **${val.username}**\nTX : [voir](https://polygonscan.com/tx/${tx_hash})`,
+      color: 0xff6b00,
+      timestamp: new Date().toISOString(),
+    }],
+  });
+
+  res.json({
+    ok: true,
+    username: val.username,
+    type: 'paid_change',
+    burned: USERNAME_BURN_AMOUNT,
+    tx_hash,
+  });
+});
+
 // ─── PUBLIC STATS ─────────────────────────────────────────────────────────────
 app.get('/api/stats', (req, res) => {
   const totalClaims  = db.prepare('SELECT COUNT(*) as c FROM claims').get().c;
@@ -1268,19 +1614,23 @@ app.get('/api/leaderboard', (req, res) => {
   if (period === 'day' || period === 'week') {
     const offset = period === 'day' ? '-1 day' : '-7 days';
     rows = db.prepare(`
-      SELECT address, MAX(score) as best_score, COUNT(*) as games_played
-      FROM score_history
-      WHERE created_at > strftime('%s','now', ?)
-      GROUP BY address
+      SELECT sh.address, MAX(sh.score) as best_score, COUNT(*) as games_played,
+             u.username AS display_name
+      FROM score_history sh
+      LEFT JOIN usernames u ON u.wallet = sh.address
+      WHERE sh.created_at > strftime('%s','now', ?)
+      GROUP BY sh.address
       ORDER BY best_score DESC
       LIMIT ?
     `).all(offset, limit);
   } else {
     rows = db.prepare(`
-      SELECT address, best_score, games_played, total_claimed,
-             streak_count, max_streak, last_streak_date
-      FROM leaderboard
-      ORDER BY best_score DESC
+      SELECT lb.address, lb.best_score, lb.games_played, lb.total_claimed,
+             lb.streak_count, lb.max_streak, lb.last_streak_date,
+             u.username AS display_name
+      FROM leaderboard lb
+      LEFT JOIN usernames u ON u.wallet = lb.address
+      ORDER BY lb.best_score DESC
       LIMIT ?
     `).all(limit);
   }
@@ -1291,8 +1641,11 @@ app.get('/api/player/:address', (req, res) => {
   const addr = (req.params.address || '').toLowerCase();
   if (!ethers.isAddress(addr)) return res.status(400).json({ error: 'Adresse invalide' });
   const row = db.prepare('SELECT * FROM leaderboard WHERE address = ?').get(addr);
+  const uname = getUsernameByWallet(addr);
   if (!row) return res.json({
     address: addr, best_score: 0, games_played: 0, total_claimed: 0, rank: null,
+    username: uname ? uname.username : null,
+    display_name: uname ? uname.username : null,
     streak: { current: 0, max: 0, multiplier: 1.0, active: false, last_date: null },
   });
   const rank = db.prepare('SELECT COUNT(*)+1 as r FROM leaderboard WHERE best_score > ?').get(row.best_score).r;
@@ -1311,6 +1664,8 @@ app.get('/api/player/:address', (req, res) => {
   res.json({
     ...row,
     rank,
+    username: uname ? uname.username : null,
+    display_name: uname ? uname.username : null,
     streak: {
       current:    effectiveCurrent,
       max:        row.max_streak || 0,

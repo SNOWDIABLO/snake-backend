@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>$SNAKE — LP Seed Fund</title>
+<meta name="description" content="Community-bootstrapped liquidity fund for $SNAKE DEX listing on Polygon. Transparent, on-chain, live-tracked.">
+<meta property="og:title" content="$SNAKE LP Seed Fund — Community bootstrap">
+<meta property="og:description" content="Help seed the $SNAKE liquidity pool on QuickSwap v3. Target: $1000. Transparent, on-chain, locked 12mo on listing.">
+<meta property="og:url" content="https://snowdiablo.xyz/lp-fund.html">
+<style>
+  :root {
+    --bg:       #0a0f14;
+    --panel:    #0f1720;
+    --border:   #1a2532;
+    --accent:   #4ade80;
+    --accent-2: #22d3ee;
+    --text:     #d1d9e3;
+    --dim:      #7a8b9e;
+    --danger:   #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(ellipse at top, #0f1a26 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
+    min-height: 100vh;
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  header { text-align: center; padding: 32px 0 40px; }
+  h1 {
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+  }
+  .sub { color: var(--dim); font-size: 0.95rem; }
+  .back { display: inline-block; margin-bottom: 24px; color: var(--dim); text-decoration: none; font-size: 0.85rem; }
+  .back:hover { color: var(--accent); }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--dim);
+    margin-bottom: 16px;
+  }
+
+  .bal-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .bal-val {
+    font-size: clamp(1.8rem, 5vw, 2.4rem);
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .bal-usd { font-size: 1rem; color: var(--dim); }
+
+  .progress-wrap {
+    background: var(--border);
+    border-radius: 8px;
+    height: 12px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+    width: 0%;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    color: var(--dim);
+    margin-top: 8px;
+  }
+
+  .addr-row {
+    background: #0a1118;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    word-break: break-all;
+  }
+  .addr-val { font-family: inherit; color: var(--accent-2); }
+  .btn {
+    background: var(--accent);
+    color: #061019;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.1s;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.secondary { background: var(--border); color: var(--text); }
+
+  .disclaimer {
+    font-size: 0.78rem;
+    color: var(--dim);
+    line-height: 1.6;
+    padding: 16px;
+    background: rgba(255, 107, 107, 0.06);
+    border: 1px solid rgba(255, 107, 107, 0.2);
+    border-radius: 8px;
+  }
+  .disclaimer strong { color: var(--danger); }
+
+  ul.compact { list-style: none; padding: 0; }
+  ul.compact li {
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--border);
+    font-size: 0.88rem;
+  }
+  ul.compact li:last-child { border: none; }
+  ul.compact .k { color: var(--dim); margin-right: 8px; }
+
+  .foot {
+    text-align: center;
+    margin-top: 32px;
+    font-size: 0.78rem;
+    color: var(--dim);
+  }
+  .foot a { color: var(--accent-2); text-decoration: none; }
+  .foot a:hover { text-decoration: underline; }
+
+  .status-tag {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(74, 222, 128, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+  }
+  .status-tag.loading {
+    background: rgba(122, 139, 158, 0.15);
+    color: var(--dim);
+    border-color: var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a href="/" class="back">← back to snowdiablo.xyz</a>
+
+  <header>
+    <h1>🐍 $SNAKE LP Seed Fund</h1>
+    <p class="sub">Community-bootstrapped liquidity for DEX listing on QuickSwap v3 (Polygon)</p>
+  </header>
+
+  <div class="card">
+    <h2>Fund Balance <span class="status-tag loading" id="status">Loading</span></h2>
+    <div class="bal-row">
+      <div class="bal-val" id="bal-pol">— POL</div>
+      <div class="bal-usd" id="bal-usd">(— USD)</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progress"></div>
+    </div>
+    <div class="progress-label">
+      <span id="pct-label">— %</span>
+      <span id="target-label">Target: $1000 (~<span id="target-pol">2500</span> POL)</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Fund Wallet (Polygon)</h2>
+    <div class="addr-row">
+      <span class="addr-val" id="addr">TBD_ADDRESS</span>
+      <button class="btn" onclick="copyAddr()">Copy</button>
+    </div>
+    <p style="margin-top:12px;font-size:0.82rem;color:var(--dim);">
+      Send POL (native Polygon gas token) or WPOL to this address to contribute.
+      Transactions are live-tracked on <a href="#" id="explorer-link" style="color:var(--accent-2);text-decoration:none;">Polygonscan</a>.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Why bootstrap ?</h2>
+    <ul class="compact">
+      <li><span class="k">Goal:</span> Seed a credible LP on QuickSwap v3 before DEX listing</li>
+      <li><span class="k">Problem:</span> Micro-LPs (&lt;$500) get drained by MEV bots, slippage catastrophique, DEX Screener reject</li>
+      <li><span class="k">Strategy:</span> Grow LP fund organically via community + game revenue until target hit</li>
+      <li><span class="k">On target hit:</span> LP on QuickSwap v3 · UNCX lock 12mo · Ownership renounce · DEX Screener + CoinGecko submissions</li>
+      <li><span class="k">Transparency:</span> Every tx visible on Polygonscan · balance public · zero off-chain movements</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Current Status</h2>
+    <ul class="compact">
+      <li><span class="k">Game:</span> ✅ Live on <a href="/" style="color:var(--accent-2);text-decoration:none;">snowdiablo.xyz</a></li>
+      <li><span class="k">$SNAKE token:</span> ✅ <a href="https://polygonscan.com/address/0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1" target="_blank" style="color:var(--accent-2);text-decoration:none;">0x25e5Af25...</a></li>
+      <li><span class="k">NFT Trophy:</span> ✅ <a href="https://polygonscan.com/address/0xda4167D97caAa90DAf5510bcE338a90134BBdfA9" target="_blank" style="color:var(--accent-2);text-decoration:none;">0xda4167D9...</a></li>
+      <li><span class="k">NFT Boost:</span> ✅ <a href="https://polygonscan.com/address/0x0a507FeAD82014674a0160CEf04570F19334E52C" target="_blank" style="color:var(--accent-2);text-decoration:none;">0x0a507FeA...</a></li>
+      <li><span class="k">DEX listing:</span> ⏳ Pending LP fund target</li>
+      <li><span class="k">LP lock:</span> ⏳ Post-listing (UNCX 12mo)</li>
+      <li><span class="k">Ownership renounce:</span> ⏳ Post-listing</li>
+    </ul>
+  </div>
+
+  <div class="disclaimer">
+    <strong>Important — read before contributing:</strong><br>
+    Contributions to this LP Fund are <strong>voluntary and non-refundable</strong>.
+    You do NOT receive shares, equity, or return on investment.
+    Contributors are <strong>not investors</strong>. Funds collected will be used solely to seed
+    the $SNAKE liquidity pool on QuickSwap v3 on Polygon mainnet.
+    This is <strong>not a securities offering</strong>. This is <strong>not financial advice</strong>.
+    $SNAKE is a utility token for the SnowDiablo snake game. Price volatility, smart contract risks,
+    and total loss of value are possible. Only contribute what you can afford to lose.
+    Project is a solo-dev bootstrapped effort, no legal entity, no guarantees.
+  </div>
+
+  <div class="foot">
+    Built by <a href="https://twitch.tv/snowdiablo" target="_blank">SnowDiablo</a> ·
+    <a href="/" >Play the game</a> ·
+    <a href="/hall-of-fame.html">Leaderboard</a>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const LP_FUND_ADDRESS  = '0xc1D4Fe31F4C0526848E4B427FDfBA519f36C166E'; // SNAKE LP Fund (dedicated wallet, Polygon)
+const TARGET_USD       = 1000;                         // fundraising target in USD
+const POL_USD_FALLBACK = 0.40;                         // fallback si Chainlink RPC down
+const RPC_URL          = 'https://polygon.drpc.org';   // fallback public RPC
+const REFRESH_MS       = 60 * 1000;                    // refresh balance every 60s
+
+// ─── POL/USD oracle via Chainlink aggregator (same que le backend) ───────────
+const CHAINLINK_MATIC_USD = '0xAB594600376Ec9fD91F8e885dADF0CE036862dE0';
+const AGGREGATOR_ABI_LATEST = [
+  { inputs: [], name: 'latestRoundData', outputs: [
+    { type: 'uint80' }, { type: 'int256' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'uint80' }
+  ], stateMutability: 'view', type: 'function' }
+];
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let polUsdCache = POL_USD_FALLBACK;
+
+// ─── Minimal JSON-RPC helper (no ethers dep to keep page lightweight) ────────
+async function jsonRpc(method, params) {
+  const r = await fetch(RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message || 'RPC error');
+  return j.result;
+}
+
+// ─── Get balance in POL (native) ────────────────────────────────────────────
+async function getBalancePol(addr) {
+  const hex = await jsonRpc('eth_getBalance', [addr, 'latest']);
+  const wei = BigInt(hex);
+  // Convert to POL (float, 4 decimals precision)
+  return Number(wei / 10n**14n) / 10000;
+}
+
+// ─── Get POL/USD from Chainlink (decimals=8) ────────────────────────────────
+async function getPolUsd() {
+  try {
+    // latestRoundData() selector = 0xfeaf968c
+    const hex = await jsonRpc('eth_call', [
+      { to: CHAINLINK_MATIC_USD, data: '0xfeaf968c' },
+      'latest'
+    ]);
+    // Response: 5x 32-byte slots. Answer is slot #1 (int256).
+    const answerHex = '0x' + hex.slice(2 + 64, 2 + 128);
+    const answer = BigInt(answerHex);
+    // 8 decimals
+    return Number(answer) / 1e8;
+  } catch (e) {
+    console.warn('Chainlink fallback:', e.message);
+    return POL_USD_FALLBACK;
+  }
+}
+
+// ─── Refresh UI ──────────────────────────────────────────────────────────────
+async function refresh() {
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = 'Loading';
+  statusEl.className = 'status-tag loading';
+
+  try {
+    const [pol, polUsd] = await Promise.all([
+      getBalancePol(LP_FUND_ADDRESS === 'TBD_ADDRESS' ? '0x0000000000000000000000000000000000000000' : LP_FUND_ADDRESS),
+      getPolUsd(),
+    ]);
+    polUsdCache = polUsd;
+
+    const usd = pol * polUsd;
+    const targetPol = TARGET_USD / polUsd;
+    const pct = Math.min(100, (usd / TARGET_USD) * 100);
+
+    document.getElementById('bal-pol').textContent = pol.toFixed(2) + ' POL';
+    document.getElementById('bal-usd').textContent = '(~$' + usd.toFixed(2) + ' USD · 1 POL = $' + polUsd.toFixed(4) + ')';
+    document.getElementById('progress').style.width = pct.toFixed(2) + '%';
+    document.getElementById('pct-label').textContent = pct.toFixed(1) + '%';
+    document.getElementById('target-pol').textContent = Math.round(targetPol);
+
+    statusEl.textContent = 'Live';
+    statusEl.className = 'status-tag';
+  } catch (e) {
+    console.error('refresh error:', e);
+    statusEl.textContent = 'Error';
+    statusEl.className = 'status-tag loading';
+  }
+}
+
+// ─── Copy address ────────────────────────────────────────────────────────────
+function copyAddr() {
+  const addr = document.getElementById('addr').textContent;
+  if (addr === 'TBD_ADDRESS') {
+    alert('Fund wallet address pas encore configuré.');
+    return;
+  }
+  navigator.clipboard.writeText(addr).then(() => {
+    const btn = event.target;
+    const old = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => { btn.textContent = old; }, 1800);
+  }).catch(() => alert('Copy failed — copiez manuellement : ' + addr));
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+document.getElementById('addr').textContent = LP_FUND_ADDRESS;
+document.getElementById('explorer-link').href = 'https://polygonscan.com/address/' + LP_FUND_ADDRESS;
+
+if (LP_FUND_ADDRESS !== 'TBD_ADDRESS') {
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+} else {
+  document.getElementById('status').textContent = 'Not configured';
+}
+</script>
+</body>
+</html>

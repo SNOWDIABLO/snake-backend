@@ -113,6 +113,17 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_nft_drops_addr ON nft_drops(address);
   CREATE INDEX IF NOT EXISTS idx_nft_drops_status ON nft_drops(status);
+  -- Task #97 : proof nonces persisted (anti-replay survives Railway redeploy)
+  -- Before this, seenProofNonces lived in RAM (new Map()). Railway restart → empty
+  -- map → attacker could replay a previously captured signed payload. Now the
+  -- nonce is DB-backed with TTL = PROOF_MAX_AGE_SEC * 2, cleaned by cron.
+  CREATE TABLE IF NOT EXISTS proof_nonces (
+    nonce      TEXT PRIMARY KEY,
+    address    TEXT NOT NULL,
+    action     TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_proof_nonces_exp ON proof_nonces(expires_at);
 `);
 
 // Seed initial season if none exists
@@ -333,11 +344,26 @@ function adminAuth(req, res, next) {
 // REQUIRE_WALLET_PROOF=1 pour enforce, sinon warn-only (rollout progressif).
 const REQUIRE_WALLET_PROOF  = process.env.REQUIRE_WALLET_PROOF === '1';
 const PROOF_MAX_AGE_SEC     = parseInt(process.env.PROOF_MAX_AGE_SEC || '300', 10); // 5 min window
-const seenProofNonces       = new Map(); // nonce -> timestamp expiry (anti-replay)
-// GC toutes les 10 min des nonces expirés
+// ─── Nonces anti-replay persistés en DB (task #97) ────────────────────────────
+// Avant : new Map() en RAM. Problème : un Railway redeploy (auto sur push git ou
+// crash + restart) vidait la Map → replay attack possible sur une signature
+// capturée qui était encore dans sa fenêtre de validité (ts ≤ 300s).
+// Maintenant : INSERT dans proof_nonces avec PRIMARY KEY → toute tentative de
+// replay lève SQLITE_CONSTRAINT, on mappe sur "replay detected".
+const _insertNonceStmt = db.prepare(
+  `INSERT INTO proof_nonces (nonce, address, action, expires_at) VALUES (?, ?, ?, ?)`
+);
+const _hasNonceStmt = db.prepare(
+  `SELECT 1 FROM proof_nonces WHERE nonce = ? AND expires_at > ? LIMIT 1`
+);
+// Cleanup toutes les 10 min des nonces expirés pour garder la table maigre.
 setInterval(() => {
-  const now = Date.now();
-  for (const [n, exp] of seenProofNonces) if (exp < now) seenProofNonces.delete(n);
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    db.prepare('DELETE FROM proof_nonces WHERE expires_at < ?').run(now);
+  } catch (e) {
+    console.warn('⚠️ proof_nonces cleanup failed:', e.message);
+  }
 }, 10 * 60 * 1000).unref?.();
 
 function buildProofMessage(action, address, ts, nonce) {
@@ -361,8 +387,12 @@ function verifyWalletProof(action, address, proof) {
   if (Math.abs(nowSec - ts) > PROOF_MAX_AGE_SEC) {
     return { ok: false, error: `Proof expirée (max ${PROOF_MAX_AGE_SEC}s)` };
   }
-  // Anti-replay : nonce unique (TTL = 2× window)
-  if (seenProofNonces.has(nonce)) return { ok: false, error: 'Proof déjà utilisée (replay)' };
+  // Anti-replay : nonce unique persisté en DB (task #97).
+  // Check preemptif (expiry-aware) puis INSERT — double défense contre race.
+  try {
+    const hit = _hasNonceStmt.get(nonce, nowSec);
+    if (hit) return { ok: false, error: 'Proof déjà utilisée (replay)' };
+  } catch (_) { /* fallthrough vers INSERT qui va throw */ }
 
   let recovered;
   try {
@@ -373,7 +403,20 @@ function verifyWalletProof(action, address, proof) {
   if (recovered.toLowerCase() !== address.toLowerCase()) {
     return { ok: false, error: 'Signature ne correspond pas à cette adresse' };
   }
-  seenProofNonces.set(nonce, Date.now() + PROOF_MAX_AGE_SEC * 2000);
+  // TTL = 2× la fenêtre de validité. Le client ne peut pas replay même si la
+  // ligne vit encore quelques minutes après expiration, car le check `ts`
+  // au-dessus rejette déjà la signature.
+  try {
+    _insertNonceStmt.run(nonce, address.toLowerCase(), action, nowSec + PROOF_MAX_AGE_SEC * 2);
+  } catch (e) {
+    // SQLITE_CONSTRAINT_PRIMARYKEY = replay détecté en race condition.
+    if (e && /UNIQUE|PRIMARY KEY|constraint/i.test(e.message)) {
+      return { ok: false, error: 'Proof déjà utilisée (replay)' };
+    }
+    console.warn('⚠️ proof_nonces insert failed:', e.message);
+    // Fail-closed : on refuse plutôt que laisser passer si la DB est cassée.
+    return { ok: false, error: 'Backend nonce store unavailable' };
+  }
   return { ok: true };
 }
 
@@ -1207,7 +1250,27 @@ const proofLimiter = rateLimit({
 // ─── ROUTES ───────────────────────────────────────────────────────────────────
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', signer: wallet.address });
+  // Healthcheck "profond" : pas juste un 200 bête. On ping la DB + on renvoie
+  // du signal exploitable par Uptime Kuma (last_check_ms, db_ok). Si la DB
+  // tombe ou le volume Railway est détaché, on retourne 503 pour que l'alerte
+  // se déclenche au lieu d'un faux-positif vert.
+  const t0 = Date.now();
+  let dbOk = false;
+  try {
+    db.prepare('SELECT 1 AS ok').get();
+    dbOk = true;
+  } catch (e) {
+    console.error('❌ /health DB ping failed:', e.message);
+  }
+  const payload = {
+    status : dbOk ? 'ok' : 'degraded',
+    signer : wallet.address,
+    db_ok  : dbOk,
+    latency_ms: Date.now() - t0,
+    uptime_s: Math.floor(process.uptime()),
+    ts     : Math.floor(Date.now() / 1000),
+  };
+  res.status(dbOk ? 200 : 503).json(payload);
 });
 
 // ─── WALLET PROOF CHALLENGE (task #56) ────────────────────────────────────────
@@ -3498,7 +3561,53 @@ if (CLAN_ENABLED) {
   setTimeout(() => { clanWeeklyPayoutTick().catch(() => {}); }, 90 * 1000).unref?.();
 }
 
-app.listen(PORT, () => {
+// ─── Signer balance monitor (task #98) ────────────────────────────────────────
+// Le signer backend paye le gas des tournament payouts + NFT mint signatures.
+// S'il se vide sans qu'on s'en rende compte, les payouts échouent silencieusement
+// et les tournois restent coincés en status='closing'. On poll la balance toutes
+// les 6h et on ping le webhook Discord staff si < SIGNER_MIN_POL.
+const SIGNER_MIN_POL   = parseFloat(process.env.SIGNER_MIN_POL   || '3');
+const SIGNER_CHECK_H   = parseFloat(process.env.SIGNER_CHECK_H   || '6');
+const SIGNER_ALERT_URL = process.env.SIGNER_LOW_ALERT_WEBHOOK || process.env.DISCORD_WEBHOOK || '';
+let _signerLastAlertTs = 0;
+async function signerBalanceTick() {
+  const p = getProvider();
+  if (!p) return; // pas de RPC configuré → skip silencieusement
+  try {
+    const bal = await p.getBalance(wallet.address);
+    const pol = parseFloat(ethers.formatEther(bal));
+    if (pol < SIGNER_MIN_POL) {
+      // Debounce : 1 alerte / 12h max, évite spam si stuck
+      const now = Date.now();
+      if (now - _signerLastAlertTs > 12 * 3600 * 1000) {
+        _signerLastAlertTs = now;
+        console.warn(`⚠️  SIGNER LOW POL: ${pol.toFixed(3)} < ${SIGNER_MIN_POL}`);
+        if (SIGNER_ALERT_URL) {
+          try {
+            await fetch(SIGNER_ALERT_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                content: `⚠️ **Signer POL LOW**\nWallet: \`${wallet.address}\`\nBalance: **${pol.toFixed(3)} POL** (threshold ${SIGNER_MIN_POL})\nTop up ASAP ou les payouts tournament / NFT mint vont fail.`
+              }),
+            });
+          } catch (e) { console.warn('signer alert webhook failed:', e.message); }
+        }
+      }
+    } else {
+      // Reset debounce si la balance est revenue au-dessus
+      if (_signerLastAlertTs) _signerLastAlertTs = 0;
+    }
+  } catch (e) {
+    console.warn('⚠️ signerBalanceTick RPC err:', e.message);
+  }
+}
+// Tick initial 60s après start pour laisser le temps au RPC de répondre,
+// puis toutes les SIGNER_CHECK_H heures.
+setTimeout(() => { signerBalanceTick().catch(() => {}); }, 60 * 1000).unref?.();
+setInterval(() => { signerBalanceTick().catch(() => {}); }, SIGNER_CHECK_H * 3600 * 1000).unref?.();
+
+const server = app.listen(PORT, () => {
   console.log(`🐍 SnakeCoin backend running on port ${PORT}`);
   console.log(`💼 Contract $SNAKE : ${CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ'}`);
   console.log(`🏆 Contract NFT    : ${NFT_CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ (set NFT_CONTRACT_ADDRESS)'}`);
@@ -3532,3 +3641,58 @@ app.listen(PORT, () => {
   if (ADMIN_TOKEN)         console.log('🔐 Admin token configured');
   console.log(`🛡️  Wallet proof (EIP-191) : ${REQUIRE_WALLET_PROOF ? 'ENFORCE' : 'warn-only (set REQUIRE_WALLET_PROOF=1 to enforce)'}`);
 });
+
+// ─── Global error handlers + graceful shutdown (task #96) ────────────────────
+// Sans ça, une promise reject non-catch ou une exception dans un setInterval
+// crash le process silencieusement. Railway relance mais on perd les requêtes
+// en vol et la DB peut rester dans un état sale (write in progress interrompu).
+// On log la trace complète puis on exit(1) → Railway fera un restart propre.
+// Pour SIGTERM (redeploy Railway) : on close le HTTP server (drain requêtes en
+// cours ~5s max), puis on close la DB SQLite pour flush les writes, puis exit.
+function _emergencyLog(tag, err) {
+  try {
+    console.error(`❌ ${tag}:`, err && err.stack ? err.stack : err);
+  } catch (_) { /* console itself broken — last resort */ }
+}
+
+process.on('uncaughtException', (err) => {
+  _emergencyLog('uncaughtException', err);
+  // Best-effort webhook ping (optional) avant de crasher
+  if (typeof DISCORD_WEBHOOK === 'string' && DISCORD_WEBHOOK) {
+    try {
+      fetch(DISCORD_WEBHOOK, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: `🔥 **Backend crash** (uncaughtException)\n\`\`\`${String(err && err.stack || err).slice(0, 1800)}\`\`\`` }),
+      }).catch(() => {});
+    } catch (_) {}
+  }
+  // Petite latence pour laisser le webhook partir puis exit → Railway restart
+  setTimeout(() => process.exit(1), 500).unref?.();
+});
+
+process.on('unhandledRejection', (reason) => {
+  _emergencyLog('unhandledRejection', reason);
+  setTimeout(() => process.exit(1), 500).unref?.();
+});
+
+let _shuttingDown = false;
+function gracefulShutdown(signal) {
+  if (_shuttingDown) return;
+  _shuttingDown = true;
+  console.log(`⏹️  ${signal} received → graceful shutdown`);
+  // Max 10s pour drainer, sinon force exit
+  const killTimer = setTimeout(() => {
+    console.warn('⏱️  shutdown timeout — force exit');
+    process.exit(1);
+  }, 10_000);
+  killTimer.unref?.();
+  server.close((err) => {
+    if (err) _emergencyLog('server.close error', err);
+    try { db.close(); console.log('📦 SQLite closed cleanly'); } catch (e) { _emergencyLog('db.close error', e); }
+    clearTimeout(killTimer);
+    process.exit(0);
+  });
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM')); // Railway / Docker stop
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));  // Ctrl+C local
+

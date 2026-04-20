@@ -5,10 +5,10 @@ on:
     branches:
       - main
     paths:
-      - 'index.html'
-      - 'admin.html'
+      - '*.html'
       - 'snake_logo*.png'
       - 'snake_logo*.svg'
+      - 'favicon*'
       - '.github/workflows/deploy.yml'
   workflow_dispatch: # Allow manual trigger from Actions tab
 

@@ -2467,9 +2467,10 @@ async function getNftMintFee() {
 // ═════════════════════════════════════════════════════════════════════════════
 //  NFT BOOSTS MARKETPLACE (Task #72)
 // ═════════════════════════════════════════════════════════════════════════════
-// Contract deploy pending — address remplit dès que SnakeBoostNFT.sol on Polygon.
-// Laisser vide tant que pas deploye : UI affiche "Marketplace indisponible" gracieusement.
-const BOOST_NFT_ADDRESS = ''; // TODO: set after deploy
+// SnakeBoostNFT mainnet — deployed 2026-04-18
+// Deploy tx : 0xcf10a78df2bea24a6d2ea83b0e1ae14a7532fc181baba608c00b1c917574d22b
+// Polygonscan : https://polygonscan.com/address/0x0a507FeAD82014674a0160CEf04570F19334E52C
+const BOOST_NFT_ADDRESS = '0x0a507FeAD82014674a0160CEf04570F19334E52C';
 const BOOST_NFT_ABI = [
   'function mintWithPol(uint8 tier) payable returns (uint256)',
   'function mintSeasonalWithPol(uint32 seasonalId) payable returns (uint256)',

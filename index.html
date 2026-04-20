@@ -2806,7 +2806,7 @@ async function loadTournament() {
     const btn = document.getElementById('tournament-enter-btn');
     if (btn) {
       btn.textContent = `${t('tournament_enter_btn') || 'Enter'} — ${Number(d.entry_fee_pol).toFixed(2)} POL`;
-      btn.disabled = !userWallet || d.time_left_sec <= 0;
+      btn.disabled = !walletAddress || d.time_left_sec <= 0;
     }
 
     await loadTournamentLeaderboard();
@@ -2846,7 +2846,7 @@ async function loadTournamentLeaderboard() {
       wrap.innerHTML = '<div style="color:#a88;font-size:0.76rem;text-align:center;padding:6px">—</div>';
       return;
     }
-    const me = (userWallet || '').toLowerCase();
+    const me = (walletAddress || '').toLowerCase();
     wrap.innerHTML = d.entries.slice(0, 5).map(e => {
       const mine = e.wallet === me ? 'me' : '';
       const medal = e.rank === 1 ? '🥇' : (e.rank === 2 ? '🥈' : (e.rank === 3 ? '🥉' : `#${e.rank}`));
@@ -2862,11 +2862,11 @@ async function loadTournamentLeaderboard() {
 
 async function loadTournamentMine() {
   const el = document.getElementById('tournament-mine');
-  if (!el || !userWallet || !tournamentState) return;
+  if (!el || !walletAddress || !tournamentState) return;
   try {
     const r = await fetch(`${BACKEND_URL}/api/tournament/leaderboard`);
     const d = await r.json();
-    const me = (userWallet || '').toLowerCase();
+    const me = (walletAddress || '').toLowerCase();
     const mine = (d.entries || []).find(x => x.wallet === me);
     if (mine) {
       el.textContent = `🎯 ${t('tournament_top') || 'Top'} — rank #${mine.rank} · score ${mine.best_score}`;
@@ -2880,7 +2880,10 @@ async function loadTournamentMine() {
 }
 
 async function enterTournament() {
-  if (!userWallet || !tournamentState) return;
+  if (!walletAddress || !tournamentState) {
+    alert(t('connect_first') || 'Connect wallet first');
+    return;
+  }
   const payoutTo = tournamentState.payout_wallet;
   if (!payoutTo) {
     alert(t('tournament_error') || 'Error');
@@ -2891,8 +2894,7 @@ async function enterTournament() {
   status(t('tournament_sending') || 'Sending tx…');
   btn.disabled = true;
   try {
-    if (typeof ethers === 'undefined' || !window.provider) throw new Error('ethers/provider manquant');
-    const signer = await window.provider.getSigner();
+    if (typeof ethers === 'undefined' || !signer) throw new Error('ethers/signer manquant — reconnecte ton wallet');
     const tx = await signer.sendTransaction({
       to:    payoutTo,
       value: BigInt(tournamentState.entry_fee_wei),
@@ -2903,7 +2905,7 @@ async function enterTournament() {
     const r = await fetch(`${BACKEND_URL}/api/tournament/enter`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wallet: userWallet, tx_hash: tx.hash }),
+      body: JSON.stringify({ wallet: walletAddress, tx_hash: tx.hash }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'entry_failed');
@@ -2936,9 +2938,9 @@ async function loadClansAll() {
 }
 
 async function loadClanMine() {
-  if (!userWallet) { clanMine = null; return; }
+  if (!walletAddress) { clanMine = null; return; }
   try {
-    const r = await fetch(`${BACKEND_URL}/api/clan/mine/${userWallet}`);
+    const r = await fetch(`${BACKEND_URL}/api/clan/mine/${walletAddress}`);
     const d = await r.json();
     clanMine = d.clan || null;
   } catch (_) { clanMine = null; }
@@ -2996,10 +2998,9 @@ function escapeHtml(s) {
 }
 
 async function _signClanAction(action) {
-  if (!window.provider || !userWallet) throw new Error('wallet_missing');
-  const signer = await window.provider.getSigner();
+  if (!signer || !walletAddress) throw new Error('wallet_missing');
   const now = Math.floor(Date.now() / 1000);
-  const msg = `${action}|${userWallet.toLowerCase()}|${now}`;
+  const msg = `${action}|${walletAddress.toLowerCase()}|${now}`;
   const sig = await signer.signMessage(msg);
   return { message: msg, signature: sig, ts: now };
 }
@@ -3008,13 +3009,13 @@ async function createClan() {
   const name = document.getElementById('clan-create-name').value.trim();
   const tag  = document.getElementById('clan-create-tag').value.trim().toUpperCase();
   const statusEl = document.getElementById('clans-status');
-  if (!userWallet) { statusEl.textContent = t('connect_first') || 'Connect wallet'; return; }
+  if (!walletAddress) { statusEl.textContent = t('connect_first') || 'Connect wallet'; return; }
   if (name.length < 3 || name.length > 20) { statusEl.textContent = 'name 3-20'; return; }
   if (tag.length < 2 || tag.length > 6 || !/^[A-Z0-9]+$/.test(tag)) { statusEl.textContent = 'tag 2-6 alphanum'; return; }
 
   statusEl.textContent = t('username_burn_send') || 'Sending burn tx…';
   try {
-    const signer = await window.provider.getSigner();
+    if (!signer) throw new Error('Reconnecte ton wallet');
     const snakeAddr = (window.CONTRACT_ADDRESS || '');
     if (!snakeAddr) throw new Error('$SNAKE contract not configured');
     const erc20 = new ethers.Contract(snakeAddr, [
@@ -3030,7 +3031,7 @@ async function createClan() {
     const r = await fetch(`${BACKEND_URL}/api/clan/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wallet: userWallet, name, tag, burn_tx: burnTx.hash, proof }),
+      body: JSON.stringify({ wallet: walletAddress, name, tag, burn_tx: burnTx.hash, proof }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'create_failed');
@@ -3044,13 +3045,13 @@ async function createClan() {
 
 async function joinClan(clanId) {
   const statusEl = document.getElementById('clans-status');
-  if (!userWallet) { statusEl.textContent = 'Connect wallet'; return; }
+  if (!walletAddress) { statusEl.textContent = 'Connect wallet'; return; }
   try {
     const proof = await _signClanAction('JoinClan');
     const r = await fetch(`${BACKEND_URL}/api/clan/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wallet: userWallet, clan_id: clanId, proof }),
+      body: JSON.stringify({ wallet: walletAddress, clan_id: clanId, proof }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'join_failed');
@@ -3063,14 +3064,14 @@ async function joinClan(clanId) {
 
 async function leaveClan() {
   const statusEl = document.getElementById('clans-status');
-  if (!userWallet || !clanMine) return;
+  if (!walletAddress || !clanMine) return;
   if (!confirm('Quitter le clan ' + clanMine.name + ' ?')) return;
   try {
     const proof = await _signClanAction('LeaveClan');
     const r = await fetch(`${BACKEND_URL}/api/clan/leave`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ wallet: userWallet, proof }),
+      body: JSON.stringify({ wallet: walletAddress, proof }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'leave_failed');

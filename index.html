@@ -2756,7 +2756,7 @@ function fmtDur(sec) {
 
 async function loadTournament() {
   try {
-    const r = await fetch(`${API_BASE}/api/tournament/current`);
+    const r = await fetch(`${BACKEND_URL}/api/tournament/current`);
     const d = await r.json();
     if (!d.enabled || !d.active) {
       document.getElementById('tournament-box').style.display = 'none';
@@ -2805,7 +2805,7 @@ function startTournamentCountdown(initialLeft) {
 
 async function loadTournamentLeaderboard() {
   try {
-    const r = await fetch(`${API_BASE}/api/tournament/leaderboard`);
+    const r = await fetch(`${BACKEND_URL}/api/tournament/leaderboard`);
     const d = await r.json();
     const wrap = document.getElementById('tournament-lb');
     if (!wrap) return;
@@ -2831,7 +2831,7 @@ async function loadTournamentMine() {
   const el = document.getElementById('tournament-mine');
   if (!el || !userWallet || !tournamentState) return;
   try {
-    const r = await fetch(`${API_BASE}/api/tournament/leaderboard`);
+    const r = await fetch(`${BACKEND_URL}/api/tournament/leaderboard`);
     const d = await r.json();
     const me = (userWallet || '').toLowerCase();
     const mine = (d.entries || []).find(x => x.wallet === me);
@@ -2867,7 +2867,7 @@ async function enterTournament() {
     status(t('tournament_verifying') || 'Verifying…');
     await tx.wait(2);
     // POST /api/tournament/enter
-    const r = await fetch(`${API_BASE}/api/tournament/enter`, {
+    const r = await fetch(`${BACKEND_URL}/api/tournament/enter`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wallet: userWallet, tx_hash: tx.hash }),
@@ -2889,7 +2889,7 @@ let clanListCache = [];
 
 async function loadClansAll() {
   try {
-    const r = await fetch(`${API_BASE}/api/clan/list?limit=30`);
+    const r = await fetch(`${BACKEND_URL}/api/clan/list?limit=30`);
     const d = await r.json();
     if (!d.enabled) {
       document.getElementById('clans-box').style.display = 'none';
@@ -2905,7 +2905,7 @@ async function loadClansAll() {
 async function loadClanMine() {
   if (!userWallet) { clanMine = null; return; }
   try {
-    const r = await fetch(`${API_BASE}/api/clan/mine/${userWallet}`);
+    const r = await fetch(`${BACKEND_URL}/api/clan/mine/${userWallet}`);
     const d = await r.json();
     clanMine = d.clan || null;
   } catch (_) { clanMine = null; }
@@ -2992,7 +2992,7 @@ async function createClan() {
     await burnTx.wait(2);
     // Proof EIP-191
     const proof = await _signClanAction('CreateClan');
-    const r = await fetch(`${API_BASE}/api/clan/create`, {
+    const r = await fetch(`${BACKEND_URL}/api/clan/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wallet: userWallet, name, tag, burn_tx: burnTx.hash, proof }),
@@ -3012,7 +3012,7 @@ async function joinClan(clanId) {
   if (!userWallet) { statusEl.textContent = 'Connect wallet'; return; }
   try {
     const proof = await _signClanAction('JoinClan');
-    const r = await fetch(`${API_BASE}/api/clan/join`, {
+    const r = await fetch(`${BACKEND_URL}/api/clan/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wallet: userWallet, clan_id: clanId, proof }),
@@ -3032,7 +3032,7 @@ async function leaveClan() {
   if (!confirm('Quitter le clan ' + clanMine.name + ' ?')) return;
   try {
     const proof = await _signClanAction('LeaveClan');
-    const r = await fetch(`${API_BASE}/api/clan/leave`, {
+    const r = await fetch(`${BACKEND_URL}/api/clan/leave`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ wallet: userWallet, proof }),

@@ -357,6 +357,260 @@
   }
   .trophy-minted a { color: #4ade80; text-decoration: underline; }
 
+  /* Task #72 NFT Boosts marketplace */
+  .boosts-box {
+    max-width: 480px;
+    margin: 10px auto 0;
+    background: linear-gradient(180deg, rgba(10,25,35,0.92), rgba(8,15,25,0.92));
+    border: 1px solid #1f4458;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 0.85rem;
+  }
+  .boosts-header { display: flex; justify-content: space-between; align-items: center; }
+  .boosts-header .title { font-weight: 700; color: #40c4ff; letter-spacing: 0.3px; }
+  .boosts-header .meta  { font-size: 0.78rem; color: #aaa; }
+  .boost-tier-item {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px dashed #1f3344;
+    align-items: center;
+  }
+  .boost-tier-item:last-child { border-bottom: none; }
+  .boost-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #000;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .boost-icon.basic    { background: linear-gradient(135deg,#40c4ff,#0077aa); }
+  .boost-icon.pro      { background: linear-gradient(135deg,#a855f7,#5b21b6); }
+  .boost-icon.elite    { background: linear-gradient(135deg,#f59e0b,#d97706); }
+  .boost-icon.seasonal { background: linear-gradient(135deg,#ff4d8f,#d4184e); }
+  .boost-info .tier-name { font-weight: 700; color: #fff; }
+  .boost-info .tier-sub  { font-size: 0.72rem; color: #9cb; margin-top: 2px; }
+  .boost-info .tier-supply { font-size: 0.68rem; color: #567; }
+  .boost-actions { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+  .boost-actions button {
+    background: linear-gradient(135deg,#40c4ff,#0077aa);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.72rem;
+    min-width: 92px;
+  }
+  .boost-actions button.snake {
+    background: linear-gradient(135deg,#00ff88,#009944);
+  }
+  .boost-actions button:hover:not(:disabled) { filter: brightness(1.1); }
+  .boost-actions button:disabled { background: #333; color: #888; cursor: not-allowed; }
+  .boosts-current {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(64,196,255,0.08);
+    border: 1px solid rgba(64,196,255,0.25);
+    font-size: 0.8rem;
+    color: #cde;
+  }
+  .boosts-current strong { color: #40c4ff; }
+  .boosts-seasonal-block {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(255,77,143,0.06);
+    border: 1px dashed rgba(255,77,143,0.35);
+  }
+  .boosts-seasonal-block .label {
+    font-size: 0.7rem;
+    color: #ff4d8f;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .boost-stat-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    font-size: 0.7rem;
+    color: #9ab;
+    margin-right: 6px;
+  }
+  .boosts-empty { color: #567; font-size: 0.8rem; padding: 12px 0; text-align: center; }
+
+  /* Task #69 Tournaments 24h */
+  .tournament-box {
+    max-width: 480px;
+    margin: 10px auto 0;
+    background: linear-gradient(180deg, rgba(35,15,30,0.92), rgba(20,10,15,0.92));
+    border: 1px solid #5b2a4a;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 0.85rem;
+  }
+  .tournament-header { display: flex; justify-content: space-between; align-items: center; }
+  .tournament-header .title { font-weight: 700; color: #ff4d8f; letter-spacing: 0.3px; }
+  .tournament-header .meta  { color: #aaa; font-size: 0.78rem; }
+  .tournament-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin: 10px 0;
+    padding: 10px;
+    background: rgba(255,77,143,0.06);
+    border: 1px solid rgba(255,77,143,0.22);
+    border-radius: 8px;
+  }
+  .tournament-stat { text-align: center; }
+  .tournament-stat .label { font-size: 0.66rem; color: #b9a; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tournament-stat .value { font-size: 1.05rem; font-weight: 700; color: #ffb4d1; margin-top: 2px; }
+  .tournament-actions { display: flex; gap: 8px; margin: 8px 0 4px; }
+  .tournament-actions button {
+    flex: 1;
+    background: linear-gradient(135deg,#ff4d8f,#b8235f);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .tournament-actions button:hover:not(:disabled) { filter: brightness(1.1); }
+  .tournament-actions button:disabled { background: #333; color: #888; cursor: not-allowed; }
+  .tournament-lb-item {
+    display: grid;
+    grid-template-columns: 34px 1fr auto;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px dashed #3a1f30;
+    font-size: 0.8rem;
+    align-items: center;
+  }
+  .tournament-lb-item:last-child { border-bottom: none; }
+  .tournament-lb-item .rank { font-weight: 700; color: #ff4d8f; text-align: center; }
+  .tournament-lb-item.me { background: rgba(255,77,143,0.08); border-radius: 6px; padding-left: 6px; padding-right: 6px; }
+  .tournament-disclaimer { font-size: 0.68rem; color: #a88; margin-top: 6px; font-style: italic; text-align: center; }
+
+  /* Task #70 Clans */
+  .clans-box {
+    max-width: 480px;
+    margin: 10px auto 0;
+    background: linear-gradient(180deg, rgba(25,20,40,0.92), rgba(15,12,25,0.92));
+    border: 1px solid #4a3f78;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 0.85rem;
+  }
+  .clans-header { display: flex; justify-content: space-between; align-items: center; }
+  .clans-header .title { font-weight: 700; color: #9f7efc; letter-spacing: 0.3px; }
+  .clans-header .meta  { color: #aaa; font-size: 0.78rem; }
+  .clan-current {
+    margin: 8px 0;
+    padding: 10px;
+    background: rgba(159,126,252,0.08);
+    border: 1px solid rgba(159,126,252,0.25);
+    border-radius: 8px;
+  }
+  .clan-current .tag {
+    display: inline-block;
+    background: #4a3f78;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.78rem;
+    margin-right: 6px;
+  }
+  .clan-current .name { font-weight: 700; color: #d8cdff; }
+  .clan-current .sub { font-size: 0.72rem; color: #8a84b8; margin-top: 4px; }
+  .clan-form { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+  .clan-form input {
+    background: #130e25;
+    border: 1px solid #3a2f68;
+    color: #e0d5ff;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+  .clan-form input:focus { outline: 1px solid #9f7efc; }
+  .clan-form-row { display: flex; gap: 6px; }
+  .clan-form-row input { flex: 1; }
+  .clan-form-row input.tag-input { max-width: 100px; text-transform: uppercase; }
+  .clan-actions { display: flex; gap: 6px; margin-top: 6px; }
+  .clan-actions button {
+    flex: 1;
+    background: linear-gradient(135deg,#9f7efc,#6d4ad4);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.78rem;
+  }
+  .clan-actions button.danger { background: linear-gradient(135deg,#b8235f,#6d1438); }
+  .clan-actions button:hover:not(:disabled) { filter: brightness(1.1); }
+  .clan-actions button:disabled { background: #333; color: #888; cursor: not-allowed; }
+  .clan-list-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #2a1f48;
+    align-items: center;
+    font-size: 0.8rem;
+  }
+  .clan-list-item:last-child { border-bottom: none; }
+  .clan-list-item .tag {
+    background: #4a3f78;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.72rem;
+  }
+  .clan-list-item .name { color: #d8cdff; }
+  .clan-list-item .members { color: #8a84b8; font-size: 0.72rem; }
+  .clan-list-item button {
+    background: #5b4a9c;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    cursor: pointer;
+  }
+  .clan-list-item button:disabled { background: #2a2042; color: #666; cursor: not-allowed; }
+
+  /* Tag clan inline dans leaderboard */
+  .lb-clan-tag {
+    display: inline-block;
+    background: #4a3f78;
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
   /* Task #68 Username */
   .username-box {
     max-width: 480px;
@@ -548,10 +802,13 @@
   .panel-collapsible:not(.expanded) .panel-toggle .meta {
     opacity: 0.75;
   }
-  /* Compactage : les 3 panneaux collés avec marge réduite */
+  /* Compactage : les panneaux collés avec marge réduite */
   .username-box,
   .quests-box,
-  .trophies-box {
+  .trophies-box,
+  .boosts-box,
+  .tournament-box,
+  .clans-box {
     margin-top: 8px;
   }
 </style>
@@ -591,6 +848,12 @@
     <div class="label">🏆 TROPHY</div>
     <div class="value" id="trophy-tier">—</div>
     <div class="mult" id="trophy-mult">+0%</div>
+  </div>
+  <!-- Task #72 — NFT boost multiplier (affiché seulement si boost minté) -->
+  <div class="stat-box trophy" id="boost-box" style="display:none" title="Boost NFT actif : multiplicateur permanent + saisonnier stacké">
+    <div class="label">🚀 BOOST</div>
+    <div class="value" id="boost-tier">—</div>
+    <div class="mult" id="boost-mult">+0%</div>
   </div>
 </div>
 
@@ -659,6 +922,90 @@
   </div>
   <div class="panel-body">
     <div id="trophies-list"></div>
+  </div>
+</div>
+
+<!-- Task #72 NFT Boosts marketplace — collapsible -->
+<div class="boosts-box panel-collapsible" id="boosts-box" style="display:none">
+  <div class="boosts-header panel-toggle" onclick="togglePanel('boosts-box')">
+    <span class="title">🚀 <span data-i18n="boosts_title">Boosts NFT</span></span>
+    <span class="meta" id="boosts-meta">—</span>
+  </div>
+  <div class="panel-body">
+    <div class="boosts-current" id="boosts-current" style="display:none">
+      <span data-i18n="boosts_current_label">Ton boost actif :</span>
+      <strong id="boosts-current-value">+0%</strong>
+      <span id="boosts-current-extra" style="color:#789;font-size:0.72rem"></span>
+    </div>
+    <div id="boosts-tiers"></div>
+    <div id="boosts-seasonal-slot"></div>
+    <div id="boosts-empty" class="boosts-empty" data-i18n="boosts_loading">Chargement du marketplace…</div>
+    <div id="boosts-status" style="margin-top:8px;font-size:0.78rem;color:#9ab;min-height:1em"></div>
+  </div>
+</div>
+
+<!-- Task #69 Tournament 24h — collapsible -->
+<div class="tournament-box panel-collapsible" id="tournament-box" style="display:none">
+  <div class="tournament-header panel-toggle" onclick="togglePanel('tournament-box')">
+    <span class="title">🏆 <span data-i18n="tournament_title">Tournoi 24h</span></span>
+    <span class="meta" id="tournament-meta">—</span>
+  </div>
+  <div class="panel-body">
+    <div class="tournament-stats">
+      <div class="tournament-stat">
+        <div class="label" data-i18n="tournament_time_left">Temps restant</div>
+        <div class="value" id="tournament-countdown">—</div>
+      </div>
+      <div class="tournament-stat">
+        <div class="label" data-i18n="tournament_pool">Cagnotte</div>
+        <div class="value" id="tournament-pool">—</div>
+      </div>
+      <div class="tournament-stat">
+        <div class="label" data-i18n="tournament_entries">Inscrits</div>
+        <div class="value" id="tournament-entries">—</div>
+      </div>
+    </div>
+    <div class="tournament-actions">
+      <button id="tournament-enter-btn" onclick="enterTournament()" disabled>
+        <span data-i18n="tournament_enter_btn">Entrer — 1 POL</span>
+      </button>
+    </div>
+    <div id="tournament-mine" style="font-size:0.8rem;color:#b9a;margin:4px 0 6px;text-align:center"></div>
+    <div id="tournament-lb-wrap">
+      <div style="font-size:0.7rem;color:#b9a;text-transform:uppercase;letter-spacing:0.5px;margin:6px 0 4px" data-i18n="tournament_top">Top 5</div>
+      <div id="tournament-lb"></div>
+    </div>
+    <div class="tournament-disclaimer" data-i18n="tournament_disclaimer">Compétition basée sur le skill — pas un jeu de hasard. Entrée = cagnotte + opérations projet.</div>
+  </div>
+</div>
+
+<!-- Task #70 Clans / Guildes — collapsible -->
+<div class="clans-box panel-collapsible" id="clans-box" style="display:none">
+  <div class="clans-header panel-toggle" onclick="togglePanel('clans-box')">
+    <span class="title">🛡️ <span data-i18n="clans_title">Clans</span></span>
+    <span class="meta" id="clans-meta">—</span>
+  </div>
+  <div class="panel-body">
+    <div id="clan-current" class="clan-current" style="display:none"></div>
+
+    <div id="clan-create-block" style="display:none">
+      <div style="font-size:0.75rem;color:#b9a;margin-bottom:6px" data-i18n="clans_create_label">Créer un clan (burn 1000 $SNAKE)</div>
+      <div class="clan-form">
+        <input id="clan-create-name" type="text" maxlength="20" data-i18n-placeholder="clans_name_placeholder" placeholder="Nom du clan (3-20)">
+        <div class="clan-form-row">
+          <input id="clan-create-tag" class="tag-input" type="text" maxlength="6" data-i18n-placeholder="clans_tag_placeholder" placeholder="TAG">
+          <button onclick="createClan()" style="background:linear-gradient(135deg,#9f7efc,#6d4ad4);color:#fff;border:none;border-radius:6px;padding:8px 14px;font-weight:700;cursor:pointer" data-i18n="clans_create_btn">Burn & créer</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="clan-list-block" style="display:none;margin-top:10px">
+      <div style="font-size:0.75rem;color:#b9a;margin-bottom:6px" data-i18n="clans_join_label">Rejoindre un clan existant</div>
+      <div id="clan-list"></div>
+    </div>
+
+    <div id="clans-empty" class="boosts-empty" data-i18n="clans_loading">Chargement des clans…</div>
+    <div id="clans-status" style="margin-top:8px;font-size:0.78rem;color:#9ab;min-height:1em"></div>
   </div>
 </div>
 
@@ -1008,6 +1355,20 @@ const USERNAME_I18N = {
     burn_not_found:'Burn non trouvé on-chain',
     tx_not_found:'Transaction introuvable', tx_already_used:'Transaction déjà utilisée',
     quests_title:'Quêtes du jour', quests_all_done:'Toutes les quêtes complétées !', trophies_title:'Mes Trophées NFT',
+    boosts_title:'Boosts NFT', boosts_loading:'Chargement du marketplace…', boosts_current_label:'Ton boost actif :',
+    boosts_mint_pol:'Mint POL', boosts_mint_snake:'Burn $SNAKE', boosts_sold_out:'Sold out',
+    boosts_unavailable:'Marketplace indisponible', boosts_seasonal_label:'Boost saisonnier actif',
+    boosts_no_boost:'Aucun boost actif',
+    tournament_title:'Tournoi 24h', tournament_time_left:'Temps restant', tournament_pool:'Cagnotte',
+    tournament_entries:'Inscrits', tournament_enter_btn:'Entrer — 1 POL', tournament_top:'Top 5',
+    tournament_disclaimer:'Compétition basée sur le skill — pas un jeu de hasard. Entrée = cagnotte + opérations projet.',
+    tournament_ended:'Tournoi terminé', tournament_sending:'Envoi de la tx…', tournament_verifying:'Vérification on-chain…',
+    tournament_joined:'Inscription validée !', tournament_already:'Déjà inscrit sur ce tournoi.', tournament_error:'Erreur d\'inscription',
+    clans_title:'Clans', clans_loading:'Chargement des clans…', clans_create_label:'Créer un clan (burn 1000 $SNAKE)',
+    clans_join_label:'Rejoindre un clan existant', clans_create_btn:'Burn & créer', clans_join_btn:'Rejoindre',
+    clans_leave_btn:'Quitter mon clan', clans_name_placeholder:'Nom du clan (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'membres', clans_full:'Plein', clans_already_in:'Déjà dans un clan', clans_left:'Clan quitté',
+    clans_created:'Clan créé !', clans_joined:'Clan rejoint !', clans_error:'Erreur clan', clans_owner:'(chef)',
   },
   en: {
     username_title:'Username', username_save:'Save', username_change:'Change',
@@ -1032,6 +1393,20 @@ const USERNAME_I18N = {
     burn_not_found:'Burn not found on-chain',
     tx_not_found:'Transaction not found', tx_already_used:'Transaction already used',
     quests_title:'Daily Quests', quests_all_done:'All quests completed!', trophies_title:'My NFT Trophies',
+    boosts_title:'NFT Boosts', boosts_loading:'Loading marketplace…', boosts_current_label:'Active boost:',
+    boosts_mint_pol:'Mint POL', boosts_mint_snake:'Burn $SNAKE', boosts_sold_out:'Sold out',
+    boosts_unavailable:'Marketplace unavailable', boosts_seasonal_label:'Seasonal boost live',
+    boosts_no_boost:'No active boost',
+    tournament_title:'24h Tournament', tournament_time_left:'Time left', tournament_pool:'Prize pool',
+    tournament_entries:'Entries', tournament_enter_btn:'Enter — 1 POL', tournament_top:'Top 5',
+    tournament_disclaimer:'Skill-based competition — not gambling. Entry funds pool + project ops.',
+    tournament_ended:'Tournament ended', tournament_sending:'Sending tx…', tournament_verifying:'Verifying on-chain…',
+    tournament_joined:'Entry confirmed!', tournament_already:'Already entered this tournament.', tournament_error:'Entry error',
+    clans_title:'Clans', clans_loading:'Loading clans…', clans_create_label:'Create a clan (burn 1000 $SNAKE)',
+    clans_join_label:'Join an existing clan', clans_create_btn:'Burn & create', clans_join_btn:'Join',
+    clans_leave_btn:'Leave my clan', clans_name_placeholder:'Clan name (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'members', clans_full:'Full', clans_already_in:'Already in a clan', clans_left:'Clan left',
+    clans_created:'Clan created!', clans_joined:'Joined!', clans_error:'Clan error', clans_owner:'(owner)',
   },
   es: {
     username_title:'Nombre', username_save:'Guardar', username_change:'Cambiar',
@@ -1056,6 +1431,20 @@ const USERNAME_I18N = {
     burn_not_found:'Burn no encontrado', tx_not_found:'Transacción no encontrada',
     tx_already_used:'Transacción ya usada',
     quests_title:'Misiones del día', quests_all_done:'¡Todas las misiones completadas!', trophies_title:'Mis Trofeos NFT',
+    boosts_title:'Boosts NFT', boosts_loading:'Cargando marketplace…', boosts_current_label:'Boost activo:',
+    boosts_mint_pol:'Mint POL', boosts_mint_snake:'Quemar $SNAKE', boosts_sold_out:'Agotado',
+    boosts_unavailable:'Marketplace no disponible', boosts_seasonal_label:'Boost estacional activo',
+    boosts_no_boost:'Sin boost activo',
+    tournament_title:'Torneo 24h', tournament_time_left:'Tiempo restante', tournament_pool:'Premio',
+    tournament_entries:'Inscritos', tournament_enter_btn:'Entrar — 1 POL', tournament_top:'Top 5',
+    tournament_disclaimer:'Competición por habilidad — no juego de azar. Entrada = premio + operaciones.',
+    tournament_ended:'Torneo terminado', tournament_sending:'Enviando tx…', tournament_verifying:'Verificando on-chain…',
+    tournament_joined:'¡Inscripción confirmada!', tournament_already:'Ya inscrito en este torneo.', tournament_error:'Error',
+    clans_title:'Clanes', clans_loading:'Cargando clanes…', clans_create_label:'Crear clan (quemar 1000 $SNAKE)',
+    clans_join_label:'Unirse a un clan', clans_create_btn:'Quemar y crear', clans_join_btn:'Unirse',
+    clans_leave_btn:'Salir del clan', clans_name_placeholder:'Nombre (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'miembros', clans_full:'Lleno', clans_already_in:'Ya en un clan', clans_left:'Has salido',
+    clans_created:'¡Clan creado!', clans_joined:'¡Unido!', clans_error:'Error clan', clans_owner:'(líder)',
   },
   pt: {
     username_title:'Nome', username_save:'Salvar', username_change:'Trocar',
@@ -1080,6 +1469,20 @@ const USERNAME_I18N = {
     burn_not_found:'Burn não encontrado', tx_not_found:'Transação não encontrada',
     tx_already_used:'Transação já usada',
     quests_title:'Missões diárias', quests_all_done:'Todas as missões concluídas!', trophies_title:'Meus Troféus NFT',
+    boosts_title:'Boosts NFT', boosts_loading:'Carregando marketplace…', boosts_current_label:'Boost ativo:',
+    boosts_mint_pol:'Mint POL', boosts_mint_snake:'Queimar $SNAKE', boosts_sold_out:'Esgotado',
+    boosts_unavailable:'Marketplace indisponível', boosts_seasonal_label:'Boost sazonal ativo',
+    boosts_no_boost:'Sem boost ativo',
+    tournament_title:'Torneio 24h', tournament_time_left:'Tempo restante', tournament_pool:'Prêmio',
+    tournament_entries:'Inscritos', tournament_enter_btn:'Entrar — 1 POL', tournament_top:'Top 5',
+    tournament_disclaimer:'Competição de skill — não é jogo de azar. Entrada = prêmio + operações.',
+    tournament_ended:'Torneio encerrado', tournament_sending:'Enviando tx…', tournament_verifying:'Verificando on-chain…',
+    tournament_joined:'Inscrição confirmada!', tournament_already:'Já inscrito neste torneio.', tournament_error:'Erro',
+    clans_title:'Clãs', clans_loading:'Carregando clãs…', clans_create_label:'Criar clã (queimar 1000 $SNAKE)',
+    clans_join_label:'Entrar em um clã', clans_create_btn:'Queimar e criar', clans_join_btn:'Entrar',
+    clans_leave_btn:'Sair do clã', clans_name_placeholder:'Nome (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'membros', clans_full:'Cheio', clans_already_in:'Já em um clã', clans_left:'Você saiu',
+    clans_created:'Clã criado!', clans_joined:'Entrou!', clans_error:'Erro clã', clans_owner:'(líder)',
   },
   de: {
     username_title:'Nutzername', username_save:'Speichern', username_change:'Ändern',
@@ -1104,6 +1507,20 @@ const USERNAME_I18N = {
     burn_not_found:'Burn nicht gefunden', tx_not_found:'Transaktion nicht gefunden',
     tx_already_used:'Transaktion bereits verwendet',
     quests_title:'Tägliche Aufgaben', quests_all_done:'Alle Aufgaben erledigt!', trophies_title:'Meine NFT-Trophäen',
+    boosts_title:'NFT-Boosts', boosts_loading:'Marktplatz lädt…', boosts_current_label:'Aktiver Boost:',
+    boosts_mint_pol:'Mint POL', boosts_mint_snake:'$SNAKE verbrennen', boosts_sold_out:'Ausverkauft',
+    boosts_unavailable:'Marktplatz nicht verfügbar', boosts_seasonal_label:'Saisonaler Boost aktiv',
+    boosts_no_boost:'Kein aktiver Boost',
+    tournament_title:'24h-Turnier', tournament_time_left:'Restzeit', tournament_pool:'Prämie',
+    tournament_entries:'Teilnehmer', tournament_enter_btn:'Teilnehmen — 1 POL', tournament_top:'Top 5',
+    tournament_disclaimer:'Skill-basierter Wettbewerb — kein Glücksspiel. Gebühr = Prämie + Projekt.',
+    tournament_ended:'Turnier beendet', tournament_sending:'Sende tx…', tournament_verifying:'Prüfe on-chain…',
+    tournament_joined:'Teilnahme bestätigt!', tournament_already:'Bereits angemeldet.', tournament_error:'Fehler',
+    clans_title:'Clans', clans_loading:'Lade Clans…', clans_create_label:'Clan gründen (1000 $SNAKE verbrennen)',
+    clans_join_label:'Clan beitreten', clans_create_btn:'Verbrennen & gründen', clans_join_btn:'Beitreten',
+    clans_leave_btn:'Clan verlassen', clans_name_placeholder:'Name (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'Mitglieder', clans_full:'Voll', clans_already_in:'Bereits in Clan', clans_left:'Verlassen',
+    clans_created:'Clan erstellt!', clans_joined:'Beigetreten!', clans_error:'Clan-Fehler', clans_owner:'(Leiter)',
   },
   it: {
     username_title:'Nome', username_save:'Salva', username_change:'Cambia',
@@ -1128,6 +1545,20 @@ const USERNAME_I18N = {
     burn_not_found:'Burn non trovato', tx_not_found:'Transazione non trovata',
     tx_already_used:'Transazione già usata',
     quests_title:'Missioni giornaliere', quests_all_done:'Tutte le missioni completate!', trophies_title:'I miei Trofei NFT',
+    boosts_title:'Boost NFT', boosts_loading:'Caricamento marketplace…', boosts_current_label:'Boost attivo:',
+    boosts_mint_pol:'Mint POL', boosts_mint_snake:'Brucia $SNAKE', boosts_sold_out:'Esaurito',
+    boosts_unavailable:'Marketplace non disponibile', boosts_seasonal_label:'Boost stagionale attivo',
+    boosts_no_boost:'Nessun boost attivo',
+    tournament_title:'Torneo 24h', tournament_time_left:'Tempo restante', tournament_pool:'Montepremi',
+    tournament_entries:'Iscritti', tournament_enter_btn:'Entra — 1 POL', tournament_top:'Top 5',
+    tournament_disclaimer:'Competizione di abilità — non gioco d\'azzardo. Iscrizione = montepremi + progetto.',
+    tournament_ended:'Torneo concluso', tournament_sending:'Invio tx…', tournament_verifying:'Verifica on-chain…',
+    tournament_joined:'Iscrizione confermata!', tournament_already:'Già iscritto.', tournament_error:'Errore',
+    clans_title:'Clan', clans_loading:'Caricamento clan…', clans_create_label:'Crea clan (brucia 1000 $SNAKE)',
+    clans_join_label:'Unisciti a un clan', clans_create_btn:'Brucia e crea', clans_join_btn:'Unisciti',
+    clans_leave_btn:'Lascia il clan', clans_name_placeholder:'Nome (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'membri', clans_full:'Pieno', clans_already_in:'Già in un clan', clans_left:'Uscito',
+    clans_created:'Clan creato!', clans_joined:'Unito!', clans_error:'Errore clan', clans_owner:'(capo)',
   },
   ru: {
     username_title:'Ник', username_save:'Сохранить', username_change:'Сменить',
@@ -1152,6 +1583,20 @@ const USERNAME_I18N = {
     burn_not_found:'Burn не найден', tx_not_found:'Транзакция не найдена',
     tx_already_used:'Транзакция уже использована',
     quests_title:'Ежедневные задания', quests_all_done:'Все задания выполнены!', trophies_title:'Мои NFT трофеи',
+    boosts_title:'NFT Бусты', boosts_loading:'Загрузка маркетплейса…', boosts_current_label:'Активный буст:',
+    boosts_mint_pol:'Минт POL', boosts_mint_snake:'Сжечь $SNAKE', boosts_sold_out:'Распродано',
+    boosts_unavailable:'Маркетплейс недоступен', boosts_seasonal_label:'Сезонный буст активен',
+    boosts_no_boost:'Нет активного буста',
+    tournament_title:'Турнир 24ч', tournament_time_left:'Осталось', tournament_pool:'Призовой фонд',
+    tournament_entries:'Участников', tournament_enter_btn:'Вступить — 1 POL', tournament_top:'Топ 5',
+    tournament_disclaimer:'Соревнование на навык — не азартная игра. Взнос = фонд + проект.',
+    tournament_ended:'Турнир завершён', tournament_sending:'Отправка tx…', tournament_verifying:'Проверка on-chain…',
+    tournament_joined:'Участие подтверждено!', tournament_already:'Уже участвуете.', tournament_error:'Ошибка',
+    clans_title:'Кланы', clans_loading:'Загрузка кланов…', clans_create_label:'Создать клан (сжечь 1000 $SNAKE)',
+    clans_join_label:'Вступить в клан', clans_create_btn:'Сжечь и создать', clans_join_btn:'Вступить',
+    clans_leave_btn:'Покинуть клан', clans_name_placeholder:'Название (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'чел.', clans_full:'Полный', clans_already_in:'Уже в клане', clans_left:'Вы вышли',
+    clans_created:'Клан создан!', clans_joined:'Вступили!', clans_error:'Ошибка', clans_owner:'(лидер)',
   },
   zh: {
     username_title:'昵称', username_save:'保存', username_change:'更改',
@@ -1176,6 +1621,20 @@ const USERNAME_I18N = {
     burn_not_found:'未找到销毁', tx_not_found:'交易未找到',
     tx_already_used:'交易已使用',
     quests_title:'每日任务', quests_all_done:'所有任务已完成！', trophies_title:'我的 NFT 奖杯',
+    boosts_title:'NFT 加速器', boosts_loading:'加载市场中…', boosts_current_label:'当前加成:',
+    boosts_mint_pol:'POL 铸造', boosts_mint_snake:'销毁 $SNAKE', boosts_sold_out:'已售罄',
+    boosts_unavailable:'市场不可用', boosts_seasonal_label:'季节性加成激活',
+    boosts_no_boost:'无激活加成',
+    tournament_title:'24小时锦标赛', tournament_time_left:'剩余时间', tournament_pool:'奖池',
+    tournament_entries:'参赛人数', tournament_enter_btn:'参加 — 1 POL', tournament_top:'前 5 名',
+    tournament_disclaimer:'技术型比赛 — 非赌博。报名费用 = 奖池 + 项目运营。',
+    tournament_ended:'锦标赛已结束', tournament_sending:'发送交易…', tournament_verifying:'链上验证…',
+    tournament_joined:'报名成功！', tournament_already:'已报名。', tournament_error:'错误',
+    clans_title:'公会', clans_loading:'加载公会…', clans_create_label:'创建公会（销毁 1000 $SNAKE）',
+    clans_join_label:'加入公会', clans_create_btn:'销毁并创建', clans_join_btn:'加入',
+    clans_leave_btn:'离开公会', clans_name_placeholder:'名称 (3-20)', clans_tag_placeholder:'标签',
+    clans_members:'成员', clans_full:'已满', clans_already_in:'已在公会中', clans_left:'已离开',
+    clans_created:'公会已创建！', clans_joined:'已加入！', clans_error:'错误', clans_owner:'（会长）',
   },
   ja: {
     username_title:'ユーザー名', username_save:'保存', username_change:'変更',
@@ -1200,6 +1659,20 @@ const USERNAME_I18N = {
     burn_not_found:'バーン未確認', tx_not_found:'トランザクション未検出',
     tx_already_used:'トランザクション使用済み',
     quests_title:'デイリークエスト', quests_all_done:'すべてのクエスト完了！', trophies_title:'私のNFTトロフィー',
+    boosts_title:'NFT ブースト', boosts_loading:'マーケット読込中…', boosts_current_label:'有効なブースト:',
+    boosts_mint_pol:'POLでミント', boosts_mint_snake:'$SNAKE をバーン', boosts_sold_out:'完売',
+    boosts_unavailable:'マーケット利用不可', boosts_seasonal_label:'シーズンブースト有効',
+    boosts_no_boost:'アクティブなブーストなし',
+    tournament_title:'24時間トーナメント', tournament_time_left:'残り時間', tournament_pool:'賞金プール',
+    tournament_entries:'参加者', tournament_enter_btn:'参加 — 1 POL', tournament_top:'トップ 5',
+    tournament_disclaimer:'スキル競技 — ギャンブルではありません。参加費 = 賞金 + 運営費。',
+    tournament_ended:'トーナメント終了', tournament_sending:'tx 送信中…', tournament_verifying:'オンチェーン検証…',
+    tournament_joined:'参加確定！', tournament_already:'すでに参加中。', tournament_error:'エラー',
+    clans_title:'クラン', clans_loading:'クラン読込中…', clans_create_label:'クラン作成（1000 $SNAKE バーン）',
+    clans_join_label:'クランに参加', clans_create_btn:'バーン＆作成', clans_join_btn:'参加',
+    clans_leave_btn:'クランを抜ける', clans_name_placeholder:'名前 (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'メンバー', clans_full:'満員', clans_already_in:'すでにクラン所属', clans_left:'脱退しました',
+    clans_created:'クラン作成完了！', clans_joined:'参加完了！', clans_error:'エラー', clans_owner:'（リーダー）',
   },
   ko: {
     username_title:'닉네임', username_save:'저장', username_change:'변경',
@@ -1224,6 +1697,20 @@ const USERNAME_I18N = {
     burn_not_found:'소각 미확인', tx_not_found:'거래 찾을 수 없음',
     tx_already_used:'거래 사용됨',
     quests_title:'일일 퀘스트', quests_all_done:'모든 퀘스트 완료!', trophies_title:'내 NFT 트로피',
+    boosts_title:'NFT 부스트', boosts_loading:'마켓 로딩 중…', boosts_current_label:'활성 부스트:',
+    boosts_mint_pol:'POL로 민팅', boosts_mint_snake:'$SNAKE 소각', boosts_sold_out:'품절',
+    boosts_unavailable:'마켓 이용 불가', boosts_seasonal_label:'시즌 부스트 활성',
+    boosts_no_boost:'활성 부스트 없음',
+    tournament_title:'24시간 토너먼트', tournament_time_left:'남은 시간', tournament_pool:'상금',
+    tournament_entries:'참가자', tournament_enter_btn:'참가 — 1 POL', tournament_top:'상위 5명',
+    tournament_disclaimer:'스킬 기반 대회 — 도박 아님. 참가비 = 상금 + 프로젝트 운영.',
+    tournament_ended:'토너먼트 종료', tournament_sending:'tx 전송 중…', tournament_verifying:'온체인 확인 중…',
+    tournament_joined:'참가 확정!', tournament_already:'이미 참가 중.', tournament_error:'오류',
+    clans_title:'클랜', clans_loading:'클랜 로딩…', clans_create_label:'클랜 생성 (1000 $SNAKE 소각)',
+    clans_join_label:'클랜 가입', clans_create_btn:'소각 및 생성', clans_join_btn:'가입',
+    clans_leave_btn:'클랜 탈퇴', clans_name_placeholder:'이름 (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'멤버', clans_full:'만석', clans_already_in:'이미 클랜 소속', clans_left:'탈퇴 완료',
+    clans_created:'클랜 생성됨!', clans_joined:'가입 완료!', clans_error:'오류', clans_owner:'(리더)',
   },
   ar: {
     username_title:'الاسم المستعار', username_save:'حفظ', username_change:'تغيير',
@@ -1248,6 +1735,20 @@ const USERNAME_I18N = {
     burn_not_found:'الحرق غير موجود', tx_not_found:'المعاملة غير موجودة',
     tx_already_used:'المعاملة مستخدمة',
     quests_title:'المهام اليومية', quests_all_done:'اكتملت جميع المهام!', trophies_title:'جوائزي NFT',
+    boosts_title:'تعزيزات NFT', boosts_loading:'جاري تحميل السوق…', boosts_current_label:'التعزيز النشط:',
+    boosts_mint_pol:'سك POL', boosts_mint_snake:'حرق $SNAKE', boosts_sold_out:'نفذ',
+    boosts_unavailable:'السوق غير متاح', boosts_seasonal_label:'تعزيز موسمي نشط',
+    boosts_no_boost:'لا يوجد تعزيز نشط',
+    tournament_title:'بطولة 24 ساعة', tournament_time_left:'الوقت المتبقي', tournament_pool:'الجائزة',
+    tournament_entries:'المشاركون', tournament_enter_btn:'الدخول — 1 POL', tournament_top:'أفضل 5',
+    tournament_disclaimer:'مسابقة مهارات — ليست مقامرة. رسوم الدخول = الجائزة + العمليات.',
+    tournament_ended:'انتهت البطولة', tournament_sending:'إرسال tx…', tournament_verifying:'تحقق على السلسلة…',
+    tournament_joined:'تم تأكيد الدخول!', tournament_already:'مسجل بالفعل.', tournament_error:'خطأ',
+    clans_title:'عشائر', clans_loading:'تحميل العشائر…', clans_create_label:'إنشاء عشيرة (حرق 1000 $SNAKE)',
+    clans_join_label:'الانضمام إلى عشيرة', clans_create_btn:'حرق وإنشاء', clans_join_btn:'انضمام',
+    clans_leave_btn:'مغادرة العشيرة', clans_name_placeholder:'الاسم (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'أعضاء', clans_full:'ممتلئ', clans_already_in:'أنت في عشيرة بالفعل', clans_left:'غادرت',
+    clans_created:'تم الإنشاء!', clans_joined:'انضممت!', clans_error:'خطأ', clans_owner:'(قائد)',
   },
   tr: {
     username_title:'Kullanıcı Adı', username_save:'Kaydet', username_change:'Değiştir',
@@ -1272,6 +1773,20 @@ const USERNAME_I18N = {
     burn_not_found:'Yakma bulunamadı', tx_not_found:'İşlem bulunamadı',
     tx_already_used:'İşlem kullanılmış',
     quests_title:'Günlük Görevler', quests_all_done:'Tüm görevler tamamlandı!', trophies_title:'NFT Kupalarım',
+    boosts_title:'NFT Boost', boosts_loading:'Pazar yükleniyor…', boosts_current_label:'Aktif boost:',
+    boosts_mint_pol:'POL ile bas', boosts_mint_snake:'$SNAKE yak', boosts_sold_out:'Tükendi',
+    boosts_unavailable:'Pazar kullanılamıyor', boosts_seasonal_label:'Sezonluk boost aktif',
+    boosts_no_boost:'Aktif boost yok',
+    tournament_title:'24s Turnuva', tournament_time_left:'Kalan süre', tournament_pool:'Ödül havuzu',
+    tournament_entries:'Katılımcılar', tournament_enter_btn:'Katıl — 1 POL', tournament_top:'İlk 5',
+    tournament_disclaimer:'Beceri temelli yarışma — kumar değildir. Giriş = ödül + proje.',
+    tournament_ended:'Turnuva bitti', tournament_sending:'tx gönderiliyor…', tournament_verifying:'Zincir üstü doğrulama…',
+    tournament_joined:'Katılım onaylandı!', tournament_already:'Zaten katılımcısınız.', tournament_error:'Hata',
+    clans_title:'Klanlar', clans_loading:'Klanlar yükleniyor…', clans_create_label:'Klan kur (1000 $SNAKE yak)',
+    clans_join_label:'Klana katıl', clans_create_btn:'Yak ve kur', clans_join_btn:'Katıl',
+    clans_leave_btn:'Klandan ayrıl', clans_name_placeholder:'Ad (3-20)', clans_tag_placeholder:'TAG',
+    clans_members:'üye', clans_full:'Dolu', clans_already_in:'Zaten bir klanda', clans_left:'Ayrıldınız',
+    clans_created:'Klan kuruldu!', clans_joined:'Katıldınız!', clans_error:'Hata', clans_owner:'(lider)',
   },
 };
 // Merge into LANGS[lang].t
@@ -1444,6 +1959,14 @@ async function gameOver() {
         if (d.nft.tier && d.nft.bonus_pct > 0) {
           const nftMsg = '🏆 ' + d.nft.tier + ' +' + d.nft.bonus_pct + '%';
           milestoneMsg = milestoneMsg ? milestoneMsg + ' · ' + nftMsg : nftMsg;
+        }
+      }
+      // Task #72 — affiche/rafraîchit le badge NFT boost multiplier
+      if (d && d.boost) {
+        renderBoostMultiplier({ bps: d.boost.bps, stale: d.boost.stale, multiplier: d.boost.multiplier });
+        if (d.boost.bps > 0) {
+          const bMsg = '🚀 +' + (d.boost.bps / 100).toFixed(d.boost.bps < 100 ? 1 : 0) + '%';
+          milestoneMsg = milestoneMsg ? milestoneMsg + ' · ' + bMsg : bMsg;
         }
       }
     } catch(e) { console.log('session end:', e); }
@@ -1909,6 +2432,621 @@ async function getNftMintFee() {
   } catch { return ethers.parseEther('10'); }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+//  NFT BOOSTS MARKETPLACE (Task #72)
+// ═════════════════════════════════════════════════════════════════════════════
+// Contract deploy pending — address remplit dès que SnakeBoostNFT.sol on Polygon.
+// Laisser vide tant que pas deploye : UI affiche "Marketplace indisponible" gracieusement.
+const BOOST_NFT_ADDRESS = ''; // TODO: set after deploy
+const BOOST_NFT_ABI = [
+  'function mintWithPol(uint8 tier) payable returns (uint256)',
+  'function mintSeasonalWithPol(uint32 seasonalId) payable returns (uint256)',
+  'function mintWithSnakeBurn(uint8 tier) returns (uint256)',
+  'function mintSeasonalWithSnakeBurn(uint32 seasonalId) returns (uint256)',
+  'function upgrade(uint256[3] tokenIds) returns (uint256)',
+  'function getActiveMultiplierBps(address wallet) view returns (uint16)',
+  'function getPolPrice(uint8 tier) view returns (uint256)',
+  'function getSeasonalPolPrice(uint32 id) view returns (uint256)',
+  'event BoostMinted(address indexed wallet, uint256 indexed tokenId, uint8 tier, uint32 seasonalId, uint16 multiplierBps, uint8 paymentMode)'
+];
+const TIER_ID = { BASIC: 1, PRO: 2, ELITE: 3 };
+const TIER_META = {
+  1: { key: 'basic', label: 'Basic', emoji: '⚡' },
+  2: { key: 'pro',   label: 'Pro',   emoji: '🔷' },
+  3: { key: 'elite', label: 'Elite', emoji: '🚀' },
+};
+
+let boostCatalog = null;   // last fetched catalog
+let boostPending = false;  // mint in progress (UI lock)
+
+async function loadBoostCatalog() {
+  if (!BACKEND_URL) return;
+  try {
+    const r = await fetch(BACKEND_URL + '/api/boost/catalog');
+    const d = await r.json();
+    boostCatalog = d;
+    renderBoostPanel();
+  } catch (e) {
+    console.log('boost catalog load:', e);
+  }
+}
+
+async function loadBoostMultiplier() {
+  if (!walletAddress || !BACKEND_URL) return;
+  try {
+    const r = await fetch(BACKEND_URL + '/api/boost/multiplier/' + walletAddress);
+    if (!r.ok) return;
+    const d = await r.json();
+    renderBoostMultiplier(d);
+  } catch (e) { console.log('boost-mult load:', e); }
+}
+
+function renderBoostMultiplier(d) {
+  const box  = document.getElementById('boost-box');
+  const tier = document.getElementById('boost-tier');
+  const mult = document.getElementById('boost-mult');
+  const cur  = document.getElementById('boosts-current');
+  const curVal = document.getElementById('boosts-current-value');
+  const curExtra = document.getElementById('boosts-current-extra');
+  if (!box) return;
+  const bps = d && d.bps ? d.bps : 0;
+  const pct = bps / 100;
+  if (bps > 0) {
+    box.style.display = '';
+    tier.textContent = '+' + pct.toFixed(pct >= 1 ? 0 : 1) + '%';
+    mult.textContent = 'x' + (1 + bps / 10000).toFixed(2);
+    if (cur) {
+      cur.style.display = '';
+      if (curVal) curVal.textContent = '+' + pct.toFixed(pct >= 1 ? 0 : 1) + '%';
+      if (curExtra) curExtra.textContent = d.stale ? ' (syncing…)' : '';
+    }
+  } else {
+    box.style.display = 'none';
+    if (cur) cur.style.display = 'none';
+  }
+  // Meta du panel (header)
+  const meta = document.getElementById('boosts-meta');
+  if (meta) {
+    if (bps > 0)       meta.textContent = '+' + pct.toFixed(pct >= 1 ? 0 : 1) + '% · ' + (t('boosts_current_label') || '').replace(':','').trim();
+    else if (boostCatalog && boostCatalog.available) meta.textContent = t('boosts_no_boost') || 'No boost';
+    else               meta.textContent = '—';
+  }
+}
+
+function renderBoostPanel() {
+  const panel = document.getElementById('boosts-box');
+  const tiers = document.getElementById('boosts-tiers');
+  const seasonalSlot = document.getElementById('boosts-seasonal-slot');
+  const empty = document.getElementById('boosts-empty');
+  if (!panel || !tiers) return;
+  if (!boostCatalog || !boostCatalog.available) {
+    // Pas de contract deploy ou backend not configured → cache le panel
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+  if (empty) empty.style.display = 'none';
+
+  // Tier cards Basic / Pro / Elite
+  tiers.innerHTML = (boostCatalog.tiers || []).map(tier => {
+    const meta = TIER_META[tier.id] || { key:'basic', label:'Tier'+tier.id, emoji:'⚡' };
+    const usd = (Number(tier.price_usd_1e8) / 1e8).toFixed(2);
+    const pct = (tier.multiplier_bps / 100).toFixed(tier.multiplier_bps < 100 ? 1 : 0);
+    const soldOut = tier.supply_cap > 0 && tier.minted >= tier.supply_cap;
+    const active = tier.active !== false && !soldOut;
+    let polBtn = '';
+    if (soldOut) {
+      polBtn = `<button disabled>${t('boosts_sold_out') || 'Sold out'}</button>`;
+    } else if (!active) {
+      polBtn = `<button disabled>—</button>`;
+    } else {
+      polBtn = `<button onclick="mintBoostPol(${tier.id})">${t('boosts_mint_pol') || 'Mint POL'}<br><small style="font-weight:400">${usd}$</small></button>`;
+      if (tier.snake_burn_wei && tier.snake_burn_wei !== '0') {
+        const snakeAmt = Number(BigInt(tier.snake_burn_wei) / 10n ** 18n);
+        polBtn += `<button class="snake" onclick="mintBoostSnake(${tier.id})">${t('boosts_mint_snake') || 'Burn $SNAKE'}<br><small style="font-weight:400">${snakeAmt}</small></button>`;
+      }
+    }
+    const supplyLine = tier.supply_cap > 0
+      ? `${tier.minted}/${tier.supply_cap}`
+      : `${tier.minted} mintés`;
+    return `
+      <div class="boost-tier-item">
+        <div class="boost-icon ${meta.key}">${meta.emoji}</div>
+        <div class="boost-info">
+          <div class="tier-name">${meta.label} <span style="color:#40c4ff">+${pct}%</span></div>
+          <div class="tier-sub">${usd}$ · <span class="tier-supply">${supplyLine}</span></div>
+        </div>
+        <div class="boost-actions">${polBtn}</div>
+      </div>`;
+  }).join('');
+
+  // Seasonal
+  if (seasonalSlot) {
+    if (boostCatalog.seasonal && boostCatalog.seasonal.active) {
+      const s = boostCatalog.seasonal;
+      const usd = (Number(s.price_usd_1e8) / 1e8).toFixed(2);
+      const pct = (s.multiplier_bps / 100).toFixed(s.multiplier_bps < 100 ? 1 : 0);
+      const soldOut = s.supply_cap > 0 && s.minted >= s.supply_cap;
+      let btn = soldOut
+        ? `<button disabled>${t('boosts_sold_out') || 'Sold out'}</button>`
+        : `<button onclick="mintBoostSeasonalPol(${s.id})">${t('boosts_mint_pol') || 'Mint POL'}<br><small style="font-weight:400">${usd}$</small></button>`;
+      if (!soldOut && s.snake_burn_wei && s.snake_burn_wei !== '0') {
+        const snakeAmt = Number(BigInt(s.snake_burn_wei) / 10n ** 18n);
+        btn += `<button class="snake" onclick="mintBoostSeasonalSnake(${s.id})">${t('boosts_mint_snake') || 'Burn $SNAKE'}<br><small style="font-weight:400">${snakeAmt}</small></button>`;
+      }
+      const supplyLine = s.supply_cap > 0 ? `${s.minted}/${s.supply_cap}` : `${s.minted}`;
+      const endsIn = s.open_until ? ` · ends ${new Date(s.open_until * 1000).toLocaleDateString()}` : '';
+      seasonalSlot.innerHTML = `
+        <div class="boosts-seasonal-block">
+          <div class="label">🌟 <span data-i18n="boosts_seasonal_label">${t('boosts_seasonal_label') || 'Seasonal boost live'}</span></div>
+          <div class="boost-tier-item" style="border-bottom:none;padding:4px 0">
+            <div class="boost-icon seasonal">${s.emoji || '✨'}</div>
+            <div class="boost-info">
+              <div class="tier-name">${s.name || 'Seasonal'} <span style="color:#ff4d8f">+${pct}%</span></div>
+              <div class="tier-sub">${usd}$ · <span class="tier-supply">${supplyLine}${endsIn}</span></div>
+            </div>
+            <div class="boost-actions">${btn}</div>
+          </div>
+        </div>`;
+    } else {
+      seasonalSlot.innerHTML = '';
+    }
+  }
+}
+
+// ─── BOOST MINT HANDLERS ──────────────────────────────────────────────────────
+function boostSetStatus(msg, type) {
+  const el = document.getElementById('boosts-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = type === 'ok' ? '#4ade80' : type === 'err' ? '#ff6b6b' : '#9ab';
+}
+
+async function _ensureBoostContract() {
+  if (!BOOST_NFT_ADDRESS) {
+    boostSetStatus(t('boosts_unavailable') || 'Marketplace unavailable', 'err');
+    return null;
+  }
+  if (!walletAddress || !signer) {
+    boostSetStatus('⚠️ ' + (t('connect') || 'Connect wallet first'), 'err');
+    return null;
+  }
+  return new ethers.Contract(BOOST_NFT_ADDRESS, BOOST_NFT_ABI, signer);
+}
+
+async function _finishBoostMint(receipt, label) {
+  boostSetStatus(`✅ ${label} minté · tx ${receipt.hash.slice(0,10)}…`, 'ok');
+  // Force refresh backend cache immédiatement
+  try {
+    await fetch(BACKEND_URL + '/api/boost/refresh', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ address: walletAddress }),
+    });
+  } catch (_) {}
+  // Refresh UI
+  loadBoostCatalog();
+  loadBoostMultiplier();
+  boostPending = false;
+}
+
+async function mintBoostPol(tierId) {
+  if (boostPending) return;
+  const contract = await _ensureBoostContract();
+  if (!contract) return;
+  boostPending = true;
+  try {
+    boostSetStatus('🔎 ' + (t('loading') || 'Fetching price…'));
+    const price = await contract.getPolPrice(tierId);
+    // +2% buffer anti-rounding (Chainlink oracle peut bouger d'1-2% entre quote et tx)
+    const valueWithBuffer = (price * 102n) / 100n;
+    boostSetStatus(`📝 Mint tier ${tierId} · ${ethers.formatEther(price)} POL (+2% buffer)…`);
+    const tx = await contract.mintWithPol(tierId, { value: valueWithBuffer });
+    boostSetStatus('⏳ Waiting confirmation…');
+    const receipt = await tx.wait();
+    await _finishBoostMint(receipt, (TIER_META[tierId] || {}).label || 'Boost');
+  } catch (e) {
+    console.error('mint boost POL:', e);
+    boostSetStatus('❌ ' + (e.reason || e.shortMessage || e.message || 'Mint failed'), 'err');
+    boostPending = false;
+  }
+}
+
+async function mintBoostSeasonalPol(seasonalId) {
+  if (boostPending) return;
+  const contract = await _ensureBoostContract();
+  if (!contract) return;
+  boostPending = true;
+  try {
+    boostSetStatus('🔎 ' + (t('loading') || 'Fetching seasonal price…'));
+    const price = await contract.getSeasonalPolPrice(seasonalId);
+    const valueWithBuffer = (price * 102n) / 100n;
+    boostSetStatus(`📝 Seasonal mint · ${ethers.formatEther(price)} POL…`);
+    const tx = await contract.mintSeasonalWithPol(seasonalId, { value: valueWithBuffer });
+    boostSetStatus('⏳ Waiting confirmation…');
+    const receipt = await tx.wait();
+    await _finishBoostMint(receipt, 'Seasonal');
+  } catch (e) {
+    console.error('mint seasonal POL:', e);
+    boostSetStatus('❌ ' + (e.reason || e.shortMessage || e.message || 'Mint failed'), 'err');
+    boostPending = false;
+  }
+}
+
+async function mintBoostSnake(tierId) {
+  if (boostPending) return;
+  const contract = await _ensureBoostContract();
+  if (!contract) return;
+  boostPending = true;
+  try {
+    const tier = (boostCatalog.tiers || []).find(x => x.id === tierId);
+    if (!tier || !tier.snake_burn_wei) throw new Error('Tier not found');
+    const amount = BigInt(tier.snake_burn_wei);
+    // Check + approve allowance
+    const erc20 = new ethers.Contract(CONTRACT_ADDRESS, [
+      'function allowance(address owner, address spender) view returns (uint256)',
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function balanceOf(address) view returns (uint256)'
+    ], signer);
+    const bal = await erc20.balanceOf(walletAddress);
+    if (bal < amount) throw new Error('Insufficient $SNAKE balance');
+    const allowance = await erc20.allowance(walletAddress, BOOST_NFT_ADDRESS);
+    if (allowance < amount) {
+      boostSetStatus('📝 Approving $SNAKE…');
+      const txA = await erc20.approve(BOOST_NFT_ADDRESS, amount);
+      await txA.wait();
+    }
+    boostSetStatus(`🔥 Burning ${Number(amount / 10n ** 18n)} $SNAKE…`);
+    const tx = await contract.mintWithSnakeBurn(tierId);
+    boostSetStatus('⏳ Waiting confirmation…');
+    const receipt = await tx.wait();
+    await _finishBoostMint(receipt, (TIER_META[tierId] || {}).label || 'Boost');
+  } catch (e) {
+    console.error('mint boost SNAKE:', e);
+    boostSetStatus('❌ ' + (e.reason || e.shortMessage || e.message || 'Mint failed'), 'err');
+    boostPending = false;
+  }
+}
+
+async function mintBoostSeasonalSnake(seasonalId) {
+  if (boostPending) return;
+  const contract = await _ensureBoostContract();
+  if (!contract) return;
+  boostPending = true;
+  try {
+    const s = boostCatalog.seasonal;
+    if (!s || !s.snake_burn_wei) throw new Error('No seasonal');
+    const amount = BigInt(s.snake_burn_wei);
+    const erc20 = new ethers.Contract(CONTRACT_ADDRESS, [
+      'function allowance(address owner, address spender) view returns (uint256)',
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function balanceOf(address) view returns (uint256)'
+    ], signer);
+    const bal = await erc20.balanceOf(walletAddress);
+    if (bal < amount) throw new Error('Insufficient $SNAKE balance');
+    const allowance = await erc20.allowance(walletAddress, BOOST_NFT_ADDRESS);
+    if (allowance < amount) {
+      boostSetStatus('📝 Approving $SNAKE…');
+      const txA = await erc20.approve(BOOST_NFT_ADDRESS, amount);
+      await txA.wait();
+    }
+    boostSetStatus(`🔥 Burning ${Number(amount / 10n ** 18n)} $SNAKE…`);
+    const tx = await contract.mintSeasonalWithSnakeBurn(seasonalId);
+    boostSetStatus('⏳ Waiting confirmation…');
+    const receipt = await tx.wait();
+    await _finishBoostMint(receipt, 'Seasonal');
+  } catch (e) {
+    console.error('mint seasonal SNAKE:', e);
+    boostSetStatus('❌ ' + (e.reason || e.shortMessage || e.message || 'Mint failed'), 'err');
+    boostPending = false;
+  }
+}
+
+// ─── TOURNAMENT 24h (task #69) ───────────────────────────────────────────────
+let tournamentState = null;
+let tournamentTickTimer = null;
+let tournamentPollTimer = null;
+
+function fmtDur(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`;
+}
+
+async function loadTournament() {
+  try {
+    const r = await fetch(`${API_BASE}/api/tournament/current`);
+    const d = await r.json();
+    if (!d.enabled || !d.active) {
+      document.getElementById('tournament-box').style.display = 'none';
+      return;
+    }
+    tournamentState = d;
+    document.getElementById('tournament-box').style.display = '';
+    const meta = document.getElementById('tournament-meta');
+    if (meta) meta.textContent = `${Number(d.entry_fee_pol).toFixed(2)} POL · ${d.entries_count} inscrits`;
+    document.getElementById('tournament-pool').textContent = `${Number(d.prize_pool_pol).toFixed(2)} POL`;
+    document.getElementById('tournament-entries').textContent = String(d.entries_count);
+    startTournamentCountdown(d.time_left_sec);
+
+    const btn = document.getElementById('tournament-enter-btn');
+    if (btn) {
+      btn.textContent = `${t('tournament_enter_btn') || 'Enter'} — ${Number(d.entry_fee_pol).toFixed(2)} POL`;
+      btn.disabled = !userWallet || d.time_left_sec <= 0;
+    }
+
+    await loadTournamentLeaderboard();
+    await loadTournamentMine();
+  } catch (e) {
+    console.warn('[TOURNAMENT] load fail:', e.message);
+  }
+}
+
+function startTournamentCountdown(initialLeft) {
+  if (tournamentTickTimer) clearInterval(tournamentTickTimer);
+  let left = initialLeft;
+  const el = document.getElementById('tournament-countdown');
+  const btn = document.getElementById('tournament-enter-btn');
+  const tick = () => {
+    if (!el) return;
+    el.textContent = fmtDur(left);
+    if (left <= 0) {
+      if (btn) { btn.disabled = true; btn.textContent = t('tournament_ended') || 'Ended'; }
+      clearInterval(tournamentTickTimer);
+      // Refresh état (cron doit avoir ouvert nouveau tournoi)
+      setTimeout(loadTournament, 5000);
+    }
+    left -= 1;
+  };
+  tick();
+  tournamentTickTimer = setInterval(tick, 1000);
+}
+
+async function loadTournamentLeaderboard() {
+  try {
+    const r = await fetch(`${API_BASE}/api/tournament/leaderboard`);
+    const d = await r.json();
+    const wrap = document.getElementById('tournament-lb');
+    if (!wrap) return;
+    if (!d.enabled || !d.entries || d.entries.length === 0) {
+      wrap.innerHTML = '<div style="color:#a88;font-size:0.76rem;text-align:center;padding:6px">—</div>';
+      return;
+    }
+    const me = (userWallet || '').toLowerCase();
+    wrap.innerHTML = d.entries.slice(0, 5).map(e => {
+      const mine = e.wallet === me ? 'me' : '';
+      const medal = e.rank === 1 ? '🥇' : (e.rank === 2 ? '🥈' : (e.rank === 3 ? '🥉' : `#${e.rank}`));
+      const clanPill = e.clan_tag ? `<span class="lb-clan-tag" title="${escapeHtml(e.clan_name||'')}">[${escapeHtml(e.clan_tag)}]</span>` : '';
+      return `<div class="tournament-lb-item ${mine}">
+        <span class="rank">${medal}</span>
+        <span class="name">${clanPill}${e.wallet_short}</span>
+        <span class="score"><strong>${e.best_score}</strong></span>
+      </div>`;
+    }).join('');
+  } catch (e) { /* silent */ }
+}
+
+async function loadTournamentMine() {
+  const el = document.getElementById('tournament-mine');
+  if (!el || !userWallet || !tournamentState) return;
+  try {
+    const r = await fetch(`${API_BASE}/api/tournament/leaderboard`);
+    const d = await r.json();
+    const me = (userWallet || '').toLowerCase();
+    const mine = (d.entries || []).find(x => x.wallet === me);
+    if (mine) {
+      el.textContent = `🎯 ${t('tournament_top') || 'Top'} — rank #${mine.rank} · score ${mine.best_score}`;
+      const btn = document.getElementById('tournament-enter-btn');
+      if (btn) btn.disabled = true; // déjà inscrit
+      btn.textContent = t('tournament_already') || 'Already entered';
+    } else {
+      el.textContent = '';
+    }
+  } catch (_) {}
+}
+
+async function enterTournament() {
+  if (!userWallet || !tournamentState) return;
+  const payoutTo = tournamentState.payout_wallet;
+  if (!payoutTo) {
+    alert(t('tournament_error') || 'Error');
+    return;
+  }
+  const btn = document.getElementById('tournament-enter-btn');
+  const status = (s) => { if (btn) btn.textContent = s; };
+  status(t('tournament_sending') || 'Sending tx…');
+  btn.disabled = true;
+  try {
+    if (typeof ethers === 'undefined' || !window.provider) throw new Error('ethers/provider manquant');
+    const signer = await window.provider.getSigner();
+    const tx = await signer.sendTransaction({
+      to:    payoutTo,
+      value: BigInt(tournamentState.entry_fee_wei),
+    });
+    status(t('tournament_verifying') || 'Verifying…');
+    await tx.wait(2);
+    // POST /api/tournament/enter
+    const r = await fetch(`${API_BASE}/api/tournament/enter`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: userWallet, tx_hash: tx.hash }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'entry_failed');
+    status(t('tournament_joined') || 'Joined!');
+    setTimeout(loadTournament, 1500);
+  } catch (e) {
+    console.error('[TOURNAMENT ENTER]', e);
+    status(`❌ ${e.shortMessage || e.message || 'error'}`);
+    setTimeout(() => { btn.disabled = false; btn.textContent = t('tournament_enter_btn') || 'Enter'; }, 3500);
+  }
+}
+
+// ─── CLANS (task #70) ────────────────────────────────────────────────────────
+let clanMine = null;
+let clanListCache = [];
+
+async function loadClansAll() {
+  try {
+    const r = await fetch(`${API_BASE}/api/clan/list?limit=30`);
+    const d = await r.json();
+    if (!d.enabled) {
+      document.getElementById('clans-box').style.display = 'none';
+      return;
+    }
+    document.getElementById('clans-box').style.display = '';
+    clanListCache = d.clans || [];
+    await loadClanMine();
+    renderClansUI();
+  } catch (e) { console.warn('[CLAN] load fail', e.message); }
+}
+
+async function loadClanMine() {
+  if (!userWallet) { clanMine = null; return; }
+  try {
+    const r = await fetch(`${API_BASE}/api/clan/mine/${userWallet}`);
+    const d = await r.json();
+    clanMine = d.clan || null;
+  } catch (_) { clanMine = null; }
+}
+
+function renderClansUI() {
+  const empty  = document.getElementById('clans-empty');
+  const curDiv = document.getElementById('clan-current');
+  const createBlock = document.getElementById('clan-create-block');
+  const listBlock   = document.getElementById('clan-list-block');
+  const listWrap    = document.getElementById('clan-list');
+  const meta        = document.getElementById('clans-meta');
+
+  if (empty) empty.style.display = 'none';
+
+  if (clanMine) {
+    // Déjà dans un clan → affiche + leave
+    curDiv.style.display = '';
+    const role = clanMine.role === 'owner' ? (t('clans_owner') || '(owner)') : '';
+    curDiv.innerHTML = `
+      <span class="tag">${clanMine.tag}</span>
+      <span class="name">${escapeHtml(clanMine.name)}</span> ${role}
+      <div class="sub">ID ${clanMine.id} · joined <span>${new Date((clanMine.joined_at||0)*1000).toLocaleDateString()}</span></div>
+      <div class="clan-actions" style="margin-top:8px"><button class="danger" onclick="leaveClan()">${t('clans_leave_btn') || 'Leave'}</button></div>
+    `;
+    createBlock.style.display = 'none';
+    listBlock.style.display   = 'none';
+    if (meta) meta.textContent = `[${clanMine.tag}]`;
+    return;
+  }
+
+  curDiv.style.display = 'none';
+  createBlock.style.display = '';
+  listBlock.style.display   = '';
+  if (meta) meta.textContent = `${clanListCache.length} clans`;
+
+  if (!listWrap) return;
+  if (clanListCache.length === 0) {
+    listWrap.innerHTML = '<div style="color:#8a84b8;font-size:0.76rem;text-align:center;padding:6px">—</div>';
+    return;
+  }
+  listWrap.innerHTML = clanListCache.map(c => {
+    const full = c.members >= 10;
+    return `<div class="clan-list-item">
+      <span class="tag">${c.tag}</span>
+      <span class="name">${escapeHtml(c.name)}</span>
+      <span class="members">${c.members} ${t('clans_members') || 'members'}</span>
+      <button onclick="joinClan(${c.id})" ${full?'disabled':''}>${full ? (t('clans_full')||'Full') : (t('clans_join_btn')||'Join')}</button>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function _signClanAction(action) {
+  if (!window.provider || !userWallet) throw new Error('wallet_missing');
+  const signer = await window.provider.getSigner();
+  const now = Math.floor(Date.now() / 1000);
+  const msg = `${action}|${userWallet.toLowerCase()}|${now}`;
+  const sig = await signer.signMessage(msg);
+  return { message: msg, signature: sig, ts: now };
+}
+
+async function createClan() {
+  const name = document.getElementById('clan-create-name').value.trim();
+  const tag  = document.getElementById('clan-create-tag').value.trim().toUpperCase();
+  const statusEl = document.getElementById('clans-status');
+  if (!userWallet) { statusEl.textContent = t('connect_first') || 'Connect wallet'; return; }
+  if (name.length < 3 || name.length > 20) { statusEl.textContent = 'name 3-20'; return; }
+  if (tag.length < 2 || tag.length > 6 || !/^[A-Z0-9]+$/.test(tag)) { statusEl.textContent = 'tag 2-6 alphanum'; return; }
+
+  statusEl.textContent = t('username_burn_send') || 'Sending burn tx…';
+  try {
+    const signer = await window.provider.getSigner();
+    const snakeAddr = (window.CONTRACT_ADDRESS || '');
+    if (!snakeAddr) throw new Error('$SNAKE contract not configured');
+    const erc20 = new ethers.Contract(snakeAddr, [
+      'function transfer(address to, uint256 amount) returns (bool)',
+    ], signer);
+    const burnTx = await erc20.transfer('0x000000000000000000000000000000000000dEaD', ethers.parseUnits('1000', 18));
+    statusEl.textContent = t('username_burn_confirm') || 'Awaiting confirmation';
+    await burnTx.wait(2);
+    // Proof EIP-191
+    const proof = await _signClanAction('CreateClan');
+    const r = await fetch(`${API_BASE}/api/clan/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: userWallet, name, tag, burn_tx: burnTx.hash, proof }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'create_failed');
+    statusEl.textContent = t('clans_created') || 'Clan created!';
+    await loadClansAll();
+  } catch (e) {
+    console.error('[CLAN CREATE]', e);
+    statusEl.textContent = `❌ ${e.shortMessage || e.message}`;
+  }
+}
+
+async function joinClan(clanId) {
+  const statusEl = document.getElementById('clans-status');
+  if (!userWallet) { statusEl.textContent = 'Connect wallet'; return; }
+  try {
+    const proof = await _signClanAction('JoinClan');
+    const r = await fetch(`${API_BASE}/api/clan/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: userWallet, clan_id: clanId, proof }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'join_failed');
+    statusEl.textContent = t('clans_joined') || 'Joined!';
+    await loadClansAll();
+  } catch (e) {
+    statusEl.textContent = `❌ ${e.shortMessage || e.message}`;
+  }
+}
+
+async function leaveClan() {
+  const statusEl = document.getElementById('clans-status');
+  if (!userWallet || !clanMine) return;
+  if (!confirm('Quitter le clan ' + clanMine.name + ' ?')) return;
+  try {
+    const proof = await _signClanAction('LeaveClan');
+    const r = await fetch(`${API_BASE}/api/clan/leave`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ wallet: userWallet, proof }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'leave_failed');
+    statusEl.textContent = t('clans_left') || 'Left!';
+    clanMine = null;
+    await loadClansAll();
+  } catch (e) {
+    statusEl.textContent = `❌ ${e.shortMessage || e.message}`;
+  }
+}
+
 // ─── DRAW ────────────────────────────────────────────────────────────────────
 function draw() {
   ctx.fillStyle = '#0a0a0f';
@@ -2166,6 +3304,10 @@ async function connectWithProvider(eip1193Provider, walletName) {
     loadGolden();
     loadTrophies();        // Task #22 — check trophées éligibles
     loadNftMultiplier();   // Task #46 — badge multiplier actif
+    loadBoostCatalog();    // Task #72 — marketplace catalog
+    loadBoostMultiplier(); // Task #72 — current boost badge
+    loadTournament();      // Task #69 — tournois 24h rolling
+    loadClansAll();        // Task #70 — clans/guildes
     loadUsername();        // Task #68 — pseudo wallet-linked
     // Debounced availability check
     const ui = document.getElementById('username-input');

@@ -148,6 +148,20 @@
     }
     .wallet-cell a { color: var(--accent); text-decoration: none; }
     .wallet-cell a:hover { text-decoration: underline; }
+    /* Task #70 — Clan tag inline dans leaderboard */
+    .lb-clan-tag {
+      display: inline-block;
+      background: rgba(159, 126, 252, 0.18);
+      color: #c9b6ff;
+      border: 1px solid rgba(159, 126, 252, 0.5);
+      border-radius: 4px;
+      padding: 0 5px;
+      margin-right: 4px;
+      font-size: 0.75em;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      vertical-align: middle;
+    }
     .score-cell { font-weight: 700; color: var(--accent); }
     .snake-cell { color: var(--gold); }
 
@@ -408,12 +422,14 @@
     return addr.slice(0, 6) + '…' + addr.slice(-4);
   }
   // Task #68 : affiche username si défini, sinon addr tronquée
+  // Task #70 : préfixe [TAG] si membre d'un clan
   function displayName(r) {
-    if (r && r.display_name) {
-      const safe = String(r.display_name).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
-      return safe;
-    }
-    return shortAddr(r.address);
+    const escape = (s) => String(s || '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'})[c]);
+    const tag = r && r.clan_tag
+      ? `<span class="lb-clan-tag" title="${escape(r.clan_name || '')}">[${escape(r.clan_tag)}]</span> `
+      : '';
+    if (r && r.display_name) return tag + escape(r.display_name);
+    return tag + shortAddr(r.address);
   }
   function fmt(n, dec = 0) {
     return Number(n || 0).toLocaleString(LOCALES[currentLang] || 'en-GB', { minimumFractionDigits: dec, maximumFractionDigits: dec });

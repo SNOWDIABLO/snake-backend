@@ -165,10 +165,138 @@ db.exec(`
   );
 `);
 
+// ─── MIGRATION : NFT Boost cache (task #71) ──────────────────────────────────
+// Cache multiplier bps pour hot path session/end (reads sync, pas de RPC).
+// Refresh async via endpoint /api/boost/multiplier + cron 10min sur wallets actifs.
+// bps = basis points (200 = +2%, 400 = +4%, 800 = +8%, etc.)
+// updated_at = timestamp Unix. TTL côté lecture = 15 min (warn si plus vieux).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS boost_mult_cache (
+    wallet      TEXT PRIMARY KEY,
+    bps         INTEGER NOT NULL DEFAULT 0,
+    updated_at  INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_boost_mult_updated ON boost_mult_cache(updated_at);
+`);
+console.log('✅ Boost multiplier cache table ready');
+
+// ─── MIGRATION : Tournaments 24h (task #69) ──────────────────────────────────
+// tournaments = meta par édition (24h). Une seule ligne "open" à la fois.
+// tournament_entries = wallets inscrits, avec best_score mis à jour pendant la fenêtre.
+// Prize pool accumulé côté DB en wei (string BigInt compatible). Split 40/20/10 pour top 3.
+// Payout déclenché par cron quand end_at < now.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tournaments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    start_at        INTEGER NOT NULL,
+    end_at          INTEGER NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'open',   -- open|closing|closed|failed
+    entry_fee_wei   TEXT    NOT NULL DEFAULT '0',
+    prize_pool_wei  TEXT    NOT NULL DEFAULT '0',
+    entries_count   INTEGER NOT NULL DEFAULT 0,
+    winner1         TEXT,
+    winner2         TEXT,
+    winner3         TEXT,
+    payout_tx_1     TEXT,
+    payout_tx_2     TEXT,
+    payout_tx_3     TEXT,
+    closed_at       INTEGER,
+    created_at      INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_tournaments_status ON tournaments(status);
+  CREATE INDEX IF NOT EXISTS idx_tournaments_end ON tournaments(end_at);
+
+  CREATE TABLE IF NOT EXISTS tournament_entries (
+    tournament_id  INTEGER NOT NULL,
+    wallet         TEXT    NOT NULL,
+    paid_tx        TEXT    NOT NULL,
+    paid_amount    TEXT    NOT NULL DEFAULT '0',
+    best_score     INTEGER NOT NULL DEFAULT 0,
+    games_played   INTEGER NOT NULL DEFAULT 0,
+    paid_at        INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+    updated_at     INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+    PRIMARY KEY (tournament_id, wallet),
+    FOREIGN KEY (tournament_id) REFERENCES tournaments(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_tournament_entries_score
+    ON tournament_entries(tournament_id, best_score DESC);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_tournament_entries_tx
+    ON tournament_entries(paid_tx);
+`);
+console.log('✅ Tournaments tables ready');
+
+// ─── MIGRATION : Clans / Guildes (task #70) ──────────────────────────────────
+// clans = meta guilde. Création = burn $SNAKE obligatoire (CLAN_CREATE_BURN).
+// clan_members = 1 wallet = 1 clan max. role = 'owner' | 'member'.
+// Tag 2-6 chars alphanum, display court sur leaderboard.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS clans (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+    tag          TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+    owner        TEXT    NOT NULL,
+    burn_tx      TEXT,
+    burn_amount  TEXT,
+    active       INTEGER NOT NULL DEFAULT 1,
+    created_at   INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_clans_owner ON clans(owner);
+
+  CREATE TABLE IF NOT EXISTS clan_members (
+    wallet     TEXT    NOT NULL PRIMARY KEY,
+    clan_id    INTEGER NOT NULL,
+    role       TEXT    NOT NULL DEFAULT 'member',
+    joined_at  INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+    FOREIGN KEY (clan_id) REFERENCES clans(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_clan_members_clan ON clan_members(clan_id);
+
+  CREATE TABLE IF NOT EXISTS clan_create_burns (
+    tx_hash     TEXT PRIMARY KEY,
+    wallet      TEXT NOT NULL,
+    amount      TEXT NOT NULL,
+    consumed_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS clan_weekly_payouts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    week_start      INTEGER NOT NULL,
+    week_end        INTEGER NOT NULL,
+    clan1_id        INTEGER,
+    clan2_id        INTEGER,
+    clan3_id        INTEGER,
+    clan1_score     INTEGER,
+    clan2_score     INTEGER,
+    clan3_score     INTEGER,
+    pool_wei        TEXT NOT NULL DEFAULT '0',
+    executed_at     INTEGER
+  );
+`);
+console.log('✅ Clans tables ready');
+
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SIGNER_PK            = process.env.SIGNER_PK;
 const CONTRACT_ADDRESS     = process.env.CONTRACT_ADDRESS;        // $SNAKE ERC-20
 const NFT_CONTRACT_ADDRESS = process.env.NFT_CONTRACT_ADDRESS;    // SnakeTrophyNFT ERC-721
+const BOOST_NFT_ADDRESS    = process.env.BOOST_NFT_ADDRESS || ''; // SnakeBoostNFT ERC-721 (task #71, optional)
+
+// Tournaments 24h (task #69). Activable via TOURNAMENT_ENABLED=1. Entry fee par défaut = 1 POL.
+// PAYOUT_WALLET = adresse qui reçoit les entrées et d'où partent les gains (= signer wallet).
+const TOURNAMENT_ENABLED    = process.env.TOURNAMENT_ENABLED === '1';
+const TOURNAMENT_DURATION_H = parseInt(process.env.TOURNAMENT_DURATION_H || '24', 10);
+const TOURNAMENT_ENTRY_POL  = process.env.TOURNAMENT_ENTRY_POL || '1';     // en POL (string), default 1 POL
+const TOURNAMENT_PAYOUT_WALLET = (process.env.TOURNAMENT_PAYOUT_WALLET || '').toLowerCase();
+const TOURNAMENT_MIN_CONFIRMATIONS = parseInt(process.env.TOURNAMENT_MIN_CONFIRMATIONS || '2', 10);
+
+// Clans / Guildes (task #70). Burn = 1000 $SNAKE pour créer un clan.
+// CLAN_WEEKLY_POOL_SNAKE = pool distribué au top 3 clans chaque dimanche 20h UTC.
+// Split 50/30/20 aux owners de chaque clan (ils redistribuent off-chain ou via claim).
+const CLAN_ENABLED             = process.env.CLAN_ENABLED === '1';
+const CLAN_CREATE_BURN_AMOUNT  = process.env.CLAN_CREATE_BURN_AMOUNT || '1000';  // 1000 $SNAKE
+const CLAN_MAX_MEMBERS         = parseInt(process.env.CLAN_MAX_MEMBERS || '10', 10);
+const CLAN_WEEKLY_POOL_SNAKE   = process.env.CLAN_WEEKLY_POOL_SNAKE   || '0';    // '0' = désactivé
+const CLAN_WEEKLY_SPLIT_BPS    = [5000, 3000, 2000]; // 50/30/20
+
 const DAILY_LIMIT      = parseFloat(process.env.DAILY_LIMIT || '100');
 const MAX_PER_SESSION  = parseFloat(process.env.MAX_PER_SESSION || '50');
 const PORT             = process.env.PORT || 3000;
@@ -266,6 +394,40 @@ function getProvider() {
 
 // ERC-20 Transfer event topic : keccak256("Transfer(address,address,uint256)")
 const ERC20_TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+// ─── SnakeBoostNFT ABI (task #71) ────────────────────────────────────────────
+// Minimal read-only ABI pour le backend. getActiveMultiplierBps est la source
+// of truth: best permanent + best seasonal (stackés), retourne bps (200 = +2%).
+const BOOST_NFT_ABI = [
+  'function getActiveMultiplierBps(address wallet) view returns (uint16)',
+  'function tiers(uint8 tier) view returns (uint256 priceUsd, uint256 snakeBurnAmount, uint16 multiplierBps, uint32 supplyCap, uint32 minted, bool active)',
+  'function seasonal(uint32 id) view returns (string name, string emoji, uint256 priceUsd, uint256 snakeBurnAmount, uint16 multiplierBps, uint32 supplyCap, uint32 minted, uint64 openUntil, bool active)',
+  'function getPolPrice(uint8 tier) view returns (uint256)',
+  'function getSeasonalPolPrice(uint32 id) view returns (uint256)',
+  'function currentSeasonalId() view returns (uint32)',
+  'function getMaticUsdPrice() view returns (uint256)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
+  'function tokenMeta(uint256 tokenId) view returns (uint8 tier, uint32 seasonalId, uint64 mintedAt)',
+  'event BoostMinted(address indexed wallet, uint256 indexed tokenId, uint8 tier, uint32 seasonalId, uint16 multiplierBps, uint8 paymentMode)',
+];
+
+// Lazy boost contract (evite init si BOOST_NFT_ADDRESS non set)
+let boostContractReader = null;
+function getBoostContract() {
+  if (boostContractReader) return boostContractReader;
+  if (!BOOST_NFT_ADDRESS) return null;
+  const provider = getProvider();
+  if (!provider) return null;
+  try {
+    boostContractReader = new ethers.Contract(BOOST_NFT_ADDRESS, BOOST_NFT_ABI, provider);
+    console.log('✅ SnakeBoostNFT reader ready:', BOOST_NFT_ADDRESS);
+    return boostContractReader;
+  } catch (e) {
+    console.warn('⚠️ Boost contract init failed:', e.message);
+    return null;
+  }
+}
 
 // ─── Discord webhook helper (non-blocking) ──────────────────────────────────
 async function discordNotify(embed) {
@@ -628,6 +790,298 @@ function getNftTier(addr) {
 }
 function nftMultiplier(addr) { return getNftTier(addr).multiplier; }
 
+// ─── NFT BOOST MULTIPLIER (Task #71) ─────────────────────────────────────────
+// Lecture SYNC depuis la table boost_mult_cache (hot path /api/session/end).
+// Le cache est rafraîchi :
+//   - async au démarrage + via endpoint /api/boost/multiplier/:addr
+//   - par cron toutes les 10 min pour wallets actifs
+// Retourne { bps, multiplier, stale, age_sec } — jamais null.
+// Si BOOST_NFT_ADDRESS absent → tout le monde = 1.0x (no-op gracieux).
+const BOOST_CACHE_TTL_SEC = parseInt(process.env.BOOST_CACHE_TTL_SEC || '900', 10); // 15 min warn threshold
+
+function getBoostMultFromCache(addr) {
+  if (!addr || !BOOST_NFT_ADDRESS) {
+    return { bps: 0, multiplier: 1.0, stale: false, age_sec: 0, cached: false };
+  }
+  const a = addr.toLowerCase();
+  const row = db.prepare('SELECT bps, updated_at FROM boost_mult_cache WHERE wallet = ?').get(a);
+  if (!row) return { bps: 0, multiplier: 1.0, stale: true, age_sec: null, cached: false };
+  const nowSec = Math.floor(Date.now() / 1000);
+  const age = nowSec - row.updated_at;
+  const mult = 1 + (row.bps / 10000);
+  return { bps: row.bps, multiplier: mult, stale: age > BOOST_CACHE_TTL_SEC, age_sec: age, cached: true };
+}
+
+function boostMultiplier(addr) { return getBoostMultFromCache(addr).multiplier; }
+
+// Refresh ASYNC via RPC (non bloquant hot path).
+// Fire-and-forget : si échec, garde la valeur cache précédente.
+async function refreshBoostMultFor(addr) {
+  if (!addr) return null;
+  const contract = getBoostContract();
+  if (!contract) return null;
+  const a = addr.toLowerCase();
+  try {
+    const bpsRaw = await contract.getActiveMultiplierBps(a);
+    const bps = Number(bpsRaw);
+    if (!Number.isFinite(bps) || bps < 0 || bps > 10000) {
+      console.warn('⚠️ Boost bps out of range for', a, ':', bps);
+      return null;
+    }
+    db.prepare(`
+      INSERT INTO boost_mult_cache (wallet, bps, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(wallet) DO UPDATE SET bps = excluded.bps, updated_at = excluded.updated_at
+    `).run(a, bps, Math.floor(Date.now() / 1000));
+    return bps;
+  } catch (e) {
+    console.warn('⚠️ refreshBoostMultFor', a, ':', e.message);
+    return null;
+  }
+}
+
+// Catalog fetch : 3 tiers permanents + seasonal courant. Cached en mémoire 5 min.
+let boostCatalogCache = null;
+let boostCatalogExpiry = 0;
+const BOOST_CATALOG_TTL_MS = 5 * 60 * 1000;
+
+async function getBoostCatalog() {
+  const nowMs = Date.now();
+  if (boostCatalogCache && nowMs < boostCatalogExpiry) return boostCatalogCache;
+  const contract = getBoostContract();
+  if (!contract) return { available: false, tiers: [], seasonal: null };
+
+  const TIER_NAMES = { 1: 'Basic', 2: 'Pro', 3: 'Elite' };
+  const out = { available: true, contract: BOOST_NFT_ADDRESS, tiers: [], seasonal: null };
+  try {
+    // Tiers 1..3 (Basic/Pro/Elite). Tier 0 = None, 4 = Seasonal (exclus)
+    for (let t = 1; t <= 3; t++) {
+      const cfg = await contract.tiers(t);
+      let polPrice = null;
+      try { polPrice = (await contract.getPolPrice(t)).toString(); } catch(_) {}
+      out.tiers.push({
+        id: t,
+        name: TIER_NAMES[t] || `Tier${t}`,
+        price_usd_1e8: cfg[0].toString(),        // 1e8 USD (Chainlink format)
+        snake_burn_wei: cfg[1].toString(),       // wei ($SNAKE)
+        multiplier_bps: Number(cfg[2]),
+        supply_cap: Number(cfg[3]),
+        minted: Number(cfg[4]),
+        active: cfg[5],
+        pol_price_wei: polPrice,
+      });
+    }
+    // Seasonal courant (peut ne pas exister)
+    try {
+      const currId = Number(await contract.currentSeasonalId());
+      if (currId > 0) {
+        const s = await contract.seasonal(currId);
+        let polPrice = null;
+        try { polPrice = (await contract.getSeasonalPolPrice(currId)).toString(); } catch(_) {}
+        out.seasonal = {
+          id: currId,
+          name: s[0],
+          emoji: s[1],
+          price_usd_1e8: s[2].toString(),
+          snake_burn_wei: s[3].toString(),
+          multiplier_bps: Number(s[4]),
+          supply_cap: Number(s[5]),
+          minted: Number(s[6]),
+          open_until: Number(s[7]),
+          active: s[8],
+          pol_price_wei: polPrice,
+        };
+      }
+    } catch (e) {
+      // Pas de seasonal actif → ignore
+    }
+    boostCatalogCache = out;
+    boostCatalogExpiry = nowMs + BOOST_CATALOG_TTL_MS;
+    return out;
+  } catch (e) {
+    console.warn('⚠️ getBoostCatalog failed:', e.message);
+    return { available: false, error: e.message, tiers: [], seasonal: null };
+  }
+}
+
+// ─── TOURNAMENTS 24h (task #69) ──────────────────────────────────────────────
+// Design : fenêtre rolling 24h, une seule "open" à la fois. Entry = POL tx on-chain
+// vers TOURNAMENT_PAYOUT_WALLET. Score = best_score mis à jour pendant la fenêtre.
+// Payout : 40 / 20 / 10 % via signer wallet (ethers.Wallet → sendTransaction).
+// Les 30% restants restent projet dans le payout_wallet.
+
+function _parsePolToWei(polStr) {
+  // Accepte "1", "1.0", "0.5". Retourne BigInt.
+  try { return ethers.parseEther(String(polStr)); }
+  catch (_) { return 10n ** 18n; } // fallback = 1 POL
+}
+
+const TOURNAMENT_ENTRY_WEI = _parsePolToWei(TOURNAMENT_ENTRY_POL);
+const TOURNAMENT_PROJECT_CUT_BPS = 3000; // 30% projet, 70% winners
+const TOURNAMENT_WINNERS_BPS = [4000, 2000, 1000]; // 40/20/10
+
+function getCurrentTournament() {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const row = db.prepare(`
+    SELECT * FROM tournaments
+    WHERE status = 'open' AND end_at > ?
+    ORDER BY id DESC LIMIT 1
+  `).get(nowSec);
+  return row || null;
+}
+
+function ensureTournamentOpen() {
+  if (!TOURNAMENT_ENABLED) return null;
+  let t = getCurrentTournament();
+  if (t) return t;
+  // Pas de tournoi actif → en ouvrir un neuf 24h
+  const nowSec = Math.floor(Date.now() / 1000);
+  const endSec = nowSec + (TOURNAMENT_DURATION_H * 3600);
+  const info = db.prepare(`
+    INSERT INTO tournaments (start_at, end_at, status, entry_fee_wei, prize_pool_wei)
+    VALUES (?, ?, 'open', ?, '0')
+  `).run(nowSec, endSec, TOURNAMENT_ENTRY_WEI.toString());
+  console.log(`🏆 Tournament #${info.lastInsertRowid} opened (ends in ${TOURNAMENT_DURATION_H}h)`);
+  return getCurrentTournament();
+}
+
+function registerTournamentScore(wallet, score) {
+  if (!TOURNAMENT_ENABLED) return null;
+  if (!wallet || !Number.isFinite(score) || score <= 0) return null;
+  const addr = String(wallet).toLowerCase();
+  const t = getCurrentTournament();
+  if (!t) return null;
+  const existing = db.prepare(`
+    SELECT wallet, best_score FROM tournament_entries
+    WHERE tournament_id = ? AND wallet = ?
+  `).get(t.id, addr);
+  if (!existing) return null; // wallet pas inscrit → ignore
+  const newBest = Math.max(existing.best_score || 0, Math.floor(score));
+  db.prepare(`
+    UPDATE tournament_entries
+       SET best_score = ?, games_played = games_played + 1, updated_at = strftime('%s','now')
+     WHERE tournament_id = ? AND wallet = ?
+  `).run(newBest, t.id, addr);
+  return { tournament_id: t.id, best_score: newBest, improved: newBest > (existing.best_score || 0) };
+}
+
+function getTournamentRank(tournamentId, wallet) {
+  if (!tournamentId || !wallet) return null;
+  const addr = String(wallet).toLowerCase();
+  const row = db.prepare(`
+    SELECT wallet, best_score,
+           (SELECT COUNT(*) FROM tournament_entries te2
+             WHERE te2.tournament_id = te.tournament_id
+               AND te2.best_score > te.best_score) + 1 AS rank
+      FROM tournament_entries te
+     WHERE tournament_id = ? AND wallet = ?
+  `).get(tournamentId, addr);
+  return row || null;
+}
+
+function getTournamentLeaderboard(tournamentId, limit = 20) {
+  if (CLAN_ENABLED) {
+    return db.prepare(`
+      SELECT te.wallet, te.best_score, te.games_played, te.paid_at, te.updated_at,
+             c.tag AS clan_tag, c.name AS clan_name, c.id AS clan_id
+        FROM tournament_entries te
+        LEFT JOIN clan_members cm ON cm.wallet = te.wallet
+        LEFT JOIN clans c ON c.id = cm.clan_id AND c.active = 1
+       WHERE te.tournament_id = ?
+       ORDER BY te.best_score DESC, te.paid_at ASC
+       LIMIT ?
+    `).all(tournamentId, limit);
+  }
+  return db.prepare(`
+    SELECT wallet, best_score, games_played, paid_at, updated_at
+      FROM tournament_entries
+     WHERE tournament_id = ?
+     ORDER BY best_score DESC, paid_at ASC
+     LIMIT ?
+  `).all(tournamentId, limit);
+}
+
+// ─── CLANS / GUILDES (task #70) ──────────────────────────────────────────────
+// Validation name 3-20 chars, alphanum + underscore + space. Tag 2-6 alphanum.
+function validateClanName(name) {
+  if (typeof name !== 'string') return { ok: false, error: 'name_required' };
+  const trimmed = name.trim();
+  if (trimmed.length < 3 || trimmed.length > 20) return { ok: false, error: 'name_length_3_20' };
+  if (!/^[A-Za-z0-9_ ]+$/.test(trimmed)) return { ok: false, error: 'name_chars_alphanum_underscore_space' };
+  return { ok: true, name: trimmed };
+}
+
+function validateClanTag(tag) {
+  if (typeof tag !== 'string') return { ok: false, error: 'tag_required' };
+  const up = tag.trim().toUpperCase();
+  if (up.length < 2 || up.length > 6) return { ok: false, error: 'tag_length_2_6' };
+  if (!/^[A-Z0-9]+$/.test(up)) return { ok: false, error: 'tag_chars_alphanum' };
+  return { ok: true, tag: up };
+}
+
+function getClanOfWallet(wallet) {
+  const addr = String(wallet || '').toLowerCase();
+  if (!addr) return null;
+  return db.prepare(`
+    SELECT c.id, c.name, c.tag, c.owner, c.created_at, cm.role, cm.joined_at
+      FROM clan_members cm
+      JOIN clans c ON c.id = cm.clan_id
+     WHERE cm.wallet = ? AND c.active = 1
+  `).get(addr) || null;
+}
+
+function countClanMembers(clanId) {
+  const r = db.prepare('SELECT COUNT(*) AS c FROM clan_members WHERE clan_id = ?').get(clanId);
+  return r?.c || 0;
+}
+
+function listClans(limit = 50) {
+  return db.prepare(`
+    SELECT c.id, c.name, c.tag, c.owner, c.created_at,
+           (SELECT COUNT(*) FROM clan_members cm WHERE cm.clan_id = c.id) AS members
+      FROM clans c
+     WHERE c.active = 1
+     ORDER BY members DESC, c.created_at ASC
+     LIMIT ?
+  `).all(limit);
+}
+
+function getClanById(clanId) {
+  const c = db.prepare(`SELECT * FROM clans WHERE id = ? AND active = 1`).get(clanId);
+  if (!c) return null;
+  const members = db.prepare(`
+    SELECT cm.wallet, cm.role, cm.joined_at,
+           COALESCE(lb.max_score, 0) AS best_score,
+           COALESCE(lb.games_played, 0) AS games_played
+      FROM clan_members cm
+      LEFT JOIN leaderboard lb ON lb.address = cm.wallet
+     WHERE cm.clan_id = ?
+     ORDER BY cm.role DESC, cm.joined_at ASC
+  `).all(clanId);
+  return { ...c, members };
+}
+
+// Vérif on-chain du burn pour création clan (réplique pattern #68).
+async function verifyClanCreateBurn(provider, txHash, fromWallet) {
+  const rcpt = await provider.getTransactionReceipt(txHash);
+  if (!rcpt) return { ok: false, error: 'tx_not_found' };
+  if (rcpt.status !== 1) return { ok: false, error: 'tx_failed_on_chain' };
+  const snakeAddrLc = (CONTRACT_ADDRESS || '').toLowerCase();
+  const burnTopic   = '0x000000000000000000000000' + BURN_ADDRESS.slice(2).toLowerCase();
+  const fromTopic   = '0x000000000000000000000000' + String(fromWallet).slice(2).toLowerCase();
+  const requiredWei = ethers.parseUnits(CLAN_CREATE_BURN_AMOUNT, 18);
+  let burned = 0n;
+  for (const log of rcpt.logs) {
+    if (log.address.toLowerCase() !== snakeAddrLc) continue;
+    if (log.topics[0] !== ERC20_TRANSFER_TOPIC) continue;
+    if (log.topics.length < 3) continue;
+    if (log.topics[1].toLowerCase() !== fromTopic) continue;
+    if (log.topics[2].toLowerCase() !== burnTopic) continue;
+    burned += BigInt(log.data);
+    if (burned >= requiredWei) return { ok: true, burned };
+  }
+  return { ok: false, error: 'burn_not_found', burned };
+}
+
 // ─── GOLDEN SNAKE MODE (task #20) ────────────────────────────────────────────
 // Auto-window : samedi 20h UTC → dimanche 20h UTC (24h), x3 rewards.
 // Override manuel via /api/admin/events/golden/toggle.
@@ -855,13 +1309,19 @@ app.post('/api/session/end', (req, res) => {
   const newMaxStreak = Math.max(prevMaxStreak, newStreak);
   const multiplier   = streakMultiplier(newStreak);
 
-  // Base reward + streak multiplier + golden snake multiplier (task #20) + NFT trophy multiplier (task #46)
+  // Base reward + streak multiplier + golden snake multiplier (task #20) + NFT trophy multiplier (task #46) + NFT boost multiplier (task #71)
   const goldenState = getGoldenState();
   const goldenMult  = goldenState.active ? goldenState.multiplier : 1.0;
   const nftTier     = getNftTier(addr);
   const nftMult     = nftTier.multiplier;
+  const boostInfo   = getBoostMultFromCache(addr);
+  const boostMult   = boostInfo.multiplier;
+  // Async refresh en fond si cache manquant/stale (non bloquant pour hot path)
+  if (BOOST_NFT_ADDRESS && (!boostInfo.cached || boostInfo.stale)) {
+    refreshBoostMultFor(addr).catch(() => {});
+  }
   const baseReward  = Math.min(Math.floor(cappedScore / 10), MAX_PER_SESSION);
-  const reward      = Math.min(Math.floor(baseReward * multiplier * goldenMult * nftMult), MAX_PER_SESSION);
+  const reward      = Math.min(Math.floor(baseReward * multiplier * goldenMult * nftMult * boostMult), MAX_PER_SESSION);
 
   db.prepare('UPDATE sessions SET score=?, reward=?, validated=1 WHERE id=?')
     .run(cappedScore, reward, sessionId);
@@ -893,6 +1353,28 @@ app.post('/api/session/end', (req, res) => {
 
   db.prepare('INSERT INTO score_history (address, score) VALUES (?, ?)')
     .run(addr, cappedScore);
+
+  // ─── TOURNAMENT score tracking (task #69) ───────────────────────────────────
+  // Fire-and-forget sync: si wallet inscrit au tournoi en cours, update best_score.
+  let tournamentBlock = null;
+  if (TOURNAMENT_ENABLED && cappedScore > 0) {
+    try {
+      const upd = registerTournamentScore(addr, cappedScore);
+      if (upd) {
+        const rk = getTournamentRank(upd.tournament_id, addr);
+        const tCur = db.prepare('SELECT end_at FROM tournaments WHERE id = ?').get(upd.tournament_id);
+        tournamentBlock = {
+          id:            upd.tournament_id,
+          best_score:    upd.best_score,
+          rank:          rk?.rank || null,
+          improved:      upd.improved,
+          time_left_sec: tCur ? Math.max(0, tCur.end_at - Math.floor(Date.now() / 1000)) : 0,
+        };
+      }
+    } catch (e) {
+      console.warn('[TOURNAMENT] score tracking failed:', e.message);
+    }
+  }
 
   // ─── PUBLIC FEED — nouveau record all-time ─────────────────────────────────
   if (cappedScore > allTimeMax && cappedScore >= 20) {
@@ -990,6 +1472,14 @@ app.post('/api/session/end', (req, res) => {
       multiplier: nftMult,             // 1.0 | 1.05 | 1.10 | 1.15 | 1.25
       bonus_pct:  nftTier.bonus_pct,   // 0 | 5 | 10 | 15 | 25
     },
+    boost: {
+      bps:        boostInfo.bps,       // 0..10000
+      multiplier: boostMult,           // 1.0 | 1.02 | 1.04 | 1.08 | ...
+      bonus_pct:  boostInfo.bps / 100, // 0 | 2 | 4 | 8 | ...
+      stale:      boostInfo.stale,     // true si cache > TTL
+      cached:     boostInfo.cached,
+    },
+    tournament: tournamentBlock,
   });
 });
 
@@ -1189,6 +1679,439 @@ app.get('/api/nft/multiplier/:address', publicLimiter, (req, res) => {
     bonus_pct:  t.bonus_pct,
     label:      t.tier ? `${t.tier} +${t.bonus_pct}%` : 'No trophy',
   });
+});
+
+// ─── NFT BOOST endpoints (task #71) ──────────────────────────────────────────
+// GET /api/boost/catalog — liste des tiers permanents + seasonal courant
+app.get('/api/boost/catalog', publicLimiter, async (req, res) => {
+  if (!BOOST_NFT_ADDRESS) {
+    return res.json({ available: false, reason: 'BOOST_NFT_ADDRESS not configured', tiers: [], seasonal: null });
+  }
+  try {
+    const cat = await getBoostCatalog();
+    res.json(cat);
+  } catch (e) {
+    console.error('[BOOST CATALOG] error:', e.message);
+    res.status(500).json({ error: 'catalog fetch failed' });
+  }
+});
+
+// GET /api/boost/multiplier/:address — lit cache + refresh async en fond si stale
+// Ne bloque JAMAIS : retourne la valeur cache immédiatement, trigger un refresh
+// RPC en fond si cache stale ou manquant (the call returns fresh value via polling).
+app.get('/api/boost/multiplier/:address', publicLimiter, (req, res) => {
+  const address = (req.params.address || '').toLowerCase();
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Adresse invalide' });
+  }
+  if (!BOOST_NFT_ADDRESS) {
+    return res.json({ address, available: false, bps: 0, multiplier: 1.0, bonus_pct: 0, stale: false, cached: false });
+  }
+  const m = getBoostMultFromCache(address);
+  // Fire-and-forget refresh si pas en cache ou stale
+  if (!m.cached || m.stale) {
+    refreshBoostMultFor(address).catch(() => {});
+  }
+  res.json({
+    address,
+    available:  true,
+    bps:        m.bps,
+    multiplier: m.multiplier,
+    bonus_pct:  m.bps / 100,
+    stale:      m.stale,
+    cached:     m.cached,
+    age_sec:    m.age_sec,
+  });
+});
+
+// POST /api/boost/refresh — force un refresh synchrone (renvoie la valeur à jour)
+// Utilisé par le frontend après un mint réussi pour rafraîchir l'UI instantanément.
+app.post('/api/boost/refresh', publicLimiter, async (req, res) => {
+  const address = (req.body?.address || '').toLowerCase();
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Adresse invalide' });
+  }
+  if (!BOOST_NFT_ADDRESS) {
+    return res.status(503).json({ error: 'BOOST_NFT_ADDRESS not configured' });
+  }
+  const bps = await refreshBoostMultFor(address);
+  if (bps === null) {
+    // Fallback : retourne le cache existant si refresh RPC a échoué
+    const m = getBoostMultFromCache(address);
+    return res.json({
+      address,
+      bps:        m.bps,
+      multiplier: m.multiplier,
+      bonus_pct:  m.bps / 100,
+      refreshed:  false,
+      cached:     m.cached,
+    });
+  }
+  res.json({
+    address,
+    bps,
+    multiplier: 1 + bps / 10000,
+    bonus_pct:  bps / 100,
+    refreshed:  true,
+  });
+});
+
+// GET /api/boost/inventory/:address — liste les tokenIds détenus + metadata
+// Best-effort : nécessite que le contract supporte tokenOfOwnerByIndex (ERC721Enumerable).
+app.get('/api/boost/inventory/:address', publicLimiter, async (req, res) => {
+  const address = (req.params.address || '').toLowerCase();
+  if (!ethers.isAddress(address)) {
+    return res.status(400).json({ error: 'Adresse invalide' });
+  }
+  const contract = getBoostContract();
+  if (!contract) {
+    return res.json({ address, available: false, tokens: [] });
+  }
+  const TIER_NAMES = { 0: 'None', 1: 'Basic', 2: 'Pro', 3: 'Elite', 4: 'Seasonal' };
+  try {
+    const bal = Number(await contract.balanceOf(address));
+    const tokens = [];
+    const MAX = Math.min(bal, 50); // safety cap
+    for (let i = 0; i < MAX; i++) {
+      try {
+        const tokenId = await contract.tokenOfOwnerByIndex(address, i);
+        const meta = await contract.tokenMeta(tokenId);
+        tokens.push({
+          token_id:     tokenId.toString(),
+          tier:         Number(meta[0]),
+          tier_name:    TIER_NAMES[Number(meta[0])] || 'Unknown',
+          seasonal_id:  Number(meta[1]),
+          minted_at:    Number(meta[2]),
+        });
+      } catch (e) {
+        // Enumerable pas dispo ? break loop
+        break;
+      }
+    }
+    res.json({ address, available: true, balance: bal, tokens });
+  } catch (e) {
+    console.error('[BOOST INVENTORY] error:', e.message);
+    res.status(500).json({ error: 'inventory fetch failed' });
+  }
+});
+
+// ─── TOURNAMENTS endpoints (task #69) ────────────────────────────────────────
+// GET /api/tournament/current — metadata tournoi en cours
+app.get('/api/tournament/current', publicLimiter, (req, res) => {
+  if (!TOURNAMENT_ENABLED) {
+    return res.json({ enabled: false, reason: 'Tournaments not enabled on this deployment' });
+  }
+  const t = ensureTournamentOpen();
+  if (!t) {
+    return res.json({ enabled: true, active: false });
+  }
+  const nowSec = Math.floor(Date.now() / 1000);
+  res.json({
+    enabled:         true,
+    active:          true,
+    id:              t.id,
+    start_at:        t.start_at,
+    end_at:          t.end_at,
+    time_left_sec:   Math.max(0, t.end_at - nowSec),
+    entry_fee_wei:   t.entry_fee_wei,
+    entry_fee_pol:   ethers.formatEther(t.entry_fee_wei || '0'),
+    prize_pool_wei:  t.prize_pool_wei,
+    prize_pool_pol:  ethers.formatEther(t.prize_pool_wei || '0'),
+    entries_count:   t.entries_count,
+    payout_wallet:   TOURNAMENT_PAYOUT_WALLET || null,
+    split_bps:       { winner1: TOURNAMENT_WINNERS_BPS[0], winner2: TOURNAMENT_WINNERS_BPS[1], winner3: TOURNAMENT_WINNERS_BPS[2], project: TOURNAMENT_PROJECT_CUT_BPS },
+    disclaimer:      'Skill-based competition — no gambling. Entry proceeds fund prize pool + project ops.',
+  });
+});
+
+// GET /api/tournament/leaderboard — top 20 du tournoi courant (ou ?id=N)
+app.get('/api/tournament/leaderboard', publicLimiter, (req, res) => {
+  if (!TOURNAMENT_ENABLED) return res.json({ enabled: false, entries: [] });
+  const tid = req.query.id ? parseInt(req.query.id, 10) : null;
+  let tournament;
+  if (tid) {
+    tournament = db.prepare('SELECT * FROM tournaments WHERE id = ?').get(tid);
+  } else {
+    tournament = ensureTournamentOpen();
+  }
+  if (!tournament) return res.json({ enabled: true, active: false, entries: [] });
+  const entries = getTournamentLeaderboard(tournament.id, 20);
+  res.json({
+    enabled:        true,
+    active:         tournament.status === 'open',
+    tournament_id:  tournament.id,
+    end_at:         tournament.end_at,
+    prize_pool_wei: tournament.prize_pool_wei,
+    entries: entries.map((e, idx) => ({
+      rank:          idx + 1,
+      wallet:        e.wallet,
+      wallet_short:  `${e.wallet.slice(0,6)}…${e.wallet.slice(-4)}`,
+      best_score:    e.best_score,
+      games_played:  e.games_played,
+      clan_tag:      e.clan_tag || null,
+      clan_name:     e.clan_name || null,
+      clan_id:       e.clan_id || null,
+    })),
+  });
+});
+
+// POST /api/tournament/enter — inscription via POL tx on-chain vers PAYOUT_WALLET
+// body : { wallet, tx_hash }
+app.post('/api/tournament/enter', limiter, async (req, res) => {
+  if (!TOURNAMENT_ENABLED) return res.status(503).json({ error: 'Tournaments not enabled' });
+  if (!TOURNAMENT_PAYOUT_WALLET) return res.status(503).json({ error: 'TOURNAMENT_PAYOUT_WALLET not configured' });
+
+  const wallet  = (req.body?.wallet || '').toLowerCase();
+  const txHash  = (req.body?.tx_hash || '').toLowerCase();
+
+  if (!ethers.isAddress(wallet)) return res.status(400).json({ error: 'Adresse invalide' });
+  if (!/^0x[0-9a-f]{64}$/i.test(txHash)) return res.status(400).json({ error: 'tx_hash invalide' });
+
+  const provider = getProvider();
+  if (!provider) return res.status(503).json({ error: 'RPC provider non configuré' });
+
+  const t = ensureTournamentOpen();
+  if (!t) return res.status(400).json({ error: 'Aucun tournoi actif' });
+
+  // Idempotence : refuse si tx déjà consommée
+  const existing = db.prepare('SELECT wallet FROM tournament_entries WHERE paid_tx = ?').get(txHash);
+  if (existing) {
+    return res.status(409).json({ error: 'Cette transaction a déjà été utilisée', wallet: existing.wallet });
+  }
+
+  // Vérif on-chain : to = TOURNAMENT_PAYOUT_WALLET, from = wallet, value >= entry_fee, confirmed
+  let tx, receipt;
+  try {
+    tx = await provider.getTransaction(txHash);
+    receipt = await provider.getTransactionReceipt(txHash);
+  } catch (e) {
+    console.warn('[TOURNAMENT ENTER] RPC error:', e.message);
+    return res.status(502).json({ error: 'RPC lookup failed' });
+  }
+  if (!tx || !receipt) return res.status(404).json({ error: 'Transaction introuvable' });
+  if (receipt.status !== 1) return res.status(400).json({ error: 'Transaction non confirmée ou échouée' });
+
+  const txFrom = (tx.from || '').toLowerCase();
+  const txTo   = (tx.to   || '').toLowerCase();
+  if (txFrom !== wallet) return res.status(400).json({ error: 'tx.from ne correspond pas au wallet' });
+  if (txTo !== TOURNAMENT_PAYOUT_WALLET) return res.status(400).json({ error: 'tx.to ne correspond pas au PAYOUT_WALLET' });
+
+  const entryWei = BigInt(t.entry_fee_wei || '0');
+  const txValue  = BigInt(tx.value || 0n);
+  if (txValue < entryWei) {
+    return res.status(400).json({ error: `Montant insuffisant (${ethers.formatEther(txValue)} POL < ${ethers.formatEther(entryWei)} POL)` });
+  }
+
+  // Vérif confirmations
+  try {
+    const latest = await provider.getBlockNumber();
+    const confs  = latest - (receipt.blockNumber || latest);
+    if (confs < TOURNAMENT_MIN_CONFIRMATIONS) {
+      return res.status(202).json({
+        error: 'Attente de confirmations',
+        confirmations: confs,
+        required: TOURNAMENT_MIN_CONFIRMATIONS,
+      });
+    }
+  } catch (e) {
+    console.warn('[TOURNAMENT ENTER] block lookup failed:', e.message);
+  }
+
+  // Insert + update pool (transaction DB)
+  const tx2 = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO tournament_entries (tournament_id, wallet, paid_tx, paid_amount)
+      VALUES (?, ?, ?, ?)
+    `).run(t.id, wallet, txHash, txValue.toString());
+    const pool = BigInt(t.prize_pool_wei || '0') + txValue;
+    db.prepare(`
+      UPDATE tournaments
+         SET prize_pool_wei = ?, entries_count = entries_count + 1
+       WHERE id = ?
+    `).run(pool.toString(), t.id);
+  });
+  try {
+    tx2();
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) {
+      return res.status(409).json({ error: 'Wallet déjà inscrit ou tx déjà consommée' });
+    }
+    console.error('[TOURNAMENT ENTER] db error:', e.message);
+    return res.status(500).json({ error: 'DB error' });
+  }
+
+  console.log(`🏆 Tournament #${t.id} : ${wallet.slice(0,6)}…${wallet.slice(-4)} inscrit (${ethers.formatEther(txValue)} POL)`);
+  res.json({
+    ok:            true,
+    tournament_id: t.id,
+    wallet,
+    best_score:    0,
+    time_left_sec: Math.max(0, t.end_at - Math.floor(Date.now() / 1000)),
+  });
+});
+
+// ─── CLANS endpoints (task #70) ──────────────────────────────────────────────
+// POST /api/clan/create — burn 1000 $SNAKE → crée un clan
+// body: { wallet, name, tag, burn_tx, proof }
+app.post('/api/clan/create', limiter, async (req, res) => {
+  if (!CLAN_ENABLED) return res.status(503).json({ error: 'clans_disabled' });
+  const { wallet, name, tag, burn_tx, proof } = req.body || {};
+
+  if (!wallet || !ethers.isAddress(wallet)) return res.status(400).json({ error: 'Adresse invalide' });
+  const nameV = validateClanName(name);
+  if (!nameV.ok) return res.status(400).json({ error: nameV.error });
+  const tagV = validateClanTag(tag);
+  if (!tagV.ok) return res.status(400).json({ error: tagV.error });
+  if (!burn_tx || !/^0x[0-9a-fA-F]{64}$/.test(burn_tx)) return res.status(400).json({ error: 'burn_tx invalide' });
+
+  // EIP-191 proof obligatoire (action destructive)
+  const v = verifyWalletProof('CreateClan', wallet, proof);
+  if (!v.ok) return res.status(401).json({ error: `Proof wallet : ${v.error}` });
+
+  const addr = wallet.toLowerCase();
+  if (!CONTRACT_ADDRESS) return res.status(503).json({ error: 'Contrat $SNAKE non configuré' });
+  const provider = getProvider();
+  if (!provider) return res.status(503).json({ error: 'RPC non configuré' });
+
+  // Uniqueness checks
+  if (getClanOfWallet(addr)) return res.status(409).json({ error: 'already_in_clan' });
+  const nameExists = db.prepare('SELECT id FROM clans WHERE name = ? COLLATE NOCASE AND active = 1').get(nameV.name);
+  if (nameExists) return res.status(409).json({ error: 'name_taken' });
+  const tagExists = db.prepare('SELECT id FROM clans WHERE tag = ? COLLATE NOCASE AND active = 1').get(tagV.tag);
+  if (tagExists) return res.status(409).json({ error: 'tag_taken' });
+
+  // Anti-replay
+  const already = db.prepare('SELECT 1 FROM clan_create_burns WHERE tx_hash = ?').get(burn_tx);
+  if (already) return res.status(409).json({ error: 'tx_already_used' });
+
+  // Verify burn on-chain
+  let verif;
+  try {
+    verif = await verifyClanCreateBurn(provider, burn_tx, addr);
+  } catch (e) {
+    return res.status(502).json({ error: 'rpc_error', message: e.message });
+  }
+  if (!verif.ok) return res.status(400).json({ error: verif.error, message: `Burn ${CLAN_CREATE_BURN_AMOUNT} $SNAKE requis vers ${BURN_ADDRESS}` });
+
+  // Insert clan + owner membership + burn record (tx)
+  let clanId;
+  const txDb = db.transaction(() => {
+    db.prepare(`INSERT INTO clan_create_burns (tx_hash, wallet, amount) VALUES (?, ?, ?)`)
+      .run(burn_tx, addr, verif.burned.toString());
+    const info = db.prepare(`
+      INSERT INTO clans (name, tag, owner, burn_tx, burn_amount)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(nameV.name, tagV.tag, addr, burn_tx, verif.burned.toString());
+    clanId = info.lastInsertRowid;
+    db.prepare(`INSERT INTO clan_members (wallet, clan_id, role) VALUES (?, ?, 'owner')`).run(addr, clanId);
+  });
+  try {
+    txDb();
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'conflict' });
+    console.error('[CLAN CREATE]', e.message);
+    return res.status(500).json({ error: 'db_error' });
+  }
+
+  console.log(`[CLAN] created #${clanId} "${nameV.name}" [${tagV.tag}] by ${shortAddr(addr)}`);
+  res.json({ ok: true, clan_id: clanId, name: nameV.name, tag: tagV.tag });
+});
+
+// POST /api/clan/join — rejoint un clan (body : wallet, clan_id, proof)
+app.post('/api/clan/join', limiter, async (req, res) => {
+  if (!CLAN_ENABLED) return res.status(503).json({ error: 'clans_disabled' });
+  const { wallet, clan_id, proof } = req.body || {};
+  if (!wallet || !ethers.isAddress(wallet)) return res.status(400).json({ error: 'Adresse invalide' });
+  const cid = parseInt(clan_id, 10);
+  if (!Number.isInteger(cid) || cid < 1) return res.status(400).json({ error: 'clan_id invalide' });
+  const v = verifyWalletProof('JoinClan', wallet, proof);
+  if (!v.ok) return res.status(401).json({ error: `Proof wallet : ${v.error}` });
+  const addr = wallet.toLowerCase();
+  if (getClanOfWallet(addr)) return res.status(409).json({ error: 'already_in_clan' });
+  const clan = db.prepare('SELECT id, active FROM clans WHERE id = ?').get(cid);
+  if (!clan || !clan.active) return res.status(404).json({ error: 'clan_not_found' });
+  if (countClanMembers(cid) >= CLAN_MAX_MEMBERS) return res.status(409).json({ error: 'clan_full' });
+  try {
+    db.prepare(`INSERT INTO clan_members (wallet, clan_id, role) VALUES (?, ?, 'member')`).run(addr, cid);
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'already_in_clan' });
+    return res.status(500).json({ error: 'db_error' });
+  }
+  res.json({ ok: true, clan_id: cid });
+});
+
+// POST /api/clan/leave — quitter son clan (wallet, proof). Si owner → transfert auto au plus ancien membre, sinon clan dissous.
+app.post('/api/clan/leave', limiter, async (req, res) => {
+  if (!CLAN_ENABLED) return res.status(503).json({ error: 'clans_disabled' });
+  const { wallet, proof } = req.body || {};
+  if (!wallet || !ethers.isAddress(wallet)) return res.status(400).json({ error: 'Adresse invalide' });
+  const v = verifyWalletProof('LeaveClan', wallet, proof);
+  if (!v.ok) return res.status(401).json({ error: `Proof wallet : ${v.error}` });
+  const addr = wallet.toLowerCase();
+  const membership = getClanOfWallet(addr);
+  if (!membership) return res.status(404).json({ error: 'not_in_clan' });
+
+  const txDb = db.transaction(() => {
+    db.prepare('DELETE FROM clan_members WHERE wallet = ?').run(addr);
+    if (membership.role === 'owner') {
+      // Promouvoir le plus ancien membre restant, ou dissoudre
+      const next = db.prepare(`
+        SELECT wallet FROM clan_members WHERE clan_id = ? ORDER BY joined_at ASC LIMIT 1
+      `).get(membership.id);
+      if (next) {
+        db.prepare(`UPDATE clans SET owner = ? WHERE id = ?`).run(next.wallet, membership.id);
+        db.prepare(`UPDATE clan_members SET role = 'owner' WHERE wallet = ?`).run(next.wallet);
+      } else {
+        db.prepare(`UPDATE clans SET active = 0 WHERE id = ?`).run(membership.id);
+      }
+    }
+  });
+  try { txDb(); } catch (e) { return res.status(500).json({ error: 'db_error' }); }
+  res.json({ ok: true, dissolved: membership.role === 'owner' && countClanMembers(membership.id) === 0 });
+});
+
+// GET /api/clan/list — liste publique, pagination limit (défaut 50, max 200)
+app.get('/api/clan/list', publicLimiter, (req, res) => {
+  if (!CLAN_ENABLED) return res.json({ enabled: false, clans: [] });
+  const lim = Math.min(parseInt(req.query.limit || '50', 10) || 50, 200);
+  res.json({ enabled: true, clans: listClans(lim) });
+});
+
+// GET /api/clan/mine/:wallet — clan du wallet
+app.get('/api/clan/mine/:wallet', publicLimiter, (req, res) => {
+  if (!CLAN_ENABLED) return res.json({ enabled: false, clan: null });
+  const addr = (req.params.wallet || '').toLowerCase();
+  if (!ethers.isAddress(addr)) return res.status(400).json({ error: 'Adresse invalide' });
+  res.json({ enabled: true, clan: getClanOfWallet(addr) });
+});
+
+// GET /api/clan/:id — détails + membres
+app.get('/api/clan/:id', publicLimiter, (req, res) => {
+  if (!CLAN_ENABLED) return res.json({ enabled: false, clan: null });
+  const cid = parseInt(req.params.id, 10);
+  if (!Number.isInteger(cid) || cid < 1) return res.status(400).json({ error: 'clan_id invalide' });
+  const clan = getClanById(cid);
+  if (!clan) return res.status(404).json({ error: 'clan_not_found' });
+  res.json({ enabled: true, clan });
+});
+
+// GET /api/clan/leaderboard — top clans par somme des scores membres (weekly rolling)
+app.get('/api/clan/leaderboard', publicLimiter, (req, res) => {
+  if (!CLAN_ENABLED) return res.json({ enabled: false, clans: [] });
+  const cutoff = Math.floor(Date.now() / 1000) - (7 * 24 * 3600);
+  const rows = db.prepare(`
+    SELECT c.id, c.name, c.tag, c.owner,
+           COUNT(cm.wallet) AS members,
+           COALESCE(SUM(CASE WHEN sh.created_at >= ? THEN sh.score ELSE 0 END), 0) AS weekly_score
+      FROM clans c
+      LEFT JOIN clan_members cm ON cm.clan_id = c.id
+      LEFT JOIN score_history sh ON sh.address = cm.wallet
+     WHERE c.active = 1
+     GROUP BY c.id
+     ORDER BY weekly_score DESC, members DESC
+     LIMIT 20
+  `).all(cutoff);
+  res.json({ enabled: true, period: 'weekly_rolling_7d', clans: rows });
 });
 
 // POST /api/nft/mint-sig — retourne une signature de mint pour un trophée éligible
@@ -1610,14 +2533,20 @@ app.get('/api/leaderboard', (req, res) => {
   const period = (req.query.period || 'all').toLowerCase();
   const limit  = Math.min(parseInt(req.query.limit || '10', 10), 100);
 
+  // task #70 : tag clan injecté si CLAN_ENABLED. Jointure via clan_members → clans.
+  const clanJoin   = CLAN_ENABLED ? `LEFT JOIN clan_members cm ON cm.wallet = {ALIAS}
+      LEFT JOIN clans c ON c.id = cm.clan_id AND c.active = 1` : '';
+  const clanSelect = CLAN_ENABLED ? ', c.tag AS clan_tag, c.name AS clan_name, c.id AS clan_id' : '';
+
   let rows;
   if (period === 'day' || period === 'week') {
     const offset = period === 'day' ? '-1 day' : '-7 days';
     rows = db.prepare(`
       SELECT sh.address, MAX(sh.score) as best_score, COUNT(*) as games_played,
-             u.username AS display_name
+             u.username AS display_name${clanSelect}
       FROM score_history sh
       LEFT JOIN usernames u ON u.wallet = sh.address
+      ${clanJoin.replace('{ALIAS}', 'sh.address')}
       WHERE sh.created_at > strftime('%s','now', ?)
       GROUP BY sh.address
       ORDER BY best_score DESC
@@ -1627,9 +2556,10 @@ app.get('/api/leaderboard', (req, res) => {
     rows = db.prepare(`
       SELECT lb.address, lb.best_score, lb.games_played, lb.total_claimed,
              lb.streak_count, lb.max_streak, lb.last_streak_date,
-             u.username AS display_name
+             u.username AS display_name${clanSelect}
       FROM leaderboard lb
       LEFT JOIN usernames u ON u.wallet = lb.address
+      ${clanJoin.replace('{ALIAS}', 'lb.address')}
       ORDER BY lb.best_score DESC
       LIMIT ?
     `).all(limit);
@@ -2252,10 +3182,303 @@ app.get('/api/admin/stats', adminAuth, (req, res) => {
   });
 });
 
+// ─── BOOST CACHE CRON (task #71) ─────────────────────────────────────────────
+// Rafraîchit les wallets "actifs" (joué dans les 14 derniers jours) toutes les 10 min.
+// Batch de 20 wallets par cycle pour éviter flood RPC. Fail silently.
+const BOOST_CRON_INTERVAL_MS = parseInt(process.env.BOOST_CRON_INTERVAL_MS || '600000', 10); // 10 min
+const BOOST_CRON_BATCH_SIZE  = parseInt(process.env.BOOST_CRON_BATCH_SIZE  || '20', 10);
+const BOOST_ACTIVE_WINDOW_SEC = 14 * 24 * 3600;
+
+async function refreshBoostCacheBatch() {
+  if (!BOOST_NFT_ADDRESS) return;
+  const contract = getBoostContract();
+  if (!contract) return;
+  const cutoff = Math.floor(Date.now() / 1000) - BOOST_ACTIVE_WINDOW_SEC;
+  // Pick wallets actifs dont le cache est le plus ancien (ou jamais cache)
+  const rows = db.prepare(`
+    SELECT lb.address AS wallet, COALESCE(bmc.updated_at, 0) AS last_update
+    FROM leaderboard lb
+    LEFT JOIN boost_mult_cache bmc ON bmc.wallet = lb.address
+    WHERE lb.last_played >= ?
+    ORDER BY last_update ASC
+    LIMIT ?
+  `).all(cutoff, BOOST_CRON_BATCH_SIZE);
+  if (rows.length === 0) return;
+  let ok = 0, fail = 0;
+  for (const r of rows) {
+    const res = await refreshBoostMultFor(r.wallet);
+    if (res !== null) ok++; else fail++;
+  }
+  console.log(`[BOOST CRON] refreshed ${ok}/${rows.length} wallets (${fail} failed)`);
+}
+
+if (BOOST_NFT_ADDRESS) {
+  setInterval(() => { refreshBoostCacheBatch().catch(() => {}); }, BOOST_CRON_INTERVAL_MS).unref?.();
+  // Kick off initial refresh 30s après start (laisse le temps au RPC provider d'init)
+  setTimeout(() => { refreshBoostCacheBatch().catch(() => {}); }, 30 * 1000).unref?.();
+}
+
+// ─── TOURNAMENTS CRON (task #69) ─────────────────────────────────────────────
+// Toutes les 5 min : ferme les tournois expirés → distribue prizes (40/20/10 via
+// signer wallet), marque status='closed'. Puis ensureTournamentOpen() pour rolling.
+// Discord webhook annonce les winners. Idempotent : ne relance pas de payout si
+// status déjà 'closed' ou si payout_tx_X déjà rempli.
+const TOURNAMENT_CRON_INTERVAL_MS = parseInt(process.env.TOURNAMENT_CRON_INTERVAL_MS || '300000', 10); // 5 min
+
+async function sendTournamentPayout(toAddr, amountWei, tournamentId, position) {
+  const provider = getProvider();
+  if (!provider) throw new Error('RPC provider non configuré');
+  const signer = new ethers.Wallet(SIGNER_PK, provider);
+  // Sanity : signer doit égaler PAYOUT_WALLET
+  if (TOURNAMENT_PAYOUT_WALLET && signer.address.toLowerCase() !== TOURNAMENT_PAYOUT_WALLET) {
+    console.warn(`[TOURNAMENT PAYOUT] signer (${signer.address}) ≠ PAYOUT_WALLET (${TOURNAMENT_PAYOUT_WALLET}) — paiement depuis le signer`);
+  }
+  const tx = await signer.sendTransaction({ to: toAddr, value: amountWei });
+  console.log(`[TOURNAMENT #${tournamentId}] payout #${position} → ${toAddr} = ${ethers.formatEther(amountWei)} POL · tx=${tx.hash}`);
+  const receipt = await tx.wait(1);
+  if (receipt.status !== 1) throw new Error(`payout tx reverted: ${tx.hash}`);
+  return tx.hash;
+}
+
+async function closeTournamentAndPayout(t) {
+  // Mark 'closing' pour éviter double-exécution concurrente
+  const marked = db.prepare(`
+    UPDATE tournaments SET status = 'closing' WHERE id = ? AND status = 'open'
+  `).run(t.id);
+  if (marked.changes === 0) return; // déjà closing/closed par un autre worker
+
+  const entries = getTournamentLeaderboard(t.id, 3);
+  const pool    = BigInt(t.prize_pool_wei || '0');
+
+  // Pas d'entrées → juste fermer, rien à payer
+  if (entries.length === 0 || pool === 0n) {
+    db.prepare(`UPDATE tournaments SET status = 'closed', closed_at = strftime('%s','now') WHERE id = ?`).run(t.id);
+    console.log(`[TOURNAMENT #${t.id}] closed (no entries / empty pool)`);
+    return;
+  }
+
+  const winners = [entries[0]?.wallet || null, entries[1]?.wallet || null, entries[2]?.wallet || null];
+  const txHashes = [null, null, null];
+
+  // Payouts sequentiels (40/20/10 % du pool). Si un payout fail, on arrête la chain.
+  try {
+    for (let i = 0; i < 3; i++) {
+      if (!winners[i]) break;
+      const amount = (pool * BigInt(TOURNAMENT_WINNERS_BPS[i])) / 10000n;
+      if (amount === 0n) continue;
+      txHashes[i] = await sendTournamentPayout(winners[i], amount, t.id, i + 1);
+    }
+  } catch (e) {
+    console.error(`[TOURNAMENT #${t.id}] payout FAILED:`, e.message);
+    db.prepare(`
+      UPDATE tournaments
+         SET status = 'failed',
+             winner1 = ?, winner2 = ?, winner3 = ?,
+             payout_tx_1 = ?, payout_tx_2 = ?, payout_tx_3 = ?,
+             closed_at = strftime('%s','now')
+       WHERE id = ?
+    `).run(winners[0], winners[1], winners[2], txHashes[0], txHashes[1], txHashes[2], t.id);
+    return;
+  }
+
+  db.prepare(`
+    UPDATE tournaments
+       SET status = 'closed',
+           winner1 = ?, winner2 = ?, winner3 = ?,
+           payout_tx_1 = ?, payout_tx_2 = ?, payout_tx_3 = ?,
+           closed_at = strftime('%s','now')
+     WHERE id = ?
+  `).run(winners[0], winners[1], winners[2], txHashes[0], txHashes[1], txHashes[2], t.id);
+
+  console.log(`[TOURNAMENT #${t.id}] closed. Winners paid: ${winners.filter(Boolean).length}`);
+
+  // Discord announce (best-effort)
+  if (DISCORD_WEBHOOK) {
+    const lines = entries.slice(0, 3).map((e, i) => {
+      const amountWei = (pool * BigInt(TOURNAMENT_WINNERS_BPS[i])) / 10000n;
+      const medal = ['🥇','🥈','🥉'][i];
+      return `${medal} \`${e.wallet.slice(0,6)}…${e.wallet.slice(-4)}\` — score **${e.best_score}** — **${ethers.formatEther(amountWei)} POL**`;
+    });
+    const body = {
+      embeds: [{
+        title: `🏆 Tournament #${t.id} — Winners`,
+        description: lines.join('\n') || 'No entries',
+        color: 0xffd700,
+        fields: [
+          { name: 'Prize pool', value: `${ethers.formatEther(pool)} POL`, inline: true },
+          { name: 'Entries',    value: String(t.entries_count || entries.length), inline: true },
+        ],
+        timestamp: new Date().toISOString(),
+      }],
+    };
+    try {
+      await fetch(DISCORD_WEBHOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } catch (_) { /* non-blocking */ }
+  }
+}
+
+async function tournamentCronTick() {
+  if (!TOURNAMENT_ENABLED) return;
+  try {
+    const nowSec = Math.floor(Date.now() / 1000);
+    // Tournois expirés à clôturer
+    const expired = db.prepare(`
+      SELECT * FROM tournaments WHERE status = 'open' AND end_at <= ?
+    `).all(nowSec);
+    for (const t of expired) {
+      await closeTournamentAndPayout(t);
+    }
+    // Ouvre un nouveau si besoin (rolling)
+    ensureTournamentOpen();
+  } catch (e) {
+    console.error('[TOURNAMENT CRON] tick failed:', e.message);
+  }
+}
+
+if (TOURNAMENT_ENABLED) {
+  ensureTournamentOpen(); // bootstrap à chaud
+  setInterval(() => { tournamentCronTick().catch(() => {}); }, TOURNAMENT_CRON_INTERVAL_MS).unref?.();
+  // Tick initial 60s après start
+  setTimeout(() => { tournamentCronTick().catch(() => {}); }, 60 * 1000).unref?.();
+}
+
+// ─── CLANS WEEKLY PAYOUT CRON (task #70) ─────────────────────────────────────
+// Check toutes les heures : si dimanche 20h UTC passé ET pas encore payé cette semaine
+// → calcule top 3 clans (somme scores 7j), distribue pool SNAKE via signer transfer,
+// insère row clan_weekly_payouts. Idempotent via (week_start) unique check.
+const CLAN_WEEKLY_CRON_INTERVAL_MS = parseInt(process.env.CLAN_WEEKLY_CRON_INTERVAL_MS || '3600000', 10); // 1h
+
+function _lastSundayAt20UTC(now = new Date()) {
+  const n = new Date(now);
+  const day = n.getUTCDay(); // 0=sun
+  const daysBack = day === 0 && n.getUTCHours() < 20 ? 7 : day;
+  const s = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() - daysBack, 20, 0, 0));
+  return Math.floor(s.getTime() / 1000);
+}
+
+async function clanWeeklyPayoutTick() {
+  if (!CLAN_ENABLED) return;
+  const poolSnakeWei = (() => {
+    try { return ethers.parseUnits(String(CLAN_WEEKLY_POOL_SNAKE || '0'), 18); }
+    catch { return 0n; }
+  })();
+  if (poolSnakeWei === 0n) return; // désactivé
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const weekStart = _lastSundayAt20UTC(new Date(nowSec * 1000));
+  const weekEnd   = weekStart + 7 * 24 * 3600;
+  // Trop tôt (dimanche 20h UTC pas encore passé cette semaine) : skip
+  if (nowSec < weekStart) return;
+
+  // Idempotence
+  const already = db.prepare('SELECT id FROM clan_weekly_payouts WHERE week_start = ?').get(weekStart);
+  if (already) return;
+
+  // Top 3 clans sur la fenêtre [weekStart-7d, weekStart]
+  const periodStart = weekStart - 7 * 24 * 3600;
+  const top3 = db.prepare(`
+    SELECT c.id, c.name, c.tag, c.owner,
+           COALESCE(SUM(CASE WHEN sh.created_at >= ? AND sh.created_at < ? THEN sh.score ELSE 0 END), 0) AS weekly_score
+      FROM clans c
+      LEFT JOIN clan_members cm ON cm.clan_id = c.id
+      LEFT JOIN score_history sh ON sh.address = cm.wallet
+     WHERE c.active = 1
+     GROUP BY c.id
+    HAVING weekly_score > 0
+     ORDER BY weekly_score DESC
+     LIMIT 3
+  `).all(periodStart, weekStart);
+
+  if (top3.length === 0) {
+    db.prepare(`
+      INSERT INTO clan_weekly_payouts (week_start, week_end, pool_wei, executed_at)
+      VALUES (?, ?, ?, ?)
+    `).run(weekStart, weekEnd, poolSnakeWei.toString(), nowSec);
+    console.log(`[CLAN WEEKLY] week ${new Date(weekStart*1000).toISOString()} — no eligible clans`);
+    return;
+  }
+
+  // Transfer SNAKE aux owners (ERC-20 transfer via signer)
+  const provider = getProvider();
+  const signer = provider ? new ethers.Wallet(SIGNER_PK, provider) : null;
+  const erc20Abi = ['function transfer(address to, uint256 amount) returns (bool)'];
+  const contract = (signer && CONTRACT_ADDRESS) ? new ethers.Contract(CONTRACT_ADDRESS, erc20Abi, signer) : null;
+
+  for (let i = 0; i < top3.length; i++) {
+    const amount = (poolSnakeWei * BigInt(CLAN_WEEKLY_SPLIT_BPS[i])) / 10000n;
+    if (amount === 0n || !contract) continue;
+    try {
+      const tx = await contract.transfer(top3[i].owner, amount);
+      console.log(`[CLAN WEEKLY] payout #${i+1} ${top3[i].tag} → ${shortAddr(top3[i].owner)} = ${ethers.formatUnits(amount, 18)} $SNAKE · tx=${tx.hash}`);
+      await tx.wait(1);
+    } catch (e) {
+      console.error(`[CLAN WEEKLY] payout #${i+1} FAILED:`, e.message);
+    }
+  }
+
+  db.prepare(`
+    INSERT INTO clan_weekly_payouts
+      (week_start, week_end, clan1_id, clan2_id, clan3_id, clan1_score, clan2_score, clan3_score, pool_wei, executed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    weekStart, weekEnd,
+    top3[0]?.id || null, top3[1]?.id || null, top3[2]?.id || null,
+    top3[0]?.weekly_score || 0, top3[1]?.weekly_score || 0, top3[2]?.weekly_score || 0,
+    poolSnakeWei.toString(), nowSec,
+  );
+
+  // Discord announce
+  if (DISCORD_WEBHOOK) {
+    const lines = top3.map((c, i) => {
+      const medal = ['🥇','🥈','🥉'][i];
+      const amt = (poolSnakeWei * BigInt(CLAN_WEEKLY_SPLIT_BPS[i])) / 10000n;
+      return `${medal} **[${c.tag}]** ${c.name} — score **${c.weekly_score}** — **${ethers.formatUnits(amt, 18)} $SNAKE**`;
+    });
+    try {
+      await fetch(DISCORD_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          embeds: [{
+            title: '🛡️ Clans — Top 3 Weekly',
+            description: lines.join('\n'),
+            color: 0x9333ea,
+            fields: [{ name: 'Pool', value: `${ethers.formatUnits(poolSnakeWei, 18)} $SNAKE`, inline: true }],
+            timestamp: new Date().toISOString(),
+          }],
+        }),
+      });
+    } catch (_) {}
+  }
+}
+
+if (CLAN_ENABLED) {
+  setInterval(() => { clanWeeklyPayoutTick().catch(() => {}); }, CLAN_WEEKLY_CRON_INTERVAL_MS).unref?.();
+  // Tick initial 90s après start
+  setTimeout(() => { clanWeeklyPayoutTick().catch(() => {}); }, 90 * 1000).unref?.();
+}
+
 app.listen(PORT, () => {
   console.log(`🐍 SnakeCoin backend running on port ${PORT}`);
   console.log(`💼 Contract $SNAKE : ${CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ'}`);
   console.log(`🏆 Contract NFT    : ${NFT_CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ (set NFT_CONTRACT_ADDRESS)'}`);
+  console.log(`🚀 Contract BOOST  : ${BOOST_NFT_ADDRESS  || '⚠️ NON CONFIGURÉ (set BOOST_NFT_ADDRESS — optional)'}`);
+  if (BOOST_NFT_ADDRESS) {
+    const cached = db.prepare('SELECT COUNT(*) AS c FROM boost_mult_cache').get().c;
+    console.log(`   └─ boost cache: ${cached} wallets · cron every ${Math.round(BOOST_CRON_INTERVAL_MS/1000)}s · batch ${BOOST_CRON_BATCH_SIZE}`);
+  }
+  console.log(`🏆 Tournaments    : ${TOURNAMENT_ENABLED ? `ENABLED (entry ${TOURNAMENT_ENTRY_POL} POL, ${TOURNAMENT_DURATION_H}h rolling)` : 'disabled (set TOURNAMENT_ENABLED=1)'}`);
+  if (TOURNAMENT_ENABLED) {
+    const open = db.prepare(`SELECT COUNT(*) AS c FROM tournaments WHERE status='open'`).get().c;
+    const total = db.prepare(`SELECT COUNT(*) AS c FROM tournaments`).get().c;
+    console.log(`   └─ ${open} open · ${total} total · payout_wallet=${TOURNAMENT_PAYOUT_WALLET || '⚠️ missing'}`);
+  }
+  console.log(`🛡️  Clans          : ${CLAN_ENABLED ? `ENABLED (create burn ${CLAN_CREATE_BURN_AMOUNT} $SNAKE · max ${CLAN_MAX_MEMBERS} members)` : 'disabled (set CLAN_ENABLED=1)'}`);
+  if (CLAN_ENABLED) {
+    const nClans = db.prepare(`SELECT COUNT(*) AS c FROM clans WHERE active = 1`).get().c;
+    const nMem   = db.prepare(`SELECT COUNT(*) AS c FROM clan_members`).get().c;
+    console.log(`   └─ ${nClans} clans · ${nMem} members · weekly pool=${CLAN_WEEKLY_POOL_SNAKE} $SNAKE`);
+  }
   if (DISCORD_WEBHOOK)     console.log('🤖 Discord webhook enabled (staff)');
   if (PUBLIC_FEED_WEBHOOK) console.log('📢 Public feed webhook enabled (#snake-feed)');
   if (ADMIN_TOKEN)         console.log('🔐 Admin token configured');

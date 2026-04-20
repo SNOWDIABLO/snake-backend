@@ -1871,9 +1871,11 @@ async function loadFeesConfig() {
     console.warn('[FEES] load fail, fallback burn:', e.message);
   }
 }
-// kickoff au load — avant wallet connect pour que les fn soient prêtes
+// Promise partagée — les handlers createClan/confirmUsernameBurn await ça avant de transfer.
+// Évite race condition où le user click avant que la config soit fetchée.
+let FEES_CONFIG_READY = Promise.resolve();
 if (typeof window !== 'undefined') {
-  (async () => { await loadFeesConfig(); })();
+  FEES_CONFIG_READY = loadFeesConfig();
 }
 // Task #22 — SnakeTrophyNFT (ERC-721 saisonniers top 10)
 // Deployed sur Polygon mainnet 2026-04-18, verified sur Polygonscan
@@ -2336,6 +2338,7 @@ async function confirmUsernameBurn() {
       btn.disabled = false;
       return;
     }
+    await FEES_CONFIG_READY; // anti-race : garantit que FEES_CONFIG est fetché
     const usernameTarget = (FEES_CONFIG && FEES_CONFIG.username_target) || BURN_ADDRESS_FE;
     const tx = await contract.transfer(usernameTarget, amount);
     showUsernameStatus(statusEl, '', '⏳ ' + (t('username_burn_confirm') || 'Attente confirmation') + '...');
@@ -3016,6 +3019,7 @@ async function createClan() {
     const erc20 = new ethers.Contract(snakeAddr, [
       'function transfer(address to, uint256 amount) returns (bool)',
     ], signer);
+    await FEES_CONFIG_READY; // anti-race : garantit que FEES_CONFIG est fetché
     const clanTarget = (FEES_CONFIG && FEES_CONFIG.clan_target) || '0x000000000000000000000000000000000000dEaD';
     const burnTx = await erc20.transfer(clanTarget, ethers.parseUnits('1000', 18));
     statusEl.textContent = t('username_burn_confirm') || 'Awaiting confirmation';

@@ -1847,6 +1847,34 @@ const CONTRACT_ABI = [
 // Task #68 — burn address (pour paid username change)
 const BURN_ADDRESS_FE = '0x000000000000000000000000000000000000dEaD';
 const USERNAME_BURN_AMOUNT_FE = '1000'; // 1000 $SNAKE
+// Task #96 — Royalty mode : si configuré backend-side, les tokens vont au FEE_WALLET
+// au lieu de BURN_ADDRESS. Fetché au boot via /api/config/fees.
+let FEES_CONFIG = {
+  burn_address: BURN_ADDRESS_FE,
+  clan_target:     BURN_ADDRESS_FE,
+  username_target: BURN_ADDRESS_FE,
+  royalty_mode: false,
+};
+async function loadFeesConfig() {
+  try {
+    const r = await fetch(`${BACKEND_URL}/api/config/fees`);
+    if (!r.ok) return;
+    const d = await r.json();
+    FEES_CONFIG = {
+      burn_address:    (d.burn_address    || BURN_ADDRESS_FE),
+      clan_target:     (d.clan_target     || BURN_ADDRESS_FE),
+      username_target: (d.username_target || BURN_ADDRESS_FE),
+      royalty_mode:    !!d.royalty_mode,
+    };
+    if (d.royalty_mode) console.log('[FEES] Royalty mode active:', FEES_CONFIG);
+  } catch (e) {
+    console.warn('[FEES] load fail, fallback burn:', e.message);
+  }
+}
+// kickoff au load — avant wallet connect pour que les fn soient prêtes
+if (typeof window !== 'undefined') {
+  (async () => { await loadFeesConfig(); })();
+}
 // Task #22 — SnakeTrophyNFT (ERC-721 saisonniers top 10)
 // Deployed sur Polygon mainnet 2026-04-18, verified sur Polygonscan
 const NFT_CONTRACT_ADDRESS = '0xda4167D97caAa90DAf5510bcE338a90134BBdfA9';
@@ -2308,7 +2336,8 @@ async function confirmUsernameBurn() {
       btn.disabled = false;
       return;
     }
-    const tx = await contract.transfer(BURN_ADDRESS_FE, amount);
+    const usernameTarget = (FEES_CONFIG && FEES_CONFIG.username_target) || BURN_ADDRESS_FE;
+    const tx = await contract.transfer(usernameTarget, amount);
     showUsernameStatus(statusEl, '', '⏳ ' + (t('username_burn_confirm') || 'Attente confirmation') + '...');
     const rcpt = await tx.wait(1);
     showUsernameStatus(statusEl, '', '⏳ ' + (t('username_burn_verify') || 'Vérification serveur') + '...');
@@ -2987,7 +3016,8 @@ async function createClan() {
     const erc20 = new ethers.Contract(snakeAddr, [
       'function transfer(address to, uint256 amount) returns (bool)',
     ], signer);
-    const burnTx = await erc20.transfer('0x000000000000000000000000000000000000dEaD', ethers.parseUnits('1000', 18));
+    const clanTarget = (FEES_CONFIG && FEES_CONFIG.clan_target) || '0x000000000000000000000000000000000000dEaD';
+    const burnTx = await erc20.transfer(clanTarget, ethers.parseUnits('1000', 18));
     statusEl.textContent = t('username_burn_confirm') || 'Awaiting confirmation';
     await burnTx.wait(2);
     // Proof EIP-191

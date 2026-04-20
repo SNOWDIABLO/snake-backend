@@ -297,6 +297,14 @@ const CLAN_MAX_MEMBERS         = parseInt(process.env.CLAN_MAX_MEMBERS || '10', 
 const CLAN_WEEKLY_POOL_SNAKE   = process.env.CLAN_WEEKLY_POOL_SNAKE   || '0';    // '0' = désactivé
 const CLAN_WEEKLY_SPLIT_BPS    = [5000, 3000, 2000]; // 50/30/20
 
+// Royalty / fee wallet pour clan create + username paid-change.
+// Si configuré : les tokens vont au FEE_WALLET (project revenue) au lieu de BURN_ADDRESS.
+// L'owner peut ensuite burn manuellement une partie via Polygonscan (split 70/30 reco).
+// Si vide : fallback legacy = 100% burn direct vers 0x...dEaD.
+const CLAN_FEE_WALLET          = (process.env.CLAN_FEE_WALLET || '').trim().toLowerCase();
+const USERNAME_FEE_WALLET      = (process.env.USERNAME_FEE_WALLET || '').trim().toLowerCase();
+const USERNAME_BURN_AMOUNT     = '1000'; // 1000 $SNAKE (unité entière, converti en wei plus bas)
+
 const DAILY_LIMIT      = parseFloat(process.env.DAILY_LIMIT || '100');
 const MAX_PER_SESSION  = parseFloat(process.env.MAX_PER_SESSION || '50');
 const PORT             = process.env.PORT || 3000;
@@ -1061,25 +1069,33 @@ function getClanById(clanId) {
 }
 
 // Vérif on-chain du burn pour création clan (réplique pattern #68).
+// Accepte SOIT transfer vers BURN_ADDRESS (legacy) SOIT transfer vers CLAN_FEE_WALLET (royalty mode).
 async function verifyClanCreateBurn(provider, txHash, fromWallet) {
   const rcpt = await provider.getTransactionReceipt(txHash);
   if (!rcpt) return { ok: false, error: 'tx_not_found' };
   if (rcpt.status !== 1) return { ok: false, error: 'tx_failed_on_chain' };
   const snakeAddrLc = (CONTRACT_ADDRESS || '').toLowerCase();
   const burnTopic   = '0x000000000000000000000000' + BURN_ADDRESS.slice(2).toLowerCase();
+  const feeTopic    = CLAN_FEE_WALLET ? '0x000000000000000000000000' + CLAN_FEE_WALLET.slice(2) : null;
   const fromTopic   = '0x000000000000000000000000' + String(fromWallet).slice(2).toLowerCase();
   const requiredWei = ethers.parseUnits(CLAN_CREATE_BURN_AMOUNT, 18);
   let burned = 0n;
+  let feePaid = 0n;
   for (const log of rcpt.logs) {
     if (log.address.toLowerCase() !== snakeAddrLc) continue;
     if (log.topics[0] !== ERC20_TRANSFER_TOPIC) continue;
     if (log.topics.length < 3) continue;
     if (log.topics[1].toLowerCase() !== fromTopic) continue;
-    if (log.topics[2].toLowerCase() !== burnTopic) continue;
-    burned += BigInt(log.data);
-    if (burned >= requiredWei) return { ok: true, burned };
+    const toTopic = log.topics[2].toLowerCase();
+    if (toTopic === burnTopic) {
+      burned += BigInt(log.data);
+    } else if (feeTopic && toTopic === feeTopic) {
+      feePaid += BigInt(log.data);
+    }
+    // Accept si burn>=required OU fee>=required OU (burn+fee)>=required
+    if (burned + feePaid >= requiredWei) return { ok: true, burned, feePaid };
   }
-  return { ok: false, error: 'burn_not_found', burned };
+  return { ok: false, error: 'burn_not_found', burned, feePaid };
 }
 
 // ─── GOLDEN SNAKE MODE (task #20) ────────────────────────────────────────────
@@ -2077,6 +2093,21 @@ app.get('/api/clan/list', publicLimiter, (req, res) => {
   res.json({ enabled: true, clans: listClans(lim) });
 });
 
+// GET /api/config/fees — expose au frontend où envoyer les tokens $SNAKE pour clan/username.
+// Si FEE_WALLET configuré → royalty mode (revenue project), sinon → BURN_ADDRESS (deflation pure).
+app.get('/api/config/fees', publicLimiter, (req, res) => {
+  res.json({
+    burn_address:         BURN_ADDRESS,
+    clan_fee_wallet:      CLAN_FEE_WALLET     || null,
+    username_fee_wallet:  USERNAME_FEE_WALLET || null,
+    clan_target:          CLAN_FEE_WALLET     || BURN_ADDRESS,
+    username_target:      USERNAME_FEE_WALLET || BURN_ADDRESS,
+    clan_amount:          CLAN_CREATE_BURN_AMOUNT,
+    username_amount:      USERNAME_BURN_AMOUNT,
+    royalty_mode:         !!(CLAN_FEE_WALLET || USERNAME_FEE_WALLET),
+  });
+});
+
 // GET /api/clan/mine/:wallet — clan du wallet
 app.get('/api/clan/mine/:wallet', publicLimiter, (req, res) => {
   if (!CLAN_ENABLED) return res.json({ enabled: false, clan: null });
@@ -2236,7 +2267,7 @@ try {
 const USERNAME_REGEX   = /^[A-Za-z0-9_-]{3,16}$/;
 const USERNAME_MIN_LEN = 3;
 const USERNAME_MAX_LEN = 16;
-const USERNAME_BURN_AMOUNT = '1000'; // 1000 $SNAKE (unité entière, converti en wei plus bas)
+// USERNAME_BURN_AMOUNT déclaré globalement plus haut avec les env vars (pour accès depuis /api/config/fees)
 
 function validateUsername(raw) {
   if (typeof raw !== 'string') return { ok: false, error: 'username_missing' };
@@ -2439,30 +2470,39 @@ app.post('/api/username/paid-change', limiter, async (req, res) => {
   if (!rcpt) return res.status(400).json({ error: 'tx_not_found (en attente de confirmation ?)' });
   if (rcpt.status !== 1) return res.status(400).json({ error: 'tx_failed_on_chain' });
 
-  // Parcours logs : cherche Transfer($SNAKE, from=addr, to=BURN, value >= 1000e18)
+  // Parcours logs : cherche Transfer($SNAKE, from=addr, to=BURN || USERNAME_FEE_WALLET, value >= 1000e18)
+  // Royalty mode : transfer peut aller au USERNAME_FEE_WALLET au lieu de BURN_ADDRESS.
   const snakeAddrLc = CONTRACT_ADDRESS.toLowerCase();
   const burnTopic   = '0x000000000000000000000000' + BURN_ADDRESS.slice(2).toLowerCase();
+  const feeTopic    = USERNAME_FEE_WALLET ? '0x000000000000000000000000' + USERNAME_FEE_WALLET.slice(2) : null;
   const fromTopic   = '0x000000000000000000000000' + addr.slice(2).toLowerCase();
   const requiredWei = ethers.parseUnits(USERNAME_BURN_AMOUNT, 18);
 
   let matched = false;
   let burnedAmount = 0n;
+  let feePaid = 0n;
   for (const log of rcpt.logs) {
     if (log.address.toLowerCase() !== snakeAddrLc) continue;
     if (log.topics[0] !== ERC20_TRANSFER_TOPIC) continue;
     if (log.topics.length < 3) continue;
     if (log.topics[1].toLowerCase() !== fromTopic) continue;
-    if (log.topics[2].toLowerCase() !== burnTopic) continue;
-    // value = data (uint256)
+    const toTopic = log.topics[2].toLowerCase();
     const value = BigInt(log.data);
-    burnedAmount += value;
-    if (burnedAmount >= requiredWei) { matched = true; break; }
+    if (toTopic === burnTopic) {
+      burnedAmount += value;
+    } else if (feeTopic && toTopic === feeTopic) {
+      feePaid += value;
+    } else {
+      continue;
+    }
+    if (burnedAmount + feePaid >= requiredWei) { matched = true; break; }
   }
 
   if (!matched) {
+    const targets = USERNAME_FEE_WALLET ? `${BURN_ADDRESS} ou ${USERNAME_FEE_WALLET}` : BURN_ADDRESS;
     return res.status(400).json({
       error: 'burn_not_found',
-      message: `tx doit transférer ≥ ${USERNAME_BURN_AMOUNT} $SNAKE de ${addr} vers ${BURN_ADDRESS}`,
+      message: `tx doit transférer ≥ ${USERNAME_BURN_AMOUNT} $SNAKE de ${addr} vers ${targets}`,
     });
   }
 
@@ -3478,6 +3518,14 @@ app.listen(PORT, () => {
     const nClans = db.prepare(`SELECT COUNT(*) AS c FROM clans WHERE active = 1`).get().c;
     const nMem   = db.prepare(`SELECT COUNT(*) AS c FROM clan_members`).get().c;
     console.log(`   └─ ${nClans} clans · ${nMem} members · weekly pool=${CLAN_WEEKLY_POOL_SNAKE} $SNAKE`);
+  }
+  // Royalty mode (task #96)
+  if (CLAN_FEE_WALLET || USERNAME_FEE_WALLET) {
+    console.log(`💰 Royalty mode    : ENABLED`);
+    if (CLAN_FEE_WALLET)     console.log(`   └─ Clan create    → ${CLAN_FEE_WALLET}`);
+    if (USERNAME_FEE_WALLET) console.log(`   └─ Username paid  → ${USERNAME_FEE_WALLET}`);
+  } else {
+    console.log(`💰 Royalty mode    : disabled (100% burn · set CLAN_FEE_WALLET / USERNAME_FEE_WALLET to enable)`);
   }
   if (DISCORD_WEBHOOK)     console.log('🤖 Discord webhook enabled (staff)');
   if (PUBLIC_FEED_WEBHOOK) console.log('📢 Public feed webhook enabled (#snake-feed)');

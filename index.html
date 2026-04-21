@@ -1949,7 +1949,8 @@ function tick() {
   snake.unshift(head);
   if (head.x===food.x && head.y===food.y) {
     score++;
-    tokensEarned = Math.floor(score/10);
+    // Preview base reward (2 décimales). Les boosts (streak/golden/NFT trophy/NFT boost) sont appliqués server-side sur /api/session/end et override cette valeur.
+    tokensEarned = Math.floor((score / 10) * 100) / 100;
     food = randomFood();
     updateUI();
     if (score > highScore) {

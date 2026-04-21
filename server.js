@@ -1399,8 +1399,12 @@ app.post('/api/session/end', (req, res) => {
   if (BOOST_NFT_ADDRESS && (!boostInfo.cached || boostInfo.stale)) {
     refreshBoostMultFor(addr).catch(() => {});
   }
-  const baseReward  = Math.min(Math.floor(cappedScore / 10), MAX_PER_SESSION);
-  const reward      = Math.min(Math.floor(baseReward * multiplier * goldenMult * nftMult * boostMult), MAX_PER_SESSION);
+  // 10 pts = 1 $SNAKE, précision 2 décimales pour que les petits boost (+2%, +4%) soient visibles.
+  // Sans cette précision, le double Math.floor écrasait tout boost < +10% pour score < 500.
+  const baseRewardFloat = cappedScore / 10;
+  const rewardFloat     = baseRewardFloat * multiplier * goldenMult * nftMult * boostMult;
+  // Arrondi DOWN à 2 décimales (évite que le signer paye plus que calculé)
+  const reward          = Math.min(Math.floor(rewardFloat * 100) / 100, MAX_PER_SESSION);
 
   db.prepare('UPDATE sessions SET score=?, reward=?, validated=1 WHERE id=?')
     .run(cappedScore, reward, sessionId);

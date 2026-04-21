@@ -112,9 +112,12 @@ git push origin main
 Smoke test post-deploy :
 
 ```powershell
-iwr https://snake-backend.up.railway.app/health -UseBasicParsing | % Content
+# ⚠️ URL Railway réelle = snake-backend-production-e5e8.up.railway.app (suffixe auto-généré)
+iwr https://snake-backend-production-e5e8.up.railway.app/health -UseBasicParsing | % Content
 iwr https://snowdiablo.xyz/ -UseBasicParsing | % StatusCode   # attend 200
 ```
+
+Hardcodé dans `index.html` ligne 1838 (`BACKEND_URL`) et `hall-of-fame.html` ligne 404 (`API`). Si l'URL change côté Railway → patch les deux fichiers avant push.
 
 ---
 
@@ -378,7 +381,7 @@ $pol  = [decimal]([System.Numerics.BigInteger]::Parse("0"+$hex.Substring(2), 'Al
 ## 13. Contacts + liens
 
 - Game : https://snowdiablo.xyz
-- Backend : https://snake-backend.up.railway.app
+- Backend : https://snake-backend-production-e5e8.up.railway.app
 - GitHub : https://github.com/SnowDiablo/snake-backend
 - Twitter : https://twitter.com/SnowDiablo
 - Twitch : https://twitch.tv/snowdiablo

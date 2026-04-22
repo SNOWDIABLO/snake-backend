@@ -229,6 +229,26 @@ if (!hasStreakCol) {
   console.log('✅ Multi-games migration ready (sessions/claims/leaderboard/score_history)');
 }
 
+// ─── MIGRATION : claim idempotency (fix race condition post-launch) ──────────
+// Ajoute claim_nonce / claim_sig / claim_amount sur sessions pour permettre un
+// retry côté frontend si le contract revert on-chain (ex: require(false) pour
+// raison transitoire). Évite le DELETE + daily_claims increment prématuré qui
+// rendait le retry impossible ("Session invalide ou non terminée").
+// Idempotent.
+{
+  const _sessionCols = db.prepare(`SELECT name FROM pragma_table_info('sessions')`).all().map(r => r.name);
+  if (!_sessionCols.includes('claim_nonce')) {
+    console.log('🔧 Migrating sessions: adding claim_nonce/claim_sig/claim_amount + claimed_at...');
+    db.exec(`
+      ALTER TABLE sessions ADD COLUMN claim_nonce  TEXT;
+      ALTER TABLE sessions ADD COLUMN claim_sig    TEXT;
+      ALTER TABLE sessions ADD COLUMN claim_amount TEXT;
+      ALTER TABLE sessions ADD COLUMN claimed_at   INTEGER;
+    `);
+    console.log('✅ Sessions idempotency columns added');
+  }
+}
+
 // Whitelist des jeux supportés. Phase 5 ajoutera les 6 autres jeux.
 const SUPPORTED_GAMES = ['snake', 'pong', 'flappy', 'breakout', 'space-invaders', '2048', 'minesweeper'];
 function normalizeGame(g) {
@@ -1684,13 +1704,42 @@ app.post('/api/claim', limiter, async (req, res) => {
 
   const addr = address.toLowerCase();
 
-  const session = db.prepare('SELECT * FROM sessions WHERE id=? AND address=? AND validated=1')
-    .get(sessionId, addr);
-  if (!session) {
-    return res.status(400).json({ error: 'Session invalide ou non terminée' });
+  // ─── Diag granulaire (fix "Session invalide ou non terminée" trop vague) ──
+  // Sans ça, impossible de distinguer : sessionId inconnu, wrong wallet,
+  // anti-cheat validated=1 reward=0, ou session déjà consommée.
+  const rawSession = db.prepare('SELECT * FROM sessions WHERE id=?').get(sessionId);
+  if (!rawSession) {
+    console.warn(`[CLAIM] session inconnue sessionId=${sessionId} addr=${shortAddr(addr)}`);
+    return res.status(400).json({ error: 'Session introuvable (démarre une nouvelle partie)' });
   }
-  if (session.reward <= 0) {
-    return res.status(400).json({ error: 'Pas assez de points (min 10)' });
+  if (rawSession.address !== addr) {
+    console.warn(`[CLAIM] wallet mismatch sessionAddr=${shortAddr(rawSession.address)} claimAddr=${shortAddr(addr)}`);
+    return res.status(400).json({ error: 'Wallet différent de celui qui a joué la session' });
+  }
+  if (!rawSession.validated) {
+    console.warn(`[CLAIM] session non validée sessionId=${sessionId} addr=${shortAddr(addr)}`);
+    return res.status(400).json({ error: 'Session non terminée (finis la partie avant de claim)' });
+  }
+  if (rawSession.reward <= 0) {
+    console.warn(`[CLAIM] reward=0 sessionId=${sessionId} addr=${shortAddr(addr)} score=${rawSession.score}`);
+    return res.status(400).json({ error: 'Pas assez de points (min 10) ou session rejetée par anti-cheat' });
+  }
+
+  const session = rawSession;
+
+  // ─── Idempotence : si la signature a déjà été émise pour cette session,
+  // la re-renvoyer telle quelle. Le contract va la rejeter si le nonce a
+  // déjà été consommé on-chain, sinon le retry marchera. Pas de double-mint
+  // possible (le contract a sa propre protection used[nonce]).
+  if (session.claim_nonce && session.claim_sig && session.claim_amount) {
+    console.log(`[CLAIM] replay sig pour session=${sessionId} addr=${shortAddr(addr)} amount=${session.reward}`);
+    return res.json({
+      amount: session.claim_amount,
+      nonce: session.claim_nonce,
+      sig: session.claim_sig,
+      reward: session.reward,
+      replay: true,
+    });
   }
 
   const today = new Date().toISOString().slice(0,10);
@@ -1718,6 +1767,8 @@ app.post('/api/claim', limiter, async (req, res) => {
   const hash = ethers.keccak256(encoded);
   const sig  = await wallet.signMessage(ethers.getBytes(hash));
 
+  console.log(`[CLAIM] issue sig addr=${shortAddr(addr)} reward=${session.reward} nonce=${nonce.slice(0,10)}...`);
+
   db.prepare('INSERT INTO claims (nonce, address, amount) VALUES (?,?,?)')
     .run(nonce, addr, amount.toString());
 
@@ -1726,7 +1777,14 @@ app.post('/api/claim', limiter, async (req, res) => {
     ON CONFLICT(address, day) DO UPDATE SET total = total + ?
   `).run(addr, today, session.reward, session.reward);
 
-  db.prepare('DELETE FROM sessions WHERE id=?').run(sessionId);
+  // FIX race condition : on NE SUPPRIME PAS la session avant confirmation on-chain.
+  // On stocke la sig pour pouvoir la re-renvoyer si retry. Double-mint bloqué par
+  // used[nonce] côté contract. Cleanup via cron (sessions > 1h avec claim_nonce set).
+  db.prepare(`
+    UPDATE sessions
+       SET claim_nonce=?, claim_sig=?, claim_amount=?, claimed_at=strftime('%s','now')
+     WHERE id=?
+  `).run(nonce, sig, amount.toString(), sessionId);
 
   // Snapshot pré-update pour détecter milestones claim (scope au game de la session)
   const claimGame = normalizeGame(session.game);
@@ -3734,6 +3792,21 @@ async function signerBalanceTick() {
 // puis toutes les SIGNER_CHECK_H heures.
 setTimeout(() => { signerBalanceTick().catch(() => {}); }, 60 * 1000).unref?.();
 setInterval(() => { signerBalanceTick().catch(() => {}); }, SIGNER_CHECK_H * 3600 * 1000).unref?.();
+
+// ─── Cleanup sessions consommées (fix race condition /api/claim) ──────────
+// Les sessions claimées (claim_nonce != NULL) sont gardées 1h pour permettre
+// un retry si le mint on-chain a revert. Après 1h on les purge pour ne pas
+// faire gonfler la table.
+function cleanupClaimedSessions() {
+  try {
+    const cutoff = Math.floor(Date.now() / 1000) - 3600;
+    const r = db.prepare('DELETE FROM sessions WHERE claim_nonce IS NOT NULL AND claimed_at < ?').run(cutoff);
+    if (r.changes > 0) console.log(`🧹 Purged ${r.changes} claimed sessions (> 1h old)`);
+  } catch (e) {
+    console.warn('cleanupClaimedSessions err:', e.message);
+  }
+}
+setInterval(cleanupClaimedSessions, 10 * 60 * 1000).unref?.(); // toutes les 10 min
 
 const server = app.listen(PORT, () => {
   console.log(`🐍 SnakeCoin backend running on port ${PORT}`);

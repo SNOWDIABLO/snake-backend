@@ -148,6 +148,94 @@ if (!hasStreakCol) {
   console.log('✅ Streak columns added to leaderboard');
 }
 
+// ─── MIGRATION : multi-games support (Phase 4) ────────────────────────────────
+// Ajoute une colonne `game` sur les 4 tables core pour permettre à d'autres jeux
+// (pong, flappy, breakout, 2048, minesweeper, space-invaders) d'utiliser les
+// mêmes primitives sessions/claims/leaderboard/score_history.
+// Backward-compatible : DEFAULT 'snake' donc les INSERTs existants (sans `game`)
+// sont automatiquement taggés 'snake'. Lookups via idx composites.
+{
+  const _gameTables = ['sessions', 'claims', 'leaderboard', 'score_history'];
+  for (const _t of _gameTables) {
+    const _has = db.prepare(
+      `SELECT COUNT(*) as c FROM pragma_table_info(?) WHERE name='game'`
+    ).get(_t).c;
+    if (!_has) {
+      console.log(`🔧 Migrating ${_t}: adding game column (default 'snake')...`);
+      db.exec(`ALTER TABLE ${_t} ADD COLUMN game TEXT NOT NULL DEFAULT 'snake';`);
+    }
+  }
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_leaderboard_game_score ON leaderboard(game, best_score DESC);
+    CREATE INDEX IF NOT EXISTS idx_sessions_game          ON sessions(game, created_at);
+    CREATE INDEX IF NOT EXISTS idx_claims_game            ON claims(game, claimed_at);
+    CREATE INDEX IF NOT EXISTS idx_history_game           ON score_history(game, created_at);
+  `);
+
+  // ─── Rebuild leaderboard avec PK composite (address, game) ───
+  // SQLite ne permet pas ALTER PRIMARY KEY. Rebuild safe en transaction.
+  // Idempotent : vérif si la PK courante contient déjà `game`.
+  {
+    const _pkCols = db.prepare(
+      `SELECT name FROM pragma_table_info('leaderboard') WHERE pk > 0 ORDER BY pk`
+    ).all().map(r => r.name);
+    const _hasCompositePK = _pkCols.includes('address') && _pkCols.includes('game');
+    if (!_hasCompositePK) {
+      console.log(`🔧 Rebuilding leaderboard with composite PK (address, game)... current PK: [${_pkCols.join(',')}]`);
+      const _tx = db.transaction(() => {
+        db.exec(`
+          CREATE TABLE leaderboard_v2 (
+            address        TEXT NOT NULL,
+            game           TEXT NOT NULL DEFAULT 'snake',
+            best_score     INTEGER NOT NULL DEFAULT 0,
+            total_claimed  REAL DEFAULT 0,
+            games_played   INTEGER DEFAULT 0,
+            last_played    INTEGER DEFAULT (strftime('%s','now')),
+            updated_at     INTEGER DEFAULT (strftime('%s','now')),
+            streak_count      INTEGER DEFAULT 0,
+            max_streak        INTEGER DEFAULT 0,
+            last_streak_date  TEXT,
+            PRIMARY KEY (address, game)
+          );
+        `);
+        // Copie les colonnes existantes (dynamique — certaines ne sont ajoutées qu'au run pour streak)
+        const _cols = db.prepare(`SELECT name FROM pragma_table_info('leaderboard')`).all().map(r => r.name);
+        const _have = (c) => _cols.includes(c) ? c : `NULL AS ${c}`;
+        const _selectCols = [
+          'address',
+          _cols.includes('game') ? 'game' : `'snake' AS game`,
+          'best_score',
+          'total_claimed',
+          'games_played',
+          'last_played',
+          'updated_at',
+          _have('streak_count'),
+          _have('max_streak'),
+          _have('last_streak_date'),
+        ].join(', ');
+        db.exec(`INSERT INTO leaderboard_v2 SELECT ${_selectCols} FROM leaderboard;`);
+        db.exec(`DROP TABLE leaderboard;`);
+        db.exec(`ALTER TABLE leaderboard_v2 RENAME TO leaderboard;`);
+        db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_leaderboard_score       ON leaderboard(best_score DESC);
+          CREATE INDEX IF NOT EXISTS idx_leaderboard_game_score  ON leaderboard(game, best_score DESC);
+        `);
+      });
+      _tx();
+      console.log('✅ leaderboard rebuilt with PK(address, game)');
+    }
+  }
+
+  console.log('✅ Multi-games migration ready (sessions/claims/leaderboard/score_history)');
+}
+
+// Whitelist des jeux supportés. Phase 5 ajoutera les 6 autres jeux.
+const SUPPORTED_GAMES = ['snake', 'pong', 'flappy', 'breakout', 'space-invaders', '2048', 'minesweeper'];
+function normalizeGame(g) {
+  const s = String(g || 'snake').toLowerCase();
+  return SUPPORTED_GAMES.includes(s) ? s : 'snake';
+}
+
 // ─── MIGRATION : usernames (task #68) ─────────────────────────────────────────
 // Pseudo lié à un wallet. 3-16 chars ASCII [a-zA-Z0-9_-].
 // Unicité case-insensitive (COLLATE NOCASE).
@@ -1295,16 +1383,18 @@ app.get('/api/proof/challenge', proofLimiter, (req, res) => {
 });
 
 app.post('/api/session/start', (req, res) => {
-  const { address } = req.body;
+  const { address, game } = req.body;
   if (!address || !ethers.isAddress(address)) {
     return res.status(400).json({ error: 'Adresse wallet invalide' });
   }
   const addr = address.toLowerCase();
+  // Phase 4 : multi-games. Default 'snake' pour backward compat.
+  const gameName = normalizeGame(game);
 
-  // Anti-spam : rejette si session créée il y a < MIN_SESSION_GAP sec
+  // Anti-spam : rejette si session créée il y a < MIN_SESSION_GAP sec (scope au game)
   const lastSession = db.prepare(
-    'SELECT created_at FROM sessions WHERE address=? ORDER BY created_at DESC LIMIT 1'
-  ).get(addr);
+    'SELECT created_at FROM sessions WHERE address=? AND game=? ORDER BY created_at DESC LIMIT 1'
+  ).get(addr, gameName);
   if (lastSession) {
     const gap = Math.floor(Date.now()/1000) - lastSession.created_at;
     if (gap < MIN_SESSION_GAP) {
@@ -1313,9 +1403,9 @@ app.post('/api/session/start', (req, res) => {
   }
 
   const sessionId = ethers.hexlify(ethers.randomBytes(16));
-  db.prepare(`INSERT INTO sessions (id, address, score, reward) VALUES (?, ?, 0, 0)`)
-    .run(sessionId, addr);
-  res.json({ sessionId });
+  db.prepare(`INSERT INTO sessions (id, address, game, score, reward) VALUES (?, ?, ?, 0, 0)`)
+    .run(sessionId, addr, gameName);
+  res.json({ sessionId, game: gameName });
 });
 
 app.post('/api/session/end', (req, res) => {
@@ -1376,9 +1466,10 @@ app.post('/api/session/end', (req, res) => {
 
   // ─── STREAK compute (before reward, so reward applies multiplier) ─────────
   const today = todayUTC();
+  const sessionGame = normalizeGame(session.game);
   const streakRow = db.prepare(
-    'SELECT streak_count, max_streak, last_streak_date FROM leaderboard WHERE address=?'
-  ).get(addr);
+    'SELECT streak_count, max_streak, last_streak_date FROM leaderboard WHERE address=? AND game=?'
+  ).get(addr, sessionGame);
   const prevStreak     = streakRow ? (streakRow.streak_count || 0) : 0;
   const prevMaxStreak  = streakRow ? (streakRow.max_streak   || 0) : 0;
   const lastStreakDate = streakRow ? streakRow.last_streak_date    : null;
@@ -1409,11 +1500,11 @@ app.post('/api/session/end', (req, res) => {
   db.prepare('UPDATE sessions SET score=?, reward=?, validated=1 WHERE id=?')
     .run(cappedScore, reward, sessionId);
 
-  // Snapshot pré-update pour détecter records + milestones
-  const prevRow = db.prepare('SELECT best_score, games_played FROM leaderboard WHERE address=?').get(addr);
+  // Snapshot pré-update pour détecter records + milestones (scope au game de la session)
+  const prevRow = db.prepare('SELECT best_score, games_played FROM leaderboard WHERE address=? AND game=?').get(addr, sessionGame);
   const prevBest  = prevRow ? prevRow.best_score  : 0;
   const prevGames = prevRow ? prevRow.games_played : 0;
-  const allTimeMax = db.prepare('SELECT COALESCE(MAX(best_score),0) as m FROM leaderboard').get().m;
+  const allTimeMax = db.prepare('SELECT COALESCE(MAX(best_score),0) as m FROM leaderboard WHERE game=?').get(sessionGame).m;
 
   // ─── Task #25 : Bluesky auto-post si new all-time record ─────────────────
   if (cappedScore > allTimeMax && allTimeMax > 0) {
@@ -1421,10 +1512,10 @@ app.post('/api/session/end', (req, res) => {
   }
 
   db.prepare(`
-    INSERT INTO leaderboard (address, best_score, games_played, last_played, updated_at,
+    INSERT INTO leaderboard (address, game, best_score, games_played, last_played, updated_at,
                              streak_count, max_streak, last_streak_date)
-    VALUES (?, ?, 1, strftime('%s','now'), strftime('%s','now'), ?, ?, ?)
-    ON CONFLICT(address) DO UPDATE SET
+    VALUES (?, ?, ?, 1, strftime('%s','now'), strftime('%s','now'), ?, ?, ?)
+    ON CONFLICT(address, game) DO UPDATE SET
       best_score       = MAX(best_score, excluded.best_score),
       games_played     = games_played + 1,
       last_played      = excluded.last_played,
@@ -1432,10 +1523,10 @@ app.post('/api/session/end', (req, res) => {
       streak_count     = excluded.streak_count,
       max_streak       = excluded.max_streak,
       last_streak_date = excluded.last_streak_date
-  `).run(addr, cappedScore, newStreak, newMaxStreak, cappedScore > 0 ? today : lastStreakDate);
+  `).run(addr, sessionGame, cappedScore, newStreak, newMaxStreak, cappedScore > 0 ? today : lastStreakDate);
 
-  db.prepare('INSERT INTO score_history (address, score) VALUES (?, ?)')
-    .run(addr, cappedScore);
+  db.prepare('INSERT INTO score_history (address, game, score) VALUES (?, ?, ?)')
+    .run(addr, sessionGame, cappedScore);
 
   // ─── TOURNAMENT score tracking (task #69) ───────────────────────────────────
   // Fire-and-forget sync: si wallet inscrit au tournoi en cours, update best_score.
@@ -1637,8 +1728,9 @@ app.post('/api/claim', limiter, async (req, res) => {
 
   db.prepare('DELETE FROM sessions WHERE id=?').run(sessionId);
 
-  // Snapshot pré-update pour détecter milestones claim
-  const prevClaimedRow = db.prepare('SELECT total_claimed FROM leaderboard WHERE address=?').get(addr);
+  // Snapshot pré-update pour détecter milestones claim (scope au game de la session)
+  const claimGame = normalizeGame(session.game);
+  const prevClaimedRow = db.prepare('SELECT total_claimed FROM leaderboard WHERE address=? AND game=?').get(addr, claimGame);
   const prevClaimed = prevClaimedRow ? prevClaimedRow.total_claimed : 0;
   const newClaimed  = prevClaimed + session.reward;
 
@@ -1646,8 +1738,8 @@ app.post('/api/claim', limiter, async (req, res) => {
     UPDATE leaderboard SET
       total_claimed = total_claimed + ?,
       updated_at    = strftime('%s','now')
-    WHERE address = ?
-  `).run(session.reward, addr);
+    WHERE address = ? AND game = ?
+  `).run(session.reward, addr, claimGame);
 
   discordNotify({
     title: '💰 New $SNAKE Claim',
@@ -2622,13 +2714,29 @@ app.post('/api/username/paid-change', limiter, async (req, res) => {
 
 // ─── PUBLIC STATS ─────────────────────────────────────────────────────────────
 app.get('/api/stats', (req, res) => {
-  const totalClaims  = db.prepare('SELECT COUNT(*) as c FROM claims').get().c;
-  const todayClaims  = db.prepare(`SELECT COUNT(*) as c FROM claims WHERE claimed_at > strftime('%s','now','-1 day')`).get().c;
-  const totalPlayers = db.prepare('SELECT COUNT(*) as c FROM leaderboard').get().c;
-  const totalGames   = db.prepare('SELECT COUNT(*) as c FROM score_history').get().c;
-  const distributed  = db.prepare('SELECT COALESCE(SUM(total_claimed),0) as s FROM leaderboard').get().s;
-  const highestScore = db.prepare('SELECT COALESCE(MAX(best_score),0) as m FROM leaderboard').get().m;
+  // Phase 4 : ?game=snake|pong|... filtre par jeu ; ?game=all (ou absent + no games) = agrégé
+  const rawGame = req.query.game ? String(req.query.game).toLowerCase() : null;
+  const isAll   = rawGame === 'all';
+  const game    = (rawGame && !isAll) ? normalizeGame(rawGame) : null;
+
+  let totalClaims, todayClaims, totalPlayers, totalGames, distributed, highestScore;
+  if (game) {
+    totalClaims  = db.prepare('SELECT COUNT(*) as c FROM claims WHERE game = ?').get(game).c;
+    todayClaims  = db.prepare(`SELECT COUNT(*) as c FROM claims WHERE game = ? AND claimed_at > strftime('%s','now','-1 day')`).get(game).c;
+    totalPlayers = db.prepare('SELECT COUNT(*) as c FROM leaderboard WHERE game = ?').get(game).c;
+    totalGames   = db.prepare('SELECT COUNT(*) as c FROM score_history WHERE game = ?').get(game).c;
+    distributed  = db.prepare('SELECT COALESCE(SUM(total_claimed),0) as s FROM leaderboard WHERE game = ?').get(game).s;
+    highestScore = db.prepare('SELECT COALESCE(MAX(best_score),0) as m FROM leaderboard WHERE game = ?').get(game).m;
+  } else {
+    totalClaims  = db.prepare('SELECT COUNT(*) as c FROM claims').get().c;
+    todayClaims  = db.prepare(`SELECT COUNT(*) as c FROM claims WHERE claimed_at > strftime('%s','now','-1 day')`).get().c;
+    totalPlayers = db.prepare('SELECT COUNT(*) as c FROM leaderboard').get().c;
+    totalGames   = db.prepare('SELECT COUNT(*) as c FROM score_history').get().c;
+    distributed  = db.prepare('SELECT COALESCE(SUM(total_claimed),0) as s FROM leaderboard').get().s;
+    highestScore = db.prepare('SELECT COALESCE(MAX(best_score),0) as m FROM leaderboard').get().m;
+  }
   res.json({
+    game: game || 'all',
     totalClaims, todayClaims,
     totalPlayers, totalGames,
     totalSnakeDistributed: distributed,
@@ -2640,6 +2748,12 @@ app.get('/api/leaderboard', (req, res) => {
   const period = (req.query.period || 'all').toLowerCase();
   const limit  = Math.min(parseInt(req.query.limit || '10', 10), 100);
 
+  // Phase 4 : ?game= filtre par jeu. Défaut = 'snake' (backward compat).
+  // ?game=all = aggregate tous jeux (legacy behavior).
+  const rawGame = req.query.game ? String(req.query.game).toLowerCase() : 'snake';
+  const isAll   = rawGame === 'all';
+  const game    = isAll ? null : normalizeGame(rawGame);
+
   // task #70 : tag clan injecté si CLAN_ENABLED. Jointure via clan_members → clans.
   const clanJoin   = CLAN_ENABLED ? `LEFT JOIN clan_members cm ON cm.wallet = {ALIAS}
       LEFT JOIN clans c ON c.id = cm.clan_id AND c.active = 1` : '';
@@ -2648,18 +2762,22 @@ app.get('/api/leaderboard', (req, res) => {
   let rows;
   if (period === 'day' || period === 'week') {
     const offset = period === 'day' ? '-1 day' : '-7 days';
+    const gameFilter = game ? 'AND sh.game = ?' : '';
+    const params = game ? [offset, game, limit] : [offset, limit];
     rows = db.prepare(`
       SELECT sh.address, MAX(sh.score) as best_score, COUNT(*) as games_played,
              u.username AS display_name${clanSelect}
       FROM score_history sh
       LEFT JOIN usernames u ON u.wallet = sh.address
       ${clanJoin.replace('{ALIAS}', 'sh.address')}
-      WHERE sh.created_at > strftime('%s','now', ?)
+      WHERE sh.created_at > strftime('%s','now', ?) ${gameFilter}
       GROUP BY sh.address
       ORDER BY best_score DESC
       LIMIT ?
-    `).all(offset, limit);
+    `).all(...params);
   } else {
+    const gameFilter = game ? 'WHERE lb.game = ?' : '';
+    const params = game ? [game, limit] : [limit];
     rows = db.prepare(`
       SELECT lb.address, lb.best_score, lb.games_played, lb.total_claimed,
              lb.streak_count, lb.max_streak, lb.last_streak_date,
@@ -2667,25 +2785,31 @@ app.get('/api/leaderboard', (req, res) => {
       FROM leaderboard lb
       LEFT JOIN usernames u ON u.wallet = lb.address
       ${clanJoin.replace('{ALIAS}', 'lb.address')}
+      ${gameFilter}
       ORDER BY lb.best_score DESC
       LIMIT ?
-    `).all(limit);
+    `).all(...params);
   }
-  res.json({ period, limit, leaderboard: rows });
+  res.json({ period, limit, game: game || 'all', leaderboard: rows });
 });
 
 app.get('/api/player/:address', (req, res) => {
   const addr = (req.params.address || '').toLowerCase();
   if (!ethers.isAddress(addr)) return res.status(400).json({ error: 'Adresse invalide' });
-  const row = db.prepare('SELECT * FROM leaderboard WHERE address = ?').get(addr);
+
+  // Phase 4 : ?game= filtre par jeu. Défaut = 'snake' (backward compat).
+  const rawGame = req.query.game ? String(req.query.game).toLowerCase() : 'snake';
+  const game    = normalizeGame(rawGame);
+
+  const row = db.prepare('SELECT * FROM leaderboard WHERE address = ? AND game = ?').get(addr, game);
   const uname = getUsernameByWallet(addr);
   if (!row) return res.json({
-    address: addr, best_score: 0, games_played: 0, total_claimed: 0, rank: null,
+    address: addr, game, best_score: 0, games_played: 0, total_claimed: 0, rank: null,
     username: uname ? uname.username : null,
     display_name: uname ? uname.username : null,
     streak: { current: 0, max: 0, multiplier: 1.0, active: false, last_date: null },
   });
-  const rank = db.prepare('SELECT COUNT(*)+1 as r FROM leaderboard WHERE best_score > ?').get(row.best_score).r;
+  const rank = db.prepare('SELECT COUNT(*)+1 as r FROM leaderboard WHERE game = ? AND best_score > ?').get(game, row.best_score).r;
 
   // Streak status : "active" si last_streak_date == today OR yesterday
   const today   = todayUTC();

@@ -27,8 +27,8 @@ const ALIEN_COLS = 10;
 const ALIEN_STEP_BASE = 30;  // frames between advances
 const ALIEN_STEP_MIN  = 8;
 const ALIEN_DROP = 16;
-const ALIEN_BOMB_RATE_BASE = 0.0045; // per alien per frame
-const ALIEN_BOMB_RATE_MAX  = 0.018;
+const ALIEN_BOMB_RATE_BASE = 0.009;  // per alien per frame
+const ALIEN_BOMB_RATE_MAX  = 0.032;
 const ALIEN_COLORS = ['#ff3b6b', '#ff9500', '#ffd400', '#00ffa6'];
 
 export class InvadersGame {

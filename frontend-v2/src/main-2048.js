@@ -59,7 +59,11 @@ let game         = null;
 
       if (sessionId && isConnected()) {
         try {
-          const r = await api.sessionEnd({ sessionId, score, address: getAddress() });
+          // 2048 a un scoring natif tres genereux (somme tiles fusionnees).
+          // On divise par 10 avant envoi backend pour s'aligner sur le preview (score/100 dans game2048-game.js)
+          // et eviter de systematiquement capper a 500 -> 50 $SNAKE/session.
+          const normalizedScore = Math.max(0, Math.floor(score / 10));
+          const r = await api.sessionEnd({ sessionId, score: normalizedScore, address: getAddress() });
           if (typeof r?.reward === 'number' && r.reward > tokensEarned) {
             tokensEarned = r.reward;
             tokensEl.textContent = tokensEarned.toFixed(2);
@@ -132,10 +136,16 @@ async function claim() {
     const signer = getSigner();
     const contract = new window.ethers.Contract(CONTRACT_ADDRESS, SNAKE_ABI, signer);
     const tx = await contract.claimReward(data.amount, data.nonce, data.sig);
-    setStatus(t('controls.tx_confirm'));
+    setStatus(t('controls.tx_confirm') + ` (tx ${tx.hash.slice(0, 10)}...)`);
     await tx.wait();
 
-    setStatus(t('controls.claimed', { amount: tokensEarned.toFixed(2) }));
+    // Feedback explicite : montant + lien Polygonscan cliquable pour valider visuellement
+    const claimedLabel = t('controls.claimed', { amount: tokensEarned.toFixed(2) });
+    statusEl.innerHTML =
+      `<strong>${claimedLabel}</strong> ` +
+      `<a href="https://polygonscan.com/tx/${tx.hash}" target="_blank" rel="noopener" ` +
+      `style="color:var(--neon-green);text-decoration:underline;">voir tx</a>`;
+    statusEl.classList.remove('empty');
     tokensEarned = 0;
     sessionId = null;
     tokensEl.textContent = '0.00';

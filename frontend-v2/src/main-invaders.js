@@ -167,8 +167,9 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowRight': case 'd': case 'D': e.preventDefault(); game.setKey('right', true); break;
     case 'ArrowUp': case 'w': case 'W': case ' ':
       e.preventDefault();
-      if (!game.running && !newGameBtn.disabled) startGame();
-      else game.setKey('fire', true);
+      // Ne relance PAS si une reward attend d'etre claim (sinon on ecrase sessionId + on perd les $SNAKE).
+      if (!game.running && !newGameBtn.disabled && tokensEarned <= 0) startGame();
+      else if (game.running) game.setKey('fire', true);
       break;
   }
 });

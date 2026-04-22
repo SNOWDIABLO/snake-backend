@@ -135,10 +135,16 @@ async function claim() {
     const signer = getSigner();
     const contract = new window.ethers.Contract(CONTRACT_ADDRESS, SNAKE_ABI, signer);
     const tx = await contract.claimReward(data.amount, data.nonce, data.sig);
-    setStatus(t('controls.tx_confirm'));
+    setStatus(t('controls.tx_confirm') + ` (tx ${tx.hash.slice(0, 10)}...)`);
     await tx.wait();
 
-    setStatus(t('controls.claimed', { amount: tokensEarned.toFixed(2) }));
+    // Feedback explicite : montant + lien Polygonscan cliquable pour valider visuellement
+    const claimedLabel = t('controls.claimed', { amount: tokensEarned.toFixed(2) });
+    statusEl.innerHTML =
+      `<strong>${claimedLabel}</strong> ` +
+      `<a href="https://polygonscan.com/tx/${tx.hash}" target="_blank" rel="noopener" ` +
+      `style="color:var(--neon-green);text-decoration:underline;">voir tx</a>`;
+    statusEl.classList.remove('empty');
     tokensEarned = 0;
     sessionId = null;
     tokensEl.textContent = '0.00';

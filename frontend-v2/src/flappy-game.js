@@ -14,18 +14,18 @@ const H = 600;
 // Bird
 const BIRD_X = 100;
 const BIRD_R = 14;
-const GRAVITY = 0.42;
-const JUMP_V = -7.8;
-const MAX_FALL = 11;
+const GRAVITY = 0.32;
+const JUMP_V = -7.2;
+const MAX_FALL = 9;
 
 // Pipes
 const PIPE_W = 68;
-const PIPE_GAP_BASE = 170;    // easy at start
-const PIPE_GAP_MIN  = 120;    // hard cap
-const PIPE_SPEED_BASE = 2.6;
-const PIPE_SPEED_MAX  = 5.8;
-const PIPE_SPAWN_BASE = 95;   // frames between spawns
-const PIPE_SPAWN_MIN  = 58;
+const PIPE_GAP_BASE = 205;    // easy at start
+const PIPE_GAP_MIN  = 155;    // hard cap
+const PIPE_SPEED_BASE = 2.2;
+const PIPE_SPEED_MAX  = 4.8;
+const PIPE_SPAWN_BASE = 120;  // frames between spawns
+const PIPE_SPAWN_MIN  = 85;
 
 // Rails
 const GROUND_H = 48;

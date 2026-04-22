@@ -19,9 +19,9 @@ const PAD_SPEED = 8;
 
 // Ball
 const BALL_R = 7;
-const START_SPEED = 5;
-const SPEED_GAIN = 0.15;
-const MAX_SPEED = 11;
+const START_SPEED = 3.4;
+const SPEED_GAIN = 0.08;
+const MAX_SPEED = 7.5;
 
 // Brick grid
 const BRICK_ROWS = 6;

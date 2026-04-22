@@ -1,0 +1,19 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Hardhat artifacts
+node_modules/
+cache/
+artifacts/
+typechain/
+typechain-types/
+
+# Deploy logs / addresses (ok pour partager mais on garde local par default)
+deployments.json
+addresses.*.json
+
+# OS
+.DS_Store
+Thumbs.db

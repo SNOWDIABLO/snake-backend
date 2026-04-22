@@ -1,0 +1,205 @@
+/* ===================================================================
+   SnowDiablo Arcade — Cosmic Dark Theme
+   Shared across all games. Import in every page root.
+   =================================================================== */
+
+:root {
+  /* Backgrounds */
+  --bg-0:           #05050a;
+  --bg-1:           #0a0a0f;
+  --bg-2:           #111118;
+  --bg-3:           #1a1a2e;
+  --bg-card:        #0e0e18;
+
+  /* Borders */
+  --border:         #22223a;
+  --border-hover:   #00ff8855;
+
+  /* Text */
+  --text:           #e8e8f0;
+  --text-dim:       #8888a0;
+  --text-faint:     #55556a;
+
+  /* Neon palette */
+  --neon-green:     #00ff88;
+  --neon-cyan:      #00ccff;
+  --neon-pink:      #ff3388;
+  --neon-orange:    #ff9544;
+  --neon-purple:    #b388ff;
+  --neon-yellow:    #ffcc44;
+
+  /* Gradients */
+  --gradient-main:  linear-gradient(90deg, var(--neon-green), var(--neon-cyan));
+  --gradient-hot:   linear-gradient(135deg, var(--neon-pink), var(--neon-orange));
+  --gradient-cool:  linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+
+  /* Effects */
+  --shadow-glow:    0 0 24px rgba(0, 255, 136, 0.18);
+  --shadow-card:    0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-hover:   0 12px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 255, 136, 0.12);
+
+  /* Radii */
+  --radius:         12px;
+  --radius-sm:      8px;
+  --radius-lg:      16px;
+
+  /* Typography */
+  --ff-mono:        'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  --ff-sans:        system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Spacing scale */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+
+  /* Timings */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in:  cubic-bezier(0.55, 0, 0.68, 0.53);
+}
+
+/* ===== Reset & Base ===== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  font-family: var(--ff-mono);
+  background: var(--bg-0);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(0, 255, 136, 0.07), transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(0, 204, 255, 0.06), transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(255, 51, 136, 0.03), transparent 60%),
+    var(--bg-0);
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Starfield background (pure CSS, no JS) */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.6;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(1px 1px at 75% 80%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 90% 15%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(2px 2px at 40% 90%, rgba(0,255,136,0.3), transparent),
+    radial-gradient(1px 1px at 60% 50%, rgba(0,204,255,0.4), transparent);
+  background-size: 400px 400px, 300px 300px, 500px 500px, 350px 350px, 250px 250px;
+  animation: starfield 120s linear infinite;
+}
+
+@keyframes starfield {
+  0%   { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: 400px 400px, -300px 300px, 500px -500px, -350px 350px, 250px -250px; }
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, textarea, select { font-family: inherit; }
+img { display: block; max-width: 100%; }
+
+/* Ensure page content sits above starfield */
+header, main, footer, section { position: relative; z-index: 1; }
+
+/* ===== Reusable utility classes ===== */
+.grad-text {
+  background: var(--gradient-main);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--sp-6);
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--bg-card);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.btn:hover {
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.2);
+}
+.btn-primary {
+  background: var(--gradient-main);
+  color: var(--bg-0);
+  border-color: transparent;
+  font-weight: 700;
+}
+.btn-primary:hover {
+  color: var(--bg-0);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 255, 136, 0.3);
+}
+
+/* Status badges (live/soon/beta) */
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 0.65rem;
+  border-radius: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.badge.live {
+  background: rgba(0, 255, 136, 0.15);
+  color: var(--neon-green);
+  border: 1px solid var(--neon-green);
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
+}
+.badge.live::before {
+  content: '● '; animation: pulse 1.5s ease-in-out infinite;
+}
+.badge.soon {
+  background: rgba(136, 136, 160, 0.1);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.badge.beta {
+  background: rgba(255, 149, 68, 0.15);
+  color: var(--neon-orange);
+  border: 1px solid var(--neon-orange);
+}
+
+@keyframes pulse { 50% { opacity: 0.5; } }
+
+/* Scrollbar cosmic styling */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-1); }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--neon-green); }
+
+/* Selection */
+::selection { background: var(--neon-green); color: var(--bg-0); }

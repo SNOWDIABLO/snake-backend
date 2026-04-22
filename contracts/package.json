@@ -1,0 +1,22 @@
+{
+  "name": "snakecoin-contracts",
+  "version": "1.0.0",
+  "description": "SnakeCoin P2E — Smart contracts (Polygon)",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:amoy": "hardhat run scripts/deploy-boost.js --network amoy",
+    "deploy:polygon": "hardhat run scripts/deploy-boost.js --network polygon",
+    "configure:polygon": "hardhat run scripts/configure-tiers.js --network polygon",
+    "verify:polygon": "hardhat run scripts/verify-boost.js --network polygon",
+    "renounce:polygon": "hardhat run scripts/renounce-ownership.js --network polygon"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0",
+    "dotenv": "^16.4.5"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2"
+  }
+}

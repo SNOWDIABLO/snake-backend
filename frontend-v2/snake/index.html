@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+<title>Snake — SnowDiablo Arcade</title>
+<meta name="description" content="Play Snake on Polygon. 10 points = 1 SNAKE." />
+<link rel="icon" href="/favicon.png" />
+</head>
+<body>
+<div id="hdr"></div>
+<main>
+<div class="container snake-wrap">
+<div class="snake-grid">
+<div>
+<div class="hud">
+<div class="cell"><span class="k" data-i18n="hud.score">SCORE</span><span class="v" id="score">0</span></div>
+<div class="cell"><span class="k" data-i18n="hud.tokens">$SNAKE</span><span class="v tokens" id="tokens">0.00</span></div>
+<div class="cell"><span class="k" data-i18n="hud.best">BEST</span><span class="v" id="best">0</span></div>
+</div>
+<div class="game-wrap"><canvas id="game" width="480" height="480"></canvas></div>
+<div class="arrow-pad">
+<button type="button" data-arrow="up" aria-label="Up">UP</button>
+<button type="button" data-arrow="left" aria-label="Left">LEFT</button>
+<button type="button" data-arrow="right" aria-label="Right">RIGHT</button>
+<button type="button" data-arrow="down" aria-label="Down">DOWN</button>
+</div>
+</div>
+<aside>
+<div class="panel">
+<h3 data-i18n="controls.heading">CONTROLS</h3>
+<div class="action-row">
+<button id="new-game" class="btn btn-primary" type="button" disabled data-i18n="controls.new_game">NEW GAME</button>
+<button id="claim" class="btn" type="button" disabled data-i18n="controls.claim">CLAIM $SNAKE</button>
+</div>
+<div id="status" class="empty" data-i18n="controls.connect_play">Connect your wallet to play</div>
+</div>
+<div id="player-mount"></div>
+<div id="quests-mount"></div>
+<div class="panel">
+<h3 data-i18n="howto.heading">HOW TO EARN</h3>
+<ul class="how-list">
+<li data-i18n="howto.eat">Eat apples - +1 point</li>
+<li data-i18n="howto.ratio">10 points = 1 $SNAKE claimable</li>
+<li data-i18n="howto.multipliers">Streaks, Trophies, Boosts stack multipliers</li>
+<li data-i18n="howto.cap">Daily cap: 100 $SNAKE per wallet</li>
+<li data-i18n="howto.anti_cheat">Anti-cheat: rejected if over 5 pts/sec</li>
+</ul>
+</div>
+<div id="tournament-mount"></div>
+<div id="clans-mount"></div>
+<div id="boost-mount"></div>
+<div class="panel" style="text-align:center;">
+<span id="backend-status" data-i18n="backend.checking">checking...</span>
+</div>
+</aside>
+</div>
+</div>
+</main>
+<div id="ftr"></div>
+<script type="module" src="/src/main-snake.js"></script>
+</body>
+</html>

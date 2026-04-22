@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnowDiablo Arcade — Play-to-Earn on Polygon</title>
+  <meta name="description" content="Arcade classics reborn as skill-based crypto games. Snake, Pong, Flappy, Breakout and more. Earn $SNAKE on Polygon." />
+  <meta property="og:title" content="SnowDiablo Arcade" />
+  <meta property="og:description" content="Skill-based Play-to-Earn arcade on Polygon. Zero presale. 100% mint via gameplay." />
+  <meta property="og:image" content="https://snowdiablo.xyz/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="/favicon.png" />
+</head>
+<body>
+  <div id="hdr"></div>
+
+  <main>
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero-inner">
+          <div class="hero-badge">
+            <span class="dot"></span> LIVE ON POLYGON MAINNET
+          </div>
+          <h1 class="hero-title">
+            THE ARCADE<br>
+            <span class="grad-text">REBORN ONCHAIN</span>
+          </h1>
+          <p class="hero-sub">
+            Seven skill-based classics. One token. Zero presale. Play, claim, level up —
+            everything earned, nothing printed.
+          </p>
+          <div class="hero-cta">
+            <a href="/snake/" class="btn btn-primary">▶ PLAY SNAKE</a>
+            <a href="#games" class="btn">SEE ALL GAMES</a>
+          </div>
+
+          <!-- Live stats -->
+          <div class="stats-row">
+            <div class="stat-card">
+              <span class="stat-label">TOTAL $SNAKE MINTED</span>
+              <span class="stat-val" data-stat="total_claimed">—</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">GAMES PLAYED</span>
+              <span class="stat-val" data-stat="games">—</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">ACTIVE PLAYERS</span>
+              <span class="stat-val" data-stat="players">—</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">HIGH SCORE</span>
+              <span class="stat-val" data-stat="high_score">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ GAMES GRID ============ -->
+    <section id="games" class="games-section">
+      <div class="container">
+        <div class="section-head">
+          <h2>PICK YOUR GAME</h2>
+          <p>All games share one economy. Your $SNAKE and boost NFTs work everywhere.</p>
+        </div>
+
+        <div class="games-grid">
+          <!-- Snake LIVE -->
+          <a href="/snake/" class="game-card live">
+            <div class="game-icon" style="--c1: var(--neon-green); --c2: var(--neon-cyan);">🐍</div>
+            <div class="game-body">
+              <div class="game-head">
+                <h3>SNAKE</h3>
+                <span class="badge live">LIVE</span>
+              </div>
+              <p>The OG. Eat fruit, grow, don't crash. 10 pts = 1 $SNAKE. Golden events × 3.</p>
+              <div class="game-footer">
+                <span class="chip">P2E</span>
+                <span class="chip">NFT Boosts</span>
+                <span class="play-arrow">→</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Pong -->
+          <a href="/pong/" class="game-card">
+            <div class="game-icon" style="--c1: var(--neon-cyan); --c2: var(--neon-purple);">🏓</div>
+            <div class="game-body">
+              <div class="game-head">
+                <h3>PONG</h3>
+                <span class="badge soon">SOON</span>
+              </div>
+              <p>Neon rackets, physics feel, 1P vs AI escalation. Survival = $SNAKE payout.</p>
+              <div class="game-footer">
+                <span class="chip">Skill</span>
+                <span class="chip">AI ladder</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Flappy -->
+          <a href="/flappy/" class="game-card">
+            <div class="game-icon" style="--c1: var(--neon-yellow); --c2: var(--neon-orange);">🐦</div>
+            <div class="game-body">
+              <div class="game-head">
+                <h3>FLAPPY</h3>
+                <span class="badge soon">SOON</span>
+              </div>
+              <p>One tap. Infinite pipes. Brutal. Distance traveled = rewards pool.</p>
+              <div class="game-footer">
+                <span class="chip">Endless</span>
+                <span class="chip">Reflex</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Space Invaders -->
+          <a href="/space-invaders/" class="game-card">
+            <div class="game-icon" style="--c1: var(--neon-pink); --c2: var(--neon-purple);">👾</div>
+            <div class="game-body">
+              <div class="game-head">
+                <h3>INVADERS</h3>
+                <span class="badge soon">SOON</span>
+              </div>
+              <p>Defend earth. Waves. UFO bonus. Mothership = jackpot $SNAKE drop.</p>
+              <div class="game-footer">
+                <span class="chip">Arcade</span>
+                <span class="chip">Combo</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Breakout -->
+          <a href="/breakout/" class="game-card">
+            <div class="game-icon" style="--c1: var(--neon-orange); --c2: var(--neon-pink);">🧱</div>
+            <div class="game-body">
+              <div class="game-head">
+                <h3>BREAKOUT</h3>
+                <span class="badge soon">SOON</span>
+              </div>
+              <p>Smash all blocks. Power-ups. Multi-ball = reward multiplier.</p>
+              <div class="game-footer">
+                <span class="chip">Puzzle</span>
+                <span class="chip">Power-ups</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Minesweeper -->
+          <a href="/minesweeper/" class="game-card">
+            <div class="game-icon" style="--c1: var(--neon-green); --c2: var(--neon-yellow);">💣</div>
+            <div class="game-body">
+              <div class="game-head">
+                <h3>MINESWEEPER</h3>
+                <span class="badge soon">SOON</span>
+              </div>
+              <p>Classic logic. Timer-based payout. Clean-sweep bonus ×2.</p>
+              <div class="game-footer">
+                <span class="chip">Logic</span>
+                <span class="chip">Speed</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- 2048 -->
+          <a href="/2048/" class="game-card">
+            <div class="game-icon" style="--c1: var(--neon-purple); --c2: var(--neon-cyan);">🔢</div>
+            <div class="game-body">
+              <div class="game-head">
+                <h3>2048</h3>
+                <span class="badge soon">SOON</span>
+              </div>
+              <p>Merge tiles. Hit 2048 for jackpot. Every power of 2 tracked onchain.</p>
+              <div class="game-footer">
+                <span class="chip">Puzzle</span>
+                <span class="chip">Strategy</span>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ WHY SNOWDIABLO ============ -->
+    <section class="why-section">
+      <div class="container">
+        <div class="section-head">
+          <h2>WHY SNOWDIABLO</h2>
+        </div>
+
+        <div class="features-grid">
+          <div class="feature">
+            <div class="feature-icon">🎯</div>
+            <h3>SKILL-BASED</h3>
+            <p>No random pumps. No pay-to-win. Pure gameplay → pure rewards. Cheat = rejected server-side.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🔥</div>
+            <h3>ZERO PRESALE</h3>
+            <p>No team allocation. No VC dump. 100% of $SNAKE mints from gameplay only.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">⚡</div>
+            <h3>POLYGON SPEED</h3>
+            <p>Gas ~$0.01. Mint in 2 seconds. Playable from any device with a wallet.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🏆</div>
+            <h3>SEASONAL NFTS</h3>
+            <p>Top 10 each month get an on-chain trophy NFT + permanent +5% boost per trophy.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">💎</div>
+            <h3>BOOST NFTS</h3>
+            <p>Basic +2% / Pro +4% / Elite +8%. Chainlink-stable pricing. Cross-game utility.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🌐</div>
+            <h3>OPEN ECONOMY</h3>
+            <p>Transparent LP Fund wallet. All tournaments / clan / username fees grow the pool.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="ftr"></div>
+
+  <style>
+    /* ===== Page-specific styles ===== */
+    .hero {
+      padding: var(--sp-16) 0 var(--sp-10);
+      text-align: center;
+      position: relative;
+    }
+    .hero-inner { display: flex; flex-direction: column; align-items: center; gap: var(--sp-6); }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      padding: 6px 16px;
+      background: rgba(0, 255, 136, 0.1);
+      border: 1px solid var(--neon-green);
+      border-radius: 24px;
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px;
+      color: var(--neon-green);
+    }
+    .hero-badge .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--neon-green);
+      box-shadow: 0 0 10px var(--neon-green);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .hero-title {
+      font-size: clamp(2.5rem, 7vw, 4.5rem);
+      font-weight: 900;
+      letter-spacing: -1px;
+      line-height: 1.05;
+    }
+    .hero-sub {
+      max-width: 640px;
+      color: var(--text-dim);
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+    .hero-cta { display: flex; gap: var(--sp-3); flex-wrap: wrap; justify-content: center; }
+    .btn.btn-primary { padding: var(--sp-3) var(--sp-6); font-size: 1rem; }
+    .btn { padding: var(--sp-3) var(--sp-5); }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--sp-4);
+      width: 100%;
+      max-width: 960px;
+      margin-top: var(--sp-6);
+    }
+    .stat-card {
+      display: flex; flex-direction: column; gap: var(--sp-1);
+      padding: var(--sp-5);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: all 0.2s var(--ease-out);
+    }
+    .stat-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+    .stat-label {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px;
+      color: var(--text-dim);
+    }
+    .stat-val {
+      font-size: 1.75rem; font-weight: 900;
+      background: var(--gradient-main);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .section-head { text-align: center; margin-bottom: var(--sp-10); }
+    .section-head h2 {
+      font-size: clamp(1.5rem, 4vw, 2.25rem);
+      font-weight: 900;
+      letter-spacing: 3px;
+      margin-bottom: var(--sp-3);
+    }
+    .section-head p { color: var(--text-dim); max-width: 540px; margin: 0 auto; }
+
+    .games-section, .why-section { padding: var(--sp-12) 0; }
+
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--sp-5);
+    }
+    .game-card {
+      display: flex; flex-direction: column;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: all 0.3s var(--ease-out);
+      position: relative;
+    }
+    .game-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-hover);
+      box-shadow: var(--shadow-hover);
+    }
+    .game-card.live::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--gradient-main);
+      z-index: 1;
+    }
+    .game-icon {
+      aspect-ratio: 16/9;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 4rem;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--c1) 20%, transparent), color-mix(in srgb, var(--c2) 15%, transparent));
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .game-icon::after {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 30%, rgba(0,0,0,0.4));
+    }
+    .game-body { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-3); flex: 1; }
+    .game-head {
+      display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3);
+    }
+    .game-head h3 { font-size: 1.25rem; font-weight: 900; letter-spacing: 1.5px; }
+    .game-body p { color: var(--text-dim); font-size: 0.85rem; line-height: 1.5; flex: 1; }
+    .game-footer { display: flex; align-items: center; gap: var(--sp-2); margin-top: auto; }
+    .chip {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 1px;
+      padding: 3px 9px;
+      border-radius: 12px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+    .play-arrow {
+      margin-left: auto;
+      color: var(--neon-green);
+      font-size: 1.25rem;
+      font-weight: 900;
+      transition: transform 0.2s;
+    }
+    .game-card:hover .play-arrow { transform: translateX(4px); }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--sp-5);
+    }
+    .feature {
+      padding: var(--sp-6);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: all 0.2s;
+    }
+    .feature:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+    .feature-icon { font-size: 2rem; margin-bottom: var(--sp-3); }
+    .feature h3 { font-size: 0.95rem; letter-spacing: 1.5px; margin-bottom: var(--sp-2); color: var(--neon-green); }
+    .feature p { color: var(--text-dim); font-size: 0.85rem; line-height: 1.6; }
+  </style>
+
+  <script type="module" src="/src/main-hub.js"></script>
+</body>
+</html>

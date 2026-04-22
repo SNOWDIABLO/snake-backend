@@ -1,0 +1,136 @@
+/* Profile page layout */
+
+.profile-wrap { padding: var(--sp-10) 0 var(--sp-12); }
+
+.profile-empty {
+  text-align: center;
+  padding: var(--sp-12) var(--sp-6);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.profile-empty-icon { font-size: 4rem; margin-bottom: var(--sp-4); }
+.profile-empty h2 { margin-bottom: var(--sp-3); letter-spacing: 2px; }
+.profile-empty p { color: var(--text-dim); }
+.profile-empty .hint { margin-top: var(--sp-4); color: var(--text-faint); font-size: 0.85rem; }
+.profile-loading { text-align: center; padding: var(--sp-12); color: var(--text-dim); }
+
+.profile-head {
+  display: flex; align-items: center; gap: var(--sp-5);
+  padding: var(--sp-6);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: var(--sp-6);
+}
+.profile-avatar {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: var(--gradient-main);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 1.6rem;
+  color: var(--bg-0);
+  flex-shrink: 0;
+  box-shadow: 0 0 24px rgba(0, 255, 136, 0.3);
+}
+.profile-info { min-width: 0; }
+.profile-name {
+  font-size: 1.4rem; font-weight: 800;
+  letter-spacing: 1px;
+}
+.profile-addr {
+  display: block;
+  font-family: var(--ff-mono);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  word-break: break-all;
+  margin-top: 4px;
+}
+.profile-addr:hover { color: var(--neon-cyan); }
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-8);
+}
+.p-stat {
+  padding: var(--sp-5);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: all 0.2s;
+}
+.p-stat:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+.p-stat .k {
+  display: block;
+  font-size: 0.65rem; font-weight: 700; letter-spacing: 1.5px;
+  color: var(--text-dim);
+  margin-bottom: var(--sp-2);
+}
+.p-stat .v {
+  display: block;
+  font-size: 1.4rem; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.profile-section {
+  margin-bottom: var(--sp-8);
+}
+.profile-section h3 {
+  font-size: 0.85rem; letter-spacing: 2px;
+  color: var(--neon-green);
+  margin-bottom: var(--sp-4);
+  font-weight: 800;
+}
+
+.boost-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-3);
+}
+.boost-card {
+  padding: var(--sp-5);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+}
+.boost-card:hover { border-color: var(--border-hover); }
+.boost-tier {
+  font-size: 0.7rem; letter-spacing: 2px; font-weight: 800;
+  padding: 4px 10px; border-radius: 12px;
+  display: inline-block; margin-bottom: var(--sp-3);
+  background: rgba(136,136,160,0.1); color: var(--text-dim);
+}
+.boost-tier.basic   { background: rgba(179,136,255,0.15); color: var(--neon-purple); }
+.boost-tier.pro     { background: rgba(0,204,255,0.15);   color: var(--neon-cyan); }
+.boost-tier.elite   { background: rgba(255,149,68,0.15);  color: var(--neon-orange); }
+.boost-bps {
+  font-size: 1.75rem; font-weight: 900;
+  background: var(--gradient-main);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.boost-id { font-size: 0.75rem; color: var(--text-faint); margin-top: 4px; }
+
+.quest-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.quest {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--sp-4);
+  align-items: center;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+.quest.done {
+  border-color: var(--neon-green);
+  background: rgba(0,255,136,0.05);
+}
+.quest.done .quest-title::before { content: '✓ '; color: var(--neon-green); }
+.quest-prog { font-family: var(--ff-mono); color: var(--text-dim); }
+.quest-reward { color: var(--neon-green); font-weight: 700; }

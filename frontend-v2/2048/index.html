@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+<title>2048 — SnowDiablo Arcade</title>
+<meta name="description" content="Neon 2048 on Polygon. Merge tiles for skill-based $SNAKE rewards." />
+<link rel="icon" href="/favicon.png" />
+</head>
+<body>
+<div id="hdr"></div>
+<main>
+<div class="container g2048-wrap">
+<div class="g2048-grid">
+<div>
+<div class="hud">
+<div class="cell"><span class="k" data-i18n="hud.score">SCORE</span><span class="v" id="score">0</span></div>
+<div class="cell"><span class="k" data-i18n="hud.tokens">$SNAKE</span><span class="v tokens" id="tokens">0.00</span></div>
+<div class="cell"><span class="k" data-i18n="hud.best">BEST</span><span class="v" id="best">0</span></div>
+</div>
+<div class="game-wrap"><canvas id="game"></canvas></div>
+<div class="g2048-howto">
+<div class="tip"><span class="label" data-i18n="game2048.hint_desktop">DESKTOP</span><span data-i18n="game2048.hint_desktop_val">Arrows or WASD to merge</span></div>
+<div class="tip"><span class="label" data-i18n="game2048.hint_mobile">MOBILE</span><span data-i18n="game2048.hint_mobile_val">Swipe to merge tiles</span></div>
+</div>
+</div>
+<aside>
+<div class="panel">
+<h3 data-i18n="controls.heading">CONTROLS</h3>
+<div class="action-row">
+<button id="new-game" class="btn btn-primary" type="button" disabled data-i18n="controls.new_game">NEW GAME</button>
+<button id="claim" class="btn" type="button" disabled data-i18n="controls.claim">CLAIM $SNAKE</button>
+</div>
+<div id="status" class="empty" data-i18n="controls.connect_play">Connect your wallet to play</div>
+</div>
+<div id="player-mount"></div>
+<div id="quests-mount"></div>
+<div class="panel">
+<h3 data-i18n="howto.heading">HOW TO EARN</h3>
+<ul class="how-list">
+<li data-i18n="game2048.howto_merge">Merged tile value = +points</li>
+<li data-i18n="game2048.howto_ratio">100 points = 1 $SNAKE claimable</li>
+<li data-i18n="game2048.howto_end">Stuck grid ends the run</li>
+<li data-i18n="howto.multipliers">Streaks, Trophies, Boosts stack multipliers</li>
+<li data-i18n="howto.cap">Daily cap: 100 $SNAKE per wallet</li>
+</ul>
+</div>
+<div id="tournament-mount"></div>
+<div id="clans-mount"></div>
+<div id="boost-mount"></div>
+<div class="panel" style="text-align:center;">
+<span id="backend-status" data-i18n="backend.checking">checking...</span>
+</div>
+</aside>
+</div>
+</div>
+</main>
+<div id="ftr"></div>
+<script type="module" src="/src/main-2048.js"></script>
+</body>
+</html>

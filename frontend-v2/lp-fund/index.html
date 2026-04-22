@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LP Fund Tracker — SnowDiablo Arcade</title>
+  <meta name="description" content="Public LP Fund wallet tracker. Live POL + $SNAKE balance feeding future DEX liquidity." />
+  <link rel="icon" href="/favicon.png" />
+</head>
+<body>
+  <div id="hdr"></div>
+  <main>
+    <div class="container lp-wrap">
+      <div class="lp-hero">
+        <h1>LP FUND TRACKER</h1>
+        <p>
+          100% transparent wallet feeding the future $SNAKE DEX liquidity. Fed by tournament entry
+          fees, clan creation burns, and username changes. Zero allocation, zero team pull — every
+          satoshi in here is destined for the LP when we list.
+        </p>
+        <div class="lp-wallet-pill">
+          <span>Wallet</span>
+          <a href="https://polygonscan.com/address/0xc1D4Fe31F4C0526848E4B427FDfBA519f36C166E" target="_blank" rel="noopener">
+            0xc1D4Fe31F4C0526848E4B427FDfBA519f36C166E ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="lp-grid">
+        <div class="lp-card pol">
+          <div class="lp-token-icon">🟣</div>
+          <div class="lp-token-name">POLYGON (POL)</div>
+          <div class="lp-val" id="lp-pol">…</div>
+        </div>
+        <div class="lp-card snake">
+          <div class="lp-token-icon">🐍</div>
+          <div class="lp-token-name">$SNAKE</div>
+          <div class="lp-val" id="lp-snake">…</div>
+        </div>
+      </div>
+
+      <div class="lp-footer">
+        <span id="lp-updated">—</span> · auto-refresh 60s · RPC: polygon-bor-rpc.publicnode.com
+      </div>
+
+      <section class="lp-sources">
+        <h3>FUNDING SOURCES</h3>
+        <ul>
+          <li><strong>1 POL</strong> — tournament entry (per 24h season)</li>
+          <li><strong>1000 $SNAKE burn</strong> — clan creation</li>
+          <li><strong>1000 $SNAKE burn</strong> — paid username change (first one is free)</li>
+          <li><strong>Boost NFT mint</strong> — POL route (75% to LP fund, 25% to dev)</li>
+        </ul>
+      </section>
+
+      <div id="lp-txn"></div>
+    </div>
+  </main>
+  <div id="ftr"></div>
+  <script type="module" src="/src/main-lpfund.js"></script>
+</body>
+</html>

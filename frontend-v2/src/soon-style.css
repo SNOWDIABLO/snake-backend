@@ -1,0 +1,80 @@
+/* ===================================================================
+   Coming Soon page layout
+   =================================================================== */
+
+.soon-wrap {
+  min-height: calc(100vh - 300px);
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--sp-16) var(--sp-6);
+}
+.soon-card {
+  max-width: 640px; width: 100%;
+  text-align: center;
+  padding: var(--sp-12) var(--sp-8);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+}
+.soon-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--gradient-cool);
+}
+.soon-icon {
+  font-size: 5rem;
+  margin-bottom: var(--sp-5);
+  filter: drop-shadow(0 0 24px rgba(0, 204, 255, 0.4));
+}
+.soon-title {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 900;
+  letter-spacing: 3px;
+  margin-bottom: var(--sp-3);
+  background: var(--gradient-main);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.soon-status {
+  display: inline-block;
+  padding: 4px 14px;
+  background: rgba(255, 149, 68, 0.15);
+  color: var(--neon-orange);
+  border: 1px solid var(--neon-orange);
+  border-radius: 20px;
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 2px;
+  margin-bottom: var(--sp-5);
+}
+.soon-desc {
+  color: var(--text-dim);
+  font-size: 1rem; line-height: 1.7;
+  margin-bottom: var(--sp-8);
+  max-width: 500px; margin-left: auto; margin-right: auto;
+}
+.soon-specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-8);
+  text-align: left;
+}
+.soon-spec {
+  padding: var(--sp-3);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.soon-spec .k {
+  display: block;
+  font-size: 0.65rem; color: var(--text-faint);
+  letter-spacing: 1px; font-weight: 700;
+  margin-bottom: 2px;
+}
+.soon-spec .v {
+  font-size: 0.85rem; color: var(--neon-green);
+  font-weight: 700;
+}
+.soon-actions {
+  display: flex; justify-content: center; gap: var(--sp-3); flex-wrap: wrap;
+}

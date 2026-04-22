@@ -1,0 +1,13 @@
+{
+  "network": "polygon",
+  "chainId": "137",
+  "address": "0x0a507FeAD82014674a0160CEf04570F19334E52C",
+  "deployer": "0xA17002Aed44F636d21d8D0d430e32497Aa307BaE",
+  "txHash": "0xcf10a78df2bea24a6d2ea83b0e1ae14a7532fc181baba608c00b1c917574d22b",
+  "constructorArgs": [
+    "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0",
+    "0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1",
+    "0xFca2595d1EE2d2d417f6e404330Ca72934054fc9"
+  ],
+  "deployedAt": "2026-04-20T08:41:37.667Z"
+}

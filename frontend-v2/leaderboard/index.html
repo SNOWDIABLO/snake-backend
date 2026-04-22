@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard — SnowDiablo Arcade</title>
+  <meta name="description" content="Top players across all SnowDiablo arcade games. Live from Polygon." />
+  <link rel="icon" href="/favicon.png" />
+</head>
+<body>
+  <div id="hdr"></div>
+  <main>
+    <div class="container lb-wrap">
+      <div class="lb-header">
+        <div>
+          <h1 class="lb-title">LEADERBOARD</h1>
+          <div class="lb-sub">Top 100 — ranked by high score × games played</div>
+        </div>
+        <div class="lb-controls">
+          <select id="lb-filter">
+            <option value="all">All games</option>
+            <option value="snake">Snake</option>
+            <option value="pong">Pong</option>
+            <option value="flappy">Flappy</option>
+            <option value="invaders">Invaders</option>
+            <option value="breakout">Breakout</option>
+            <option value="minesweeper">Minesweeper</option>
+            <option value="2048">2048</option>
+          </select>
+          <button id="lb-refresh" class="btn">↻ Refresh</button>
+          <span id="lb-updated">—</span>
+        </div>
+      </div>
+
+      <div class="lb-table-wrap">
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>High score</th>
+              <th>Total earned</th>
+              <th>Games</th>
+            </tr>
+          </thead>
+          <tbody id="lb-body">
+            <tr><td colspan="5" class="lb-loading">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+  <div id="ftr"></div>
+  <script type="module" src="/src/main-leaderboard.js"></script>
+</body>
+</html>

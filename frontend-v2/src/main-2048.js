@@ -64,7 +64,10 @@ let game         = null;
           // et eviter de systematiquement capper a 500 -> 50 $SNAKE/session.
           const normalizedScore = Math.max(0, Math.floor(score / 10));
           const r = await api.sessionEnd({ sessionId, score: normalizedScore, address: getAddress() });
-          if (typeof r?.reward === 'number' && r.reward > tokensEarned) {
+          // Toujours utiliser la reward backend (source of truth, inclut boost/streak/NFT).
+          // BUG HISTORIQUE: `r.reward > tokensEarned` empechait l'UI de DESCENDRE si backend
+          // renvoyait moins que le preview → user voyait 16.55 mais recevait 1.8 on-chain.
+          if (typeof r?.reward === 'number') {
             tokensEarned = r.reward;
             tokensEl.textContent = tokensEarned.toFixed(2);
           }

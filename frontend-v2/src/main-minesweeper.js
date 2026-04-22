@@ -62,7 +62,8 @@ let flagMode     = false;
       if (sessionId && isConnected()) {
         try {
           const r = await api.sessionEnd({ sessionId, score, address: getAddress() });
-          if (typeof r?.reward === 'number' && r.reward > tokensEarned) {
+          // Toujours syncer UI avec reward backend (inclut boost/streak/NFT + caps).
+          if (typeof r?.reward === 'number') {
             tokensEarned = r.reward;
             tokensEl.textContent = tokensEarned.toFixed(2);
           }

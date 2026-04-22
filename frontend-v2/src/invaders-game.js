@@ -180,7 +180,7 @@ export class InvadersGame {
           b.y = -1000;
           this.score++;
           this.onScore(this.score);
-          this.onTokensPreview(this.score / 10);
+          this.onTokensPreview(this.score / 5);
           break;
         }
       }
@@ -214,7 +214,7 @@ export class InvadersGame {
       this.highScore = this.score;
       try { localStorage.setItem('invadersHi', String(this.score)); } catch {}
     }
-    const tokens = Math.floor((this.score / 10) * 100) / 100;
+    const tokens = Math.floor((this.score / 5) * 100) / 100;
     this.onGameOver({ score: this.score, tokens });
   }
 

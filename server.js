@@ -269,7 +269,10 @@ const GAME_REWARD_DIVISORS = {
   'breakout':       10,
   'minesweeper':    10,
   'space-invaders': 5,    // buff x2 (jeu difficile, peu de points/partie)
-  '2048':           150,  // nerf x15 (jeu trivial à points, évite farm bot)
+  // 2048: frontend main-2048.js pre-normalize raw_score/10 AVANT envoi backend
+  // (sinon anti-cheat pts/sec fire). Divisor 20 ici = effectif /200 sur raw score.
+  // Ex: raw 2712 → normalized 271 → reward 271/20 = 13.55 $SNAKE (nerf ~2x vs div 10 prev).
+  '2048':           20,
 };
 function getRewardDivisor(game) {
   return GAME_REWARD_DIVISORS[game] || 10;

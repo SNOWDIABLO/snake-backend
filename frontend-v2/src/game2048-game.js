@@ -127,7 +127,7 @@ export class Game2048 {
     this.grid = result;
     this.score += totalGain;
     this.onScore(this.score);
-    this.onTokensPreview(this.score / 100);
+    this.onTokensPreview(this.score / 200);
     this._spawn();
     this._draw();
 
@@ -153,7 +153,7 @@ export class Game2048 {
       this.highScore = this.score;
       try { localStorage.setItem('game2048Hi', String(this.score)); } catch {}
     }
-    const tokens = Math.floor((this.score / 100) * 100) / 100;
+    const tokens = Math.floor((this.score / 200) * 100) / 100;
     this.onGameOver({ score: this.score, tokens });
   }
 

@@ -256,6 +256,25 @@ function normalizeGame(g) {
   return SUPPORTED_GAMES.includes(s) ? s : 'snake';
 }
 
+// ─── BALANCE: reward divisor par jeu (task #130) ──────────────────────────────
+// Tous les jeux ne génèrent pas le même nb de points/minute. Un diviseur identique
+// (10) favorise les jeux "point-rich" (2048 = 2000+ pts/partie) au détriment des
+// jeux skill-heavy (Invaders = 50-100 pts). Ce map normalise les rewards à ~1-10
+// $SNAKE/minute par jeu pour éviter le farm.
+// Formule: baseReward = cappedScore / GAME_REWARD_DIVISORS[game]
+const GAME_REWARD_DIVISORS = {
+  'snake':          10,   // baseline (10 pts = 1 $SNAKE)
+  'pong':           10,
+  'flappy':         10,
+  'breakout':       10,
+  'minesweeper':    10,
+  'space-invaders': 5,    // buff x2 (jeu difficile, peu de points/partie)
+  '2048':           150,  // nerf x15 (jeu trivial à points, évite farm bot)
+};
+function getRewardDivisor(game) {
+  return GAME_REWARD_DIVISORS[game] || 10;
+}
+
 // ─── MIGRATION : usernames (task #68) ─────────────────────────────────────────
 // Pseudo lié à un wallet. 3-16 chars ASCII [a-zA-Z0-9_-].
 // Unicité case-insensitive (COLLATE NOCASE).
@@ -1510,9 +1529,11 @@ app.post('/api/session/end', (req, res) => {
   if (BOOST_NFT_ADDRESS && (!boostInfo.cached || boostInfo.stale)) {
     refreshBoostMultFor(addr).catch(() => {});
   }
-  // 10 pts = 1 $SNAKE, précision 2 décimales pour que les petits boost (+2%, +4%) soient visibles.
+  // Ratio pts→$SNAKE PAR JEU (task #130). Voir GAME_REWARD_DIVISORS ligne ~260.
+  // Précision 2 décimales pour que les petits boost (+2%, +4%) soient visibles.
   // Sans cette précision, le double Math.floor écrasait tout boost < +10% pour score < 500.
-  const baseRewardFloat = cappedScore / 10;
+  const divisor         = getRewardDivisor(sessionGame);
+  const baseRewardFloat = cappedScore / divisor;
   const rewardFloat     = baseRewardFloat * multiplier * goldenMult * nftMult * boostMult;
   // Arrondi DOWN à 2 décimales (évite que le signer paye plus que calculé)
   const reward          = Math.min(Math.floor(rewardFloat * 100) / 100, MAX_PER_SESSION);

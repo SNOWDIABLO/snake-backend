@@ -1,0 +1,28 @@
+{
+  "username": "SnowDiablo Arcade",
+  "avatar_url": "https://snowdiablo.xyz/snake_logo_256.png",
+  "content": "@everyone",
+  "embeds": [
+    {
+      "title": "The $SNAKE Arcade is live - 7 games, one token",
+      "description": "Started as a solo Snake game 6 months ago. Today it's a full arcade on Polygon. Skill-based P2E, no presale, 100% minted via gameplay.",
+      "url": "https://snowdiablo.xyz",
+      "color": 9961593,
+      "thumbnail": { "url": "https://snowdiablo.xyz/snake_logo_256.png" },
+      "fields": [
+        { "name": "Games live", "value": "[Snake](https://snowdiablo.xyz/snake/) - [Pong](https://snowdiablo.xyz/pong/) - [Flappy](https://snowdiablo.xyz/flappy/) - [Breakout](https://snowdiablo.xyz/breakout/) - [Invaders](https://snowdiablo.xyz/space-invaders/) - [2048](https://snowdiablo.xyz/2048/) - [Minesweeper](https://snowdiablo.xyz/minesweeper/)", "inline": false },
+        { "name": "Ratio", "value": "10 pts = 1 $SNAKE\n(100 pts for 2048)", "inline": true },
+        { "name": "Cap", "value": "100 $SNAKE / wallet / 24h", "inline": true },
+        { "name": "Anti-cheat", "value": "Server-side + EIP-191 wallet proof", "inline": true },
+        { "name": "On-chain utility", "value": "Seasonal Trophy NFTs - Boost marketplace (+2/+4/+8 %) - 24h Tournaments (1 POL, 70/30/10) - Clans with weekly top-3 payout", "inline": false },
+        { "name": "$SNAKE token", "value": "`0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1`\n[Polygonscan](https://polygonscan.com/token/0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1)", "inline": false },
+        { "name": "Trophy NFT", "value": "`0xda4167D97caAa90DAf5510bcE338a90134BBdfA9`", "inline": true },
+        { "name": "Boost NFT", "value": "`0x0a507FeAD82014674a0160CEf04570F19334E52C`", "inline": true },
+        { "name": "LP Fund (public tracker)", "value": "`0xc1D4Fe31F4C0526848E4B427FDfBA519f36C166E`\n[Live tracker](https://snowdiablo.xyz/lp-fund.html)", "inline": false },
+        { "name": "Transparency", "value": "No presale - No team tokens - No VC - Solo dev - 6 months public build\n[GitHub](https://github.com/SnowDiablo/snake-backend)", "inline": false }
+      ],
+      "footer": { "text": "DEX listing TBA - LP bootstrapped organically from gameplay - no artificial pump" },
+      "timestamp": "2026-04-22T18:00:00.000Z"
+    }
+  ]
+}

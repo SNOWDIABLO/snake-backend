@@ -95,7 +95,7 @@ Utiliser un **mirror hors-OneDrive** :
 git clone https://github.com/SnowDiablo/snake-backend.git C:\dev\snake-backend
 
 # Workflow : édite dans OneDrive, puis :
-robocopy "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend" C:\dev\snake-backend /E /XD node_modules .git /XF .env snake.db
+robocopy "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend" C:\dev\snake-backend /E /XD node_modules .git /XF .env snake.db secrets.local.ps1 *.local.ps1
 cd C:\dev\snake-backend
 git add -A
 git commit -m "..."

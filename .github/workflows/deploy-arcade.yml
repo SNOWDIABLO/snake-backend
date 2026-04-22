@@ -1,0 +1,87 @@
+name: Deploy Arcade (Vite build + FTP)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend-v2/**'
+      - 'admin.html'
+      - 'hall-of-fame.html'
+      - 'lp-fund.html'
+      - 'nft_trophy_preview.html'
+      - 'snake_logo*'
+      - 'favicon*'
+      - '.github/workflows/deploy-arcade.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: Build Vite + FTP to WebHostOp
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend-v2/package-lock.json
+
+      - name: Install frontend-v2 deps
+        working-directory: frontend-v2
+        run: npm ci
+
+      - name: Vite build
+        working-directory: frontend-v2
+        run: npm run build
+
+      - name: Copy legacy files into dist/
+        run: |
+          set -e
+          cp -v admin.html              frontend-v2/dist/admin.html
+          cp -v hall-of-fame.html       frontend-v2/dist/hall-of-fame.html || true
+          cp -v lp-fund.html            frontend-v2/dist/lp-fund.html       || true
+          cp -v nft_trophy_preview.html frontend-v2/dist/nft_trophy_preview.html || true
+          # Legacy logos (may be referenced by external posts / socials)
+          for f in snake_logo.png snake_logo.svg snake_logo_256.png snake_logo_32.png \
+                   snake_logo_3d.png snake_logo_3d_256.png snake_logo_smooth.png \
+                   snake_logo_smooth_256.png; do
+            [ -f "$f" ] && cp -v "$f" "frontend-v2/dist/$f" || true
+          done
+          echo "=== dist/ tree ==="
+          find frontend-v2/dist -maxdepth 2 -type f | sort
+
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:      ${{ secrets.FTP_HOST }}
+          username:    ${{ secrets.FTP_USERNAME }}
+          password:    ${{ secrets.FTP_PASSWORD }}
+          server-dir:  ${{ secrets.FTP_SERVER_DIR }}
+          local-dir:   frontend-v2/dist/
+          protocol:    ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          port:        ${{ vars.FTP_PORT || 21 }}
+          # Keep sync-state on the server for delta uploads
+          state-name:  .ftp-deploy-sync-state.json
+          exclude: |
+            **/.DS_Store
+            **/Thumbs.db
+            **/*.map
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "### Arcade deployed" >> $GITHUB_STEP_SUMMARY
+          echo "- Target: \`${{ secrets.FTP_SERVER_DIR }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Site:   https://snowdiablo.xyz/" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Smoke tests :" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo 'for p in "" snake pong flappy breakout space-invaders 2048 minesweeper leaderboard profile lp-fund admin; do' >> $GITHUB_STEP_SUMMARY
+          echo '  printf "%-20s %s\n" "/$p/" "$(curl -s -o /dev/null -w %{http_code} https://snowdiablo.xyz/$p/)"' >> $GITHUB_STEP_SUMMARY
+          echo 'done' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

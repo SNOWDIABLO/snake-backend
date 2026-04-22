@@ -1,16 +1,10 @@
-name: 🚀 Deploy Frontend to WebHostOp
+name: 🗂 Legacy Frontend FTP (disabled — kept for manual recovery)
 
+# DISABLED on auto-push — remplacé par deploy-arcade.yml qui build Vite
+# + FTP frontend-v2/dist/. Ce workflow reste accessible manuellement via
+# Actions -> Run workflow si besoin de pousser une version legacy d'urgence.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '*.html'
-      - 'snake_logo*.png'
-      - 'snake_logo*.svg'
-      - 'favicon*'
-      - '.github/workflows/deploy.yml'
-  workflow_dispatch: # Allow manual trigger from Actions tab
+  workflow_dispatch: # Manual trigger only
 
 jobs:
   deploy:

@@ -45,3 +45,12 @@ desktop.ini
 contracts/artifacts/
 contracts/cache/
 contracts/typechain-types/
+
+# Backup files
+*.bak
+*.orig
+
+# Date-stamped DB dumps (local backups, never commit)
+snake-*.db
+snake-*.db-journal
+snake-*-backup.db

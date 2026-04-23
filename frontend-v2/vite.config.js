@@ -10,7 +10,20 @@ export default defineConfig({
   publicDir: 'public',
   base: '/',
 
+  // Fix SES/LavaMoat de MetaMask qui strip les intrinsics ES2022+
+  // (Map.prototype.getOrInsert, etc). On force es2020 partout pour éviter
+  // ces features, sinon WalletConnect init crash sur Brave/Chrome avec MM.
+  define: {
+    global: 'globalThis',
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2020',
+    },
+  },
+
   build: {
+    target: 'es2020',
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,

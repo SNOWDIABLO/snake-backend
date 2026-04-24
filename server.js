@@ -6,6 +6,7 @@ const { ethers } = require('ethers');
 const Database   = require('better-sqlite3');
 const fs         = require('fs');
 const path       = require('path');
+const crypto     = require('crypto');
 
 const app = express();
 
@@ -478,11 +479,22 @@ function getMaxPtsPerSec(game) {
 
 // ─── ADMIN ───────────────────────────────────────────────────────────────────
 const ADMIN_TOKEN      = process.env.ADMIN_TOKEN || '';
+// Pre-compute token buffer pour timing-safe compare (task #133)
+const ADMIN_TOKEN_BUF  = Buffer.from(ADMIN_TOKEN);
 function adminAuth(req, res, next) {
   if (!ADMIN_TOKEN) return res.status(503).json({ error: 'Admin disabled (no token)' });
   const header = req.get('Authorization') || '';
   const token  = header.replace(/^Bearer\s+/i, '');
-  if (token !== ADMIN_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+  // Timing-safe compare : évite l'attaque par mesure de latence octet-par-octet.
+  // crypto.timingSafeEqual() exige 2 buffers de MÊME longueur sinon il throw.
+  // On normalize à la longueur du token connu pour que la comparaison soit constante.
+  const tokenBuf = Buffer.from(token);
+  if (
+    tokenBuf.length !== ADMIN_TOKEN_BUF.length ||
+    !crypto.timingSafeEqual(tokenBuf, ADMIN_TOKEN_BUF)
+  ) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   next();
 }
 
@@ -1360,16 +1372,29 @@ function getGoldenState() {
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(express.json());
-// CORS admin routes — any origin allowed (auth via bearer token)
+// CORS admin routes — origin STRICTEMENT whitelistée (task #133).
+// Avant : `origin: true` = wildcard, accepte n'importe quel site. Si ADMIN_TOKEN leak
+// dans un client admin, un site malveillant pouvait l'utiliser depuis le browser de
+// l'admin. Maintenant : seul snowdiablo.xyz (+ overrides env) peut faire des preflights.
+const ADMIN_ORIGINS = (process.env.ADMIN_ORIGINS || 'https://snowdiablo.xyz')
+  .split(',').map(s => s.trim()).filter(Boolean);
 app.use('/api/admin', cors({
-  origin: true,
+  origin: ADMIN_ORIGINS,
   methods: ['GET','POST'],
   allowedHeaders: ['Authorization', 'Content-Type'],
 }));
 
-// CORS public routes — restricted to known origins
+// CORS public routes — whitelist domaines connus. localhost uniquement en dev.
+// En prod (Railway : NODE_ENV=production), localhost est retiré pour éviter qu'un
+// attaquant sur le réseau local (Docker compose d'un autre dev, etc) fasse des
+// requêtes cross-origin vers la prod.
+const PUBLIC_ORIGINS = [
+  'https://snowdiablo.xyz',
+  'http://snowdiablo.xyz',
+  ...(process.env.NODE_ENV === 'production' ? [] : ['http://localhost', 'http://localhost:5173']),
+];
 app.use(cors({
-  origin: ['https://snowdiablo.xyz', 'http://snowdiablo.xyz', 'http://localhost'],
+  origin: PUBLIC_ORIGINS,
   methods: ['GET','POST'],
 }));
 
@@ -1471,7 +1496,12 @@ app.post('/api/session/start', (req, res) => {
 
 app.post('/api/session/end', (req, res) => {
   const { sessionId, score, address } = req.body;
-  if (!sessionId || typeof score !== 'number' || score < 0) {
+  // Number.isFinite() rejette NaN, Infinity, -Infinity (task #133).
+  // Avant : `typeof score !== 'number'` acceptait NaN/Infinity.
+  //  - score=Infinity → cappedScore=500 (OK), mais ratio=Infinity > max=10 → rejected (OK)
+  //  - score=NaN     → cappedScore=NaN, ratio=NaN, NaN>max=false → ANTI-CHEAT BYPASS TOTAL
+  //  - score=1e308   → overflow en reward calc, undefined behavior
+  if (!sessionId || !Number.isFinite(score) || score < 0) {
     return res.status(400).json({ error: 'Données invalides' });
   }
 
@@ -1560,8 +1590,18 @@ app.post('/api/session/end', (req, res) => {
   const divisor         = getRewardDivisor(sessionGame);
   const baseRewardFloat = cappedScore / divisor;
   const rewardFloat     = baseRewardFloat * multiplier * goldenMult * nftMult * boostMult;
-  // Arrondi DOWN à 2 décimales (évite que le signer paye plus que calculé)
-  const reward          = Math.min(Math.floor(rewardFloat * 100) / 100, MAX_PER_SESSION);
+  // SECURITY (task #133) : défense en profondeur sur le reward final.
+  // 1. Sanity check — si un multiplier devient NaN/Infinity (bug futur), on bloque tout.
+  // 2. MAX_PER_SESSION = cap dur FINAL, non-override. Ne JAMAIS retirer cette ligne.
+  //    La chaîne cappedScore/divisor × streak × golden × nft × boost peut théoriquement
+  //    exploser (ex: score=500, divisor=5, streak=x3, golden=x3, nft=x1.5, boost=x1.08
+  //    → 500/5 * 3 * 3 * 1.5 * 1.08 = 1458 $SNAKE PAR partie sans cap !).
+  // 3. Arrondi DOWN à 2 décimales (évite que le signer paye plus que calculé).
+  if (!Number.isFinite(rewardFloat) || rewardFloat < 0) {
+    console.error(`[REWARD] invalid reward float=${rewardFloat} addr=${shortAddr(addr)} - rejecting`);
+    return res.status(500).json({ error: 'Erreur calcul reward' });
+  }
+  const reward = Math.min(Math.floor(rewardFloat * 100) / 100, MAX_PER_SESSION);
 
   db.prepare('UPDATE sessions SET score=?, reward=?, validated=1 WHERE id=?')
     .run(cappedScore, reward, sessionId);
@@ -1789,15 +1829,6 @@ app.post('/api/claim', limiter, async (req, res) => {
   }
 
   const today = new Date().toISOString().slice(0,10);
-  const daily = db.prepare('SELECT total FROM daily_claims WHERE address=? AND day=?')
-    .get(addr, today);
-  const alreadyClaimed = daily ? daily.total : 0;
-
-  if (alreadyClaimed + session.reward > DAILY_LIMIT) {
-    return res.status(400).json({
-      error: `Limite journalière atteinte (${DAILY_LIMIT} $SNAKE/jour)`
-    });
-  }
 
   const nonce  = ethers.hexlify(ethers.randomBytes(32));
   const amount = ethers.parseEther(session.reward.toString());
@@ -1815,22 +1846,47 @@ app.post('/api/claim', limiter, async (req, res) => {
 
   console.log(`[CLAIM] issue sig addr=${shortAddr(addr)} reward=${session.reward} nonce=${nonce.slice(0,10)}...`);
 
-  db.prepare('INSERT INTO claims (nonce, address, amount) VALUES (?,?,?)')
-    .run(nonce, addr, amount.toString());
+  // SECURITY FIX (task #133) : check DAILY_LIMIT + toutes les écritures en UNE transaction.
+  // Avant : check daily_claims puis INSERT étaient 2 statements séparés → race condition
+  // exploitable par 2 requêtes /api/claim concurrentes pour bypass le cap jour.
+  // Maintenant : better-sqlite3 db.transaction() = SQLite BEGIN IMMEDIATE → atomique.
+  // Si le check échoue on throw → tout rollback, rien n'est persisté.
+  try {
+    db.transaction(() => {
+      const daily = db.prepare('SELECT total FROM daily_claims WHERE address=? AND day=?')
+        .get(addr, today);
+      const alreadyClaimed = daily ? daily.total : 0;
+      if (alreadyClaimed + session.reward > DAILY_LIMIT) {
+        const err = new Error('DAILY_LIMIT_EXCEEDED');
+        err.code  = 'DAILY_LIMIT_EXCEEDED';
+        throw err;
+      }
 
-  db.prepare(`
-    INSERT INTO daily_claims (address, day, total) VALUES (?,?,?)
-    ON CONFLICT(address, day) DO UPDATE SET total = total + ?
-  `).run(addr, today, session.reward, session.reward);
+      db.prepare('INSERT INTO claims (nonce, address, amount) VALUES (?,?,?)')
+        .run(nonce, addr, amount.toString());
 
-  // FIX race condition : on NE SUPPRIME PAS la session avant confirmation on-chain.
-  // On stocke la sig pour pouvoir la re-renvoyer si retry. Double-mint bloqué par
-  // used[nonce] côté contract. Cleanup via cron (sessions > 1h avec claim_nonce set).
-  db.prepare(`
-    UPDATE sessions
-       SET claim_nonce=?, claim_sig=?, claim_amount=?, claimed_at=strftime('%s','now')
-     WHERE id=?
-  `).run(nonce, sig, amount.toString(), sessionId);
+      db.prepare(`
+        INSERT INTO daily_claims (address, day, total) VALUES (?,?,?)
+        ON CONFLICT(address, day) DO UPDATE SET total = total + ?
+      `).run(addr, today, session.reward, session.reward);
+
+      // On NE SUPPRIME PAS la session avant confirmation on-chain.
+      // On stocke la sig pour pouvoir la re-renvoyer si retry. Double-mint bloqué par
+      // used[nonce] côté contract. Cleanup via cron (sessions > 1h avec claim_nonce set).
+      db.prepare(`
+        UPDATE sessions
+           SET claim_nonce=?, claim_sig=?, claim_amount=?, claimed_at=strftime('%s','now')
+         WHERE id=?
+      `).run(nonce, sig, amount.toString(), sessionId);
+    })();
+  } catch (e) {
+    if (e.code === 'DAILY_LIMIT_EXCEEDED') {
+      return res.status(400).json({
+        error: `Limite journalière atteinte (${DAILY_LIMIT} $SNAKE/jour)`
+      });
+    }
+    throw e;
+  }
 
   // Snapshot pré-update pour détecter milestones claim (scope au game de la session)
   const claimGame = normalizeGame(session.game);

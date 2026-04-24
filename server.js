@@ -454,8 +454,27 @@ const PUBLIC_FEED_WEBHOOK = process.env.PUBLIC_FEED_WEBHOOK || '';
 
 // ─── ANTI-CHEAT THRESHOLDS ───────────────────────────────────────────────────
 const MIN_SESSION_SEC  = parseInt(process.env.MIN_SESSION_SEC || '3', 10);   // <3s = bot
-const MAX_PTS_PER_SEC  = parseFloat(process.env.MAX_PTS_PER_SEC || '5');     // humain pro = 3-4
+const MAX_PTS_PER_SEC  = parseFloat(process.env.MAX_PTS_PER_SEC || '5');     // fallback global (unknown games)
 const MIN_SESSION_GAP  = parseInt(process.env.MIN_SESSION_GAP || '2', 10);   // 2s entre sessions/wallet
+
+// Seuil pts/sec PAR JEU (task #132). Tous les jeux n'ont pas le même tempo :
+//   - Pong : rallies lents (3 pts/s max)
+//   - Invaders : kill cascades + bombes (10 pts/s légitime)
+//   - 2048 : merges high-value donnent des spikes (15 pts/s)
+// Sans ce mapping, le seuil global 5 rejetait des sessions légitimes en prod
+// (ex: Invaders 72 aliens en 14s → ratio 5.1 → rejected).
+const MAX_PTS_PER_SEC_BY_GAME = {
+  'snake':          5,    // baseline — pommes 1 par 1
+  'pong':           3,    // échanges lents, ping-pong
+  'flappy':         3,    // tuyau par tuyau
+  'breakout':       8,    // briques en chaîne
+  'minesweeper':    6,    // cases révélées en cascade (zéros)
+  'space-invaders': 10,   // bombes + kill streaks rapides
+  '2048':           15,   // merges high-value donnent des spikes
+};
+function getMaxPtsPerSec(game) {
+  return MAX_PTS_PER_SEC_BY_GAME[game] ?? MAX_PTS_PER_SEC;
+}
 
 // ─── ADMIN ───────────────────────────────────────────────────────────────────
 const ADMIN_TOKEN      = process.env.ADMIN_TOKEN || '';
@@ -1463,9 +1482,11 @@ app.post('/api/session/end', (req, res) => {
   const cappedScore  = Math.min(score, 500);
 
   // ─── ANTI-CHEAT ──────────────────────────────────────────────────────────
-  const now      = Math.floor(Date.now() / 1000);
-  const duration = Math.max(1, now - session.created_at);
-  const ratio    = cappedScore / duration;
+  const now       = Math.floor(Date.now() / 1000);
+  const duration  = Math.max(1, now - session.created_at);
+  const ratio     = cappedScore / duration;
+  const gameKey   = normalizeGame(session.game);
+  const maxRatio  = getMaxPtsPerSec(gameKey);
 
   // Trop rapide = bot
   if (cappedScore > 0 && duration < MIN_SESSION_SEC) {
@@ -1485,18 +1506,19 @@ app.post('/api/session/end', (req, res) => {
     return res.status(400).json({ error: 'Session rejetée (trop courte)' });
   }
 
-  // Trop de points/seconde = speed hack
-  if (ratio > MAX_PTS_PER_SEC) {
+  // Trop de points/seconde = speed hack (seuil per-game, task #132)
+  if (ratio > maxRatio) {
     db.prepare('UPDATE sessions SET validated=1, score=0, reward=0 WHERE id=?').run(sessionId);
-    console.warn(`[CHEAT] ${shortAddr(session.address)} ratio=${ratio.toFixed(2)} pts/sec`);
+    console.warn(`[CHEAT] ${shortAddr(session.address)} game=${gameKey} ratio=${ratio.toFixed(2)}/${maxRatio} pts/sec`);
     discordNotify({
       title: '🚨 Anti-cheat trigger',
       color: 0xff3333,
       fields: [
         { name: 'Wallet',   value: shortAddr(session.address), inline: true },
+        { name: 'Game',     value: gameKey, inline: true },
         { name: 'Score',    value: `${cappedScore}`, inline: true },
         { name: 'Duration', value: `${duration}s`, inline: true },
-        { name: 'Ratio',    value: `${ratio.toFixed(2)} pts/s (max ${MAX_PTS_PER_SEC})`, inline: true },
+        { name: 'Ratio',    value: `${ratio.toFixed(2)} pts/s (max ${maxRatio} for ${gameKey})`, inline: true },
         { name: 'Reason',   value: 'Ratio points/sec anormal', inline: false },
       ],
       timestamp: new Date().toISOString(),

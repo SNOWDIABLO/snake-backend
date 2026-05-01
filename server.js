@@ -114,6 +114,14 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_nft_drops_addr ON nft_drops(address);
   CREATE INDEX IF NOT EXISTS idx_nft_drops_status ON nft_drops(status);
+  -- Task #134 : sig_count anti-spam pour /api/nft/mint-sig.
+  -- Sans cap, un user éligible pouvait demander 1000 signatures pour le même drop
+  -- (gaspillage CPU + bruit logs). Maintenant : max 5 sigs par drop.
+  -- ALTER ignore l'erreur "duplicate column" si déjà migré.
+`);
+try { db.exec('ALTER TABLE nft_drops ADD COLUMN sig_count INTEGER NOT NULL DEFAULT 0'); }
+catch (e) { if (!/duplicate column/i.test(e.message)) console.warn('[migration] sig_count:', e.message); }
+db.exec(`
   -- Task #97 : proof nonces persisted (anti-replay survives Railway redeploy)
   -- Before this, seenProofNonces lived in RAM (new Map()). Railway restart → empty
   -- map → attacker could replay a previously captured signed payload. Now the
@@ -2362,14 +2370,31 @@ app.post('/api/clan/join', limiter, async (req, res) => {
   const v = verifyWalletProof('JoinClan', wallet, proof);
   if (!v.ok) return res.status(401).json({ error: `Proof wallet : ${v.error}` });
   const addr = wallet.toLowerCase();
+  // Fast-path checks (404/409 sans ouvrir une transaction)
   if (getClanOfWallet(addr)) return res.status(409).json({ error: 'already_in_clan' });
   const clan = db.prepare('SELECT id, active FROM clans WHERE id = ?').get(cid);
   if (!clan || !clan.active) return res.status(404).json({ error: 'clan_not_found' });
   if (countClanMembers(cid) >= CLAN_MAX_MEMBERS) return res.status(409).json({ error: 'clan_full' });
+
+  // SECURITY (task #134) : check + INSERT en TRANSACTION pour éviter bypass CLAN_MAX_MEMBERS.
+  // Avant : 2 joins concurrents quand clan = 49/50 pouvaient passer ensemble → 51 membres.
+  // Le PRIMARY KEY sur wallet protège déjà contre double-clan, mais pas contre cap-bypass.
   try {
-    db.prepare(`INSERT INTO clan_members (wallet, clan_id, role) VALUES (?, ?, 'member')`).run(addr, cid);
+    db.transaction(() => {
+      // Re-check membership + cap dans la transaction (BEGIN IMMEDIATE = sérialisation SQLite)
+      if (getClanOfWallet(addr)) {
+        const e = new Error('already_in_clan'); e.code = 'already_in_clan'; throw e;
+      }
+      if (countClanMembers(cid) >= CLAN_MAX_MEMBERS) {
+        const e = new Error('clan_full'); e.code = 'clan_full'; throw e;
+      }
+      db.prepare(`INSERT INTO clan_members (wallet, clan_id, role) VALUES (?, ?, 'member')`).run(addr, cid);
+    })();
   } catch (e) {
+    if (e.code === 'already_in_clan') return res.status(409).json({ error: 'already_in_clan' });
+    if (e.code === 'clan_full')       return res.status(409).json({ error: 'clan_full' });
     if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'already_in_clan' });
+    console.error('[clan/join] db_error:', e.message);
     return res.status(500).json({ error: 'db_error' });
   }
   res.json({ ok: true, clan_id: cid });
@@ -2509,6 +2534,19 @@ app.post('/api/nft/mint-sig', limiter, async (req, res) => {
     return res.status(409).json({ error: 'Trophée déjà minté', tx_hash: drop.tx_hash });
   }
 
+  // SECURITY (task #134) : cap nombre de sigs émises par drop pour éviter spam.
+  // Avant : un user pouvait spammer cet endpoint et obtenir 1000 sigs (gaspillage CPU
+  // + bruit dans les logs + abus possible si le contract avait un bug futur).
+  // Limite à 5 = couvre les retries légitimes (network glitch, browser refresh) sans abus.
+  const MAX_SIGS_PER_DROP = 5;
+  const currentCount = drop.sig_count || 0;
+  if (currentCount >= MAX_SIGS_PER_DROP) {
+    console.warn(`[MINT-SIG] cap atteint pour ${shortAddr(address)} season=${season} rank=${rank} (${currentCount} sigs)`);
+    return res.status(429).json({
+      error: `Trop de signatures demandées (${currentCount}/${MAX_SIGS_PER_DROP}). Contact support si problème de mint.`,
+    });
+  }
+
   // Génère nonce + signature (format: abi.encode(address, season, rank, nonce, contractAddr))
   const nonce = ethers.hexlify(ethers.randomBytes(32));
   const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -2518,8 +2556,8 @@ app.post('/api/nft/mint-sig', limiter, async (req, res) => {
   const hash = ethers.keccak256(encoded);
   const sig  = await wallet.signMessage(ethers.getBytes(hash));
 
-  // Stocke nonce pour tracking (optionnel mais pratique)
-  db.prepare(`UPDATE nft_drops SET nonce=? WHERE season_id=? AND address=?`)
+  // Stocke nonce + incrémente sig_count atomiquement (UPDATE en 1 statement)
+  db.prepare(`UPDATE nft_drops SET nonce=?, sig_count=sig_count+1 WHERE season_id=? AND address=?`)
     .run(nonce, season, addr);
 
   res.json({
@@ -2532,20 +2570,74 @@ app.post('/api/nft/mint-sig', limiter, async (req, res) => {
 });
 
 // POST /api/nft/confirm — user report après tx confirmée on-chain (optionnel, sinon cron on-chain scan)
-app.post('/api/nft/confirm', (req, res) => {
-  const { address, season, rank, tx_hash } = req.body || {};
+// SECURITY (task #134) : avant ce fix, n'importe quel `tx_hash` (même bidon) était accepté.
+// Un user éligible pouvait spammer cet endpoint pour polluer les feeds Discord/Twitch/Bsky
+// + corrompre l'état DB (drop marqué 'minted' alors que rien n'a été minté on-chain).
+// Maintenant : EIP-191 proof + validation tx on-chain (status, to, from) + rate limit + atomic UPDATE.
+app.post('/api/nft/confirm', limiter, async (req, res) => {
+  const { address, season, rank, tx_hash, proof } = req.body || {};
   if (!address || !ethers.isAddress(address) || !tx_hash || !Number.isInteger(season) || !Number.isInteger(rank)) {
     return res.status(400).json({ error: 'Paramètres invalides' });
   }
+  if (typeof tx_hash !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(tx_hash)) {
+    return res.status(400).json({ error: 'tx_hash invalide (format 0x + 64 hex)' });
+  }
   const addr = address.toLowerCase();
+
+  // ─── EIP-191 wallet proof : seul le wallet owner peut confirmer son propre mint ──
+  if (proof || REQUIRE_WALLET_PROOF) {
+    const v = verifyWalletProof('NftConfirm', address, proof);
+    if (!v.ok) {
+      if (REQUIRE_WALLET_PROOF) {
+        return res.status(401).json({ error: `Proof wallet : ${v.error}` });
+      }
+      console.warn(`[NFT-CONFIRM] proof invalide pour ${shortAddr(address)} : ${v.error}`);
+    }
+  } else {
+    console.warn(`[NFT-CONFIRM] ${shortAddr(address)} sans proof EIP-191 (legacy path)`);
+  }
+
+  // ─── Validation on-chain : la tx existe-t-elle vraiment ET a-t-elle été envoyée par addr vers le contract NFT ? ──
+  const provider = getProvider();
+  if (provider && NFT_CONTRACT_ADDRESS) {
+    try {
+      const receipt = await provider.getTransactionReceipt(tx_hash);
+      if (!receipt) {
+        return res.status(400).json({ error: 'tx_hash introuvable on-chain (peut-être pas encore minée)' });
+      }
+      if (receipt.status !== 1) {
+        return res.status(400).json({ error: 'tx_hash a reverted on-chain' });
+      }
+      if (!receipt.to || receipt.to.toLowerCase() !== NFT_CONTRACT_ADDRESS.toLowerCase()) {
+        return res.status(400).json({ error: 'tx_hash ne cible pas le contract NFT trophée' });
+      }
+      const tx = await provider.getTransaction(tx_hash);
+      if (!tx || !tx.from || tx.from.toLowerCase() !== addr) {
+        return res.status(400).json({ error: 'tx_hash pas envoyée par cette adresse' });
+      }
+    } catch (e) {
+      console.warn(`[NFT-CONFIRM] on-chain verify failed: ${e.message}`);
+      return res.status(503).json({ error: 'Vérification on-chain temporairement indisponible' });
+    }
+  } else {
+    console.warn('[NFT-CONFIRM] provider ou NFT_CONTRACT_ADDRESS manquant — skip on-chain verify');
+  }
+
+  // ─── UPDATE atomique : transition 'eligible' → 'minted' uniquement (anti re-confirm) ──
   const now = Math.floor(Date.now() / 1000);
   const r = db.prepare(`
     UPDATE nft_drops SET status='minted', tx_hash=?, minted_at=?
-    WHERE season_id=? AND address=? AND rank=?
+    WHERE season_id=? AND address=? AND rank=? AND status='eligible'
   `).run(tx_hash, now, season, addr, rank);
 
   if (r.changes === 0) {
-    return res.status(404).json({ error: 'Drop introuvable' });
+    // Diagnostiquer : drop n'existe pas OU déjà minté
+    const existing = db.prepare(
+      'SELECT status FROM nft_drops WHERE season_id=? AND address=? AND rank=?'
+    ).get(season, addr, rank);
+    if (!existing) return res.status(404).json({ error: 'Drop introuvable' });
+    if (existing.status === 'minted') return res.status(409).json({ error: 'Drop déjà minté (idempotent)' });
+    return res.status(400).json({ error: `Status invalide: ${existing.status}` });
   }
 
   // Notify public

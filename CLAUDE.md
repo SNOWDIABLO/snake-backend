@@ -112,12 +112,12 @@ git push origin main
 Smoke test post-deploy :
 
 ```powershell
-# ⚠️ URL Railway réelle = snake-backend-production-e5e8.up.railway.app (suffixe auto-généré)
-iwr https://snake-backend-production-e5e8.up.railway.app/health -UseBasicParsing | % Content
+# Le backend Railway a un suffixe auto-généré — URL exacte non documentée publiquement.
+iwr https://<backend>.up.railway.app/health -UseBasicParsing | % Content
 iwr https://snowdiablo.xyz/ -UseBasicParsing | % StatusCode   # attend 200
 ```
 
-Hardcodé dans `index.html` ligne 1838 (`BACKEND_URL`) et `hall-of-fame.html` ligne 404 (`API`). Si l'URL change côté Railway → patch les deux fichiers avant push.
+Le backend URL est hardcodé côté front (`index.html` + `hall-of-fame.html`). Si l'URL change côté Railway → patch les deux fichiers avant push.
 
 ---
 
@@ -149,14 +149,14 @@ USERNAME_FEE_WALLET=0xc1D4Fe31F4C0526848E4B427FDfBA519f36C166E
 REQUIRE_WALLET_PROOF=1
 ```
 
-Anti-cheat :
+Anti-cheat (valeurs réelles redactées — voir `.env` Railway en privé) :
 
 ```env
-MIN_SESSION_SEC=3        # <3s session = bot
-MAX_PTS_PER_SEC=5        # humain pro = 3-4
-MIN_SESSION_GAP=2        # 2s entre 2 sessions / wallet
-DAILY_LIMIT=100          # $SNAKE max/wallet/24h
-MAX_PER_SESSION=50       # $SNAKE max / claim
+MIN_SESSION_SEC=<int>    # session trop courte = bot
+MAX_PTS_PER_SEC=<int>    # plafond points/sec humain
+MIN_SESSION_GAP=<int>    # délai mini entre 2 sessions / wallet
+DAILY_LIMIT=<int>        # $SNAKE max/wallet/24h
+MAX_PER_SESSION=<int>    # $SNAKE max / claim
 ```
 
 Webhooks :
@@ -255,16 +255,14 @@ POST /api/username/paid-change       → burn 1000 $SNAKE
 
 ### Admin (Bearer `ADMIN_TOKEN`)
 
-```
-GET  /api/admin/backup               → dump SQLite
-GET  /api/admin/export/claims.csv
-GET  /api/admin/export/sessions.csv
-GET  /api/admin/export/scores.csv
-GET  /api/admin/growth               → daily cohort stats
-GET  /api/admin/stats
-POST /api/admin/seasons/close        → clôture saison + auto-mint NFT trophy top 10
-POST /api/admin/events/golden/toggle → active x3 temporaire
-```
+Endpoints d'administration disponibles sous `/api/admin/*`, tous gated derrière le Bearer `ADMIN_TOKEN` (jamais exposé publiquement). Couvrent :
+
+- Backup / export DB (SQLite + CSV)
+- Stats daily cohort + growth metrics
+- Clôture de saison + auto-mint NFT trophy top 10
+- Toggle des events temporaires (Golden Snake, etc.)
+
+> Liste exacte des routes redactée dans la version publique de ce doc — voir version interne pour le détail. Toute requête sans Bearer valide retourne `401`.
 
 ---
 
@@ -297,10 +295,7 @@ Ne JAMAIS `DROP TABLE` en prod sans backup `/api/admin/backup`.
   → Rotation : déployer nouveau wallet, appeler `setSigner()` sur les 3 contrats, update `.env` Railway.
 - **EIP-191 wallet proof** (`REQUIRE_WALLET_PROOF=1`) : force signMessage avant `/api/claim` — anti-griefing.
 - **Nonces persistés en DB** (table `proof_nonces`) : replay attack impossible même après Railway redeploy.
-- **Anti-cheat server-side** :
-  - `score_per_second > MAX_PTS_PER_SEC` → session reject
-  - `session_duration < MIN_SESSION_SEC` → bot detected
-  - `session_gap < MIN_SESSION_GAP` par wallet → spam reject
+- **Anti-cheat server-side** : multiples heuristiques côté serveur (timing per-session, points/sec ratio, gaps inter-sessions par wallet, score caps, regression analysis sur historique). Seuils exacts non documentés publiquement (voir `.env` Railway).
 - **Rate limits** : `limiter` (actions write) + `publicLimiter` (reads) + `proofLimiter` (challenges).
 - **`trust proxy = 1`** (Railway a 1 reverse proxy devant). Ne PAS mettre `true` (spoofable).
 
@@ -381,8 +376,8 @@ $pol  = [decimal]([System.Numerics.BigInteger]::Parse("0"+$hex.Substring(2), 'Al
 ## 13. Contacts + liens
 
 - Game : https://snowdiablo.xyz
-- Backend : https://snake-backend-production-e5e8.up.railway.app
-- GitHub : https://github.com/SnowDiablo/snake-backend
+- Backend : `<redacted>.up.railway.app` (URL non documentée publiquement)
+- GitHub : https://github.com/SNOWDIABLO/snake-backend
 - Twitter : https://twitter.com/SnowDiablo
 - Twitch : https://twitch.tv/snowdiablo
 - LP tracker : https://snowdiablo.xyz/lp-fund.html

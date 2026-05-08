@@ -2,9 +2,26 @@
 
 > A Play-to-Earn Snake game on **Polygon**. Earn real on-chain rewards and mint seasonal NFT trophies.
 
-🎮 **Play:** [snowdiablo.xyz](https://snowdiablo.xyz)
-🏆 **Leaderboard:** [snowdiablo.xyz/hall-of-fame.html](https://snowdiablo.xyz/hall-of-fame.html)
-🎨 **NFT Collection:** available on OpenSea, Rarible, Blur and directly in-game.
+[![Live](https://img.shields.io/website?url=https%3A%2F%2Fsnowdiablo.xyz&label=Live%20demo&style=flat-square&color=brightgreen)](https://snowdiablo.xyz)
+[![Polygon](https://img.shields.io/badge/Polygon-8247E5?style=flat-square&logo=polygon&logoColor=white)](https://polygonscan.com)
+[![Node.js](https://img.shields.io/badge/Node.js%2018+-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Solidity](https://img.shields.io/badge/Solidity-363636?style=flat-square&logo=solidity&logoColor=white)](https://soliditylang.org)
+[![ethers.js](https://img.shields.io/badge/ethers.js-v6-2535A0?style=flat-square&logo=ethereum&logoColor=white)](https://docs.ethers.org)
+[![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](#-license--usage)
+
+🎮 **Play:** [snowdiablo.xyz](https://snowdiablo.xyz) · 🏆 **Leaderboard:** [Hall of Fame](https://snowdiablo.xyz/hall-of-fame.html) · 🎨 **NFT Collection:** OpenSea, Rarible, Blur
+
+---
+
+## 🧰 Tech Stack
+
+| Layer | Tech |
+|---|---|
+| **Backend** | Node.js · Express · SQLite (`better-sqlite3`) · ethers.js v6 · helmet · express-rate-limit |
+| **Smart contracts** | Solidity 0.8 · Hardhat · OpenZeppelin · Chainlink (MATIC/USD price feed) |
+| **Frontend** | Vanilla JS · ethers.js (UMD) · WalletConnect v2 (EthereumProvider) |
+| **Bots** | discord.js · AT Protocol (Bluesky) · Twitch IRC |
+| **Infra** | Railway (backend, auto-deploy on `git push`) · WebHostOp (CDN frontend via FTP) · Linux VPS (PM2 bots) · GitHub Actions CI/CD |
 
 ---
 
@@ -20,11 +37,16 @@
 
 ---
 
-## 🧰 Built with
+## 🧠 Engineering highlights
 
-Node.js · Express · SQLite · ethers.js · Solidity · Chainlink · OpenZeppelin · discord.js · WalletConnect v2 · helmet · express-rate-limit
+A few of the harder problems I solved building this solo:
 
-Deployed across a cloud backend, a CDN-hosted frontend, and a dedicated Linux VPS for the bots — all wired together with a proper CI/CD pipeline, monitoring and alerting.
+- **Server-authoritative anti-cheat** — multi-heuristic detection (frame timing, max points-per-second per game type, score caps, per-wallet rate limits) so a player can't fabricate scores client-side.
+- **EIP-191 wallet ownership proofs** — every sensitive action (link, claim, mint) requires a fresh signature from the wallet, validated server-side with on-chain anti-replay nonces.
+- **On-chain rewards with off-chain throttling** — daily caps + per-session caps in SQLite, rewards signed by a dedicated signer wallet, claimed atomically on the smart contract.
+- **NFT trophies with EIP-2981 royalties + Chainlink USD pricing** — secondary-sale royalties (5%) flow back to the project; mint price stays USD-stable thanks to the MATIC/USD price feed.
+- **Real-time multi-platform broadcasts** — every record-break, whale claim and trophy mint pushed live to Discord, Bluesky and Twitch via dedicated bot processes on a separate VPS.
+- **Race-condition hardened** — `DAILY_LIMIT` enforcement uses SQLite transactions to prevent double-spend under concurrent claims.
 
 ---
 

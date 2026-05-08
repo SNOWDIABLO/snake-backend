@@ -42,7 +42,7 @@ nft_assets/
 ### 2️⃣ Install dépendances
 
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\nft_assets"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\nft_assets"
 npm install
 ```
 

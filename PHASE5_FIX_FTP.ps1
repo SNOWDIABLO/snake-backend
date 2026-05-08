@@ -6,12 +6,12 @@
 #
 #  Usage :
 #    cd C:\dev\snake-backend
-#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_FIX_FTP.ps1"
+#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_FIX_FTP.ps1"
 # ============================================================
 
 $ErrorActionPreference = 'Stop'
 
-$src = "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend"
+$src = "$env:USERPROFILE\OneDrive\claude creation\snake-backend"
 $dst = "C:\dev\snake-backend"
 
 if (-not (Test-Path $dst)) {

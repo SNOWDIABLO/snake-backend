@@ -5,7 +5,7 @@ Runbook admin pour activer les deux systèmes en prod sur Railway (backend) + CI
 ## 1. Pre-deploy sanity check (local PowerShell)
 
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend"
 node --check server.js
 # Doit retourner: (rien) — pas d'erreur
 ```
@@ -53,7 +53,7 @@ CONTRACT_ADDRESS=0xAddressDuToken$SNAKE
 ## 4. Push + deploy
 
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git"
 # copier les 2 fichiers modifiés
 Copy-Item "..\snake-backend\server.js" ".\server.js" -Force
 Copy-Item "..\snake-backend\index.html" ".\index.html" -Force

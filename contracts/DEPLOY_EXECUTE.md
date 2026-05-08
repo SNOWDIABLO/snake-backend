@@ -9,7 +9,7 @@ Checklist jour-J pour lancer #66 (BoostNFT mainnet) et #65 (QuickSwap v3 LP).
 ### Étape 1.1 · Install deps (à faire 1 fois)
 
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\contracts"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\contracts"
 npm install
 ```
 
@@ -125,7 +125,7 @@ Une fois le smoke test OK :
 ### Étape 2.1 · Simuler pricing initial
 
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\contracts"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\contracts"
 node scripts/price-calc.js
 ```
 
@@ -172,7 +172,7 @@ Le wallet qui va add LP doit avoir :
 ### Étape 2.5 · Renounce ownership $SNAKE
 
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\contracts"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\contracts"
 npm run renounce:polygon
 # Va demander confirmation "RENOUNCE" — tape-le puis entrée
 ```

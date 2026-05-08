@@ -185,7 +185,7 @@ pm2 set pm2-logrotate:retain 7
 
 **Depuis Windows PowerShell :**
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\discord-bot-snacke"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\discord-bot-snacke"
 .\deploy.ps1
 ```
 
@@ -282,7 +282,7 @@ SELECT * FROM nft_drops ORDER BY created_at DESC LIMIT 10;
 ### Forcer un redéploiement frontend
 
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git"
 git commit --allow-empty -m "Trigger redeploy"
 git push origin main
 ```
@@ -431,8 +431,8 @@ Invoke-RestMethod "$base/api/admin/twitch/status" -Headers @{Authorization="Bear
 
 ```powershell
 # Edits dans snake-backend\ puis :
-$src = "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend"
-$dst = "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git"
+$src = "$env:USERPROFILE\OneDrive\claude creation\snake-backend"
+$dst = "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git"
 Copy-Item "$src\index.html" "$dst\index.html" -Force
 # (copier aussi les autres fichiers modifiés)
 
@@ -455,7 +455,7 @@ Push sur repo privé → Railway redeploy auto.
 
 ```powershell
 # Option A : déploiement automatisé
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\discord-bot-snacke"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\discord-bot-snacke"
 .\deploy.ps1
 
 # Option B : manuel via SSH

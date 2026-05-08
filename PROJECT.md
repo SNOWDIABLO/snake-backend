@@ -142,7 +142,7 @@ TWITCH_CHANNEL=snowdiablo
 
 ### Backend (server.js)
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git"
 Copy-Item "..\snake-backend\server.js" ".\server.js" -Force
 git add server.js
 git commit -m "feat: ..."
@@ -152,7 +152,7 @@ git push origin main
 
 ### Frontend (index.html + hall-of-fame.html)
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git"
 Copy-Item "..\snake-backend\index.html" ".\index.html" -Force
 Copy-Item "..\snake-backend\hall-of-fame.html" ".\hall-of-fame.html" -Force
 git add index.html hall-of-fame.html
@@ -164,7 +164,7 @@ git push origin main
 ### Pre-push checks
 ```powershell
 # Syntaxe Node server.js
-node --check "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\server.js"
+node --check "$env:USERPROFILE\OneDrive\claude creation\snake-backend\server.js"
 # doit return silencieux (0 byte output) = OK
 ```
 

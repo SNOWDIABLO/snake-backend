@@ -2,12 +2,12 @@
 #  SnowDiablo Arcade — Phase 5 ship script
 #  Run from PowerShell, NOT from OneDrive folder.
 #  Usage :
-#    cd C:\dev\snake-backend ; & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_SHIP.ps1"
+#    cd C:\dev\snake-backend ; & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_SHIP.ps1"
 # ============================================================
 
 $ErrorActionPreference = 'Stop'
 
-$src = "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend"
+$src = "$env:USERPROFILE\OneDrive\claude creation\snake-backend"
 $dst = "C:\dev\snake-backend"
 
 if (-not (Test-Path $dst)) {

@@ -19,7 +19,7 @@ npm i -g pm2
 From your local machine (PowerShell):
 
 ```powershell
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend"
 scp -r discord-bot root@<VPS_IP>:/opt/snakecoin-bot
 ```
 

@@ -86,7 +86,7 @@ npx hardhat verify --network polygon <ADDRESS> <CTOR_ARGS>
 
 ### Git — ⚠️ WORKFLOW IMPORTANT
 
-**Ne PAS `git push` depuis `C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\`** — OneDrive lock `.git/objects` et corrompt les commits (`Deletion of directory '.git/objects/00' failed`).
+**Ne PAS `git push` depuis `$env:USERPROFILE\OneDrive\claude creation\snake-backend\`** — OneDrive lock `.git/objects` et corrompt les commits (`Deletion of directory '.git/objects/00' failed`).
 
 Utiliser un **mirror hors-OneDrive** :
 
@@ -95,7 +95,7 @@ Utiliser un **mirror hors-OneDrive** :
 git clone https://github.com/SnowDiablo/snake-backend.git C:\dev\snake-backend
 
 # Workflow : édite dans OneDrive, puis :
-robocopy "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend" C:\dev\snake-backend /E /XD node_modules .git /XF .env snake.db secrets.local.ps1 *.local.ps1
+robocopy "$env:USERPROFILE\OneDrive\claude creation\snake-backend" C:\dev\snake-backend /E /XD node_modules .git /XF .env snake.db secrets.local.ps1 *.local.ps1
 cd C:\dev\snake-backend
 git add -A
 git commit -m "..."

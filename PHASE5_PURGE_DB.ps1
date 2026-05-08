@@ -14,7 +14,7 @@
 #
 #  Usage :
 #    cd C:\dev\snake-backend
-#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_PURGE_DB.ps1"
+#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_PURGE_DB.ps1"
 # ============================================================
 
 $ErrorActionPreference = 'Stop'

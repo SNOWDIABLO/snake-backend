@@ -10,8 +10,8 @@
 #    - BSKY_HANDLE + BSKY_APP_PASSWORD already configured on Railway
 #
 #  Usage :
-#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_BSKY.ps1"          # live
-#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_BSKY.ps1" -DryRun  # preview only
+#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_BSKY.ps1"          # live
+#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_BSKY.ps1" -DryRun  # preview only
 # ============================================================
 
 param(
@@ -181,7 +181,7 @@ Write-Host "Feed : https://bsky.app/profile/$env:BSKY_HANDLE" -ForegroundColor C
 Write-Host "(or just https://bsky.app/profile/snowdiablo.bsky.social)"
 Write-Host ""
 Write-Host "Next step : publish Discord embed" -ForegroundColor Yellow
-Write-Host '  & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1"'
+Write-Host '  & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1"'
 
 # Force clean exit 0 - sinon $LASTEXITCODE herite d'une commande externe
 # precedente (git push, etc.) et le wrapper croit que le step a failed.

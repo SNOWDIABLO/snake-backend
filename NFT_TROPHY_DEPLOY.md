@@ -109,9 +109,9 @@ Puis :
 
 ```powershell
 # Copy vers le repo git
-Copy-Item "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\index.html" "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git\index.html" -Force
+Copy-Item "$env:USERPROFILE\OneDrive\claude creation\snake-backend\index.html" "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git\index.html" -Force
 
-cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git"
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git"
 git add index.html
 git commit -m "feat(nft): plug NFT contract address"
 git push

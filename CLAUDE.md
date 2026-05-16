@@ -84,22 +84,36 @@ npx hardhat run scripts/deploy-boost.js --network polygon
 npx hardhat verify --network polygon <ADDRESS> <CTOR_ARGS>
 ```
 
-### Git — ⚠️ WORKFLOW IMPORTANT
+### Git — Workflow OneDrive (multi-PC)
 
-**Ne PAS `git push` depuis `$env:USERPROFILE\OneDrive\claude creation\snake-backend\`** — OneDrive lock `.git/objects` et corrompt les commits (`Deletion of directory '.git/objects/00' failed`).
+Le projet vit dans OneDrive (`$env:USERPROFILE\OneDrive\claude creation\snake-backend`) pour la sync entre les deux PC. C'est le dossier de travail principal.
 
-Utiliser un **mirror hors-OneDrive** :
+**Seule contrainte :** exclure `.git` de la sync OneDrive pour éviter les corruptions de packfiles. Fait une seule fois via PowerShell :
 
-```bash
-# Une seule fois
-git clone https://github.com/SnowDiablo/snake-backend.git C:\dev\snake-backend
+```powershell
+# Exclure le dossier .git de la sync OneDrive (une seule fois par PC)
+attrib +P "$env:USERPROFILE\OneDrive\claude creation\snake-backend\.git" /S /D
+```
 
-# Workflow : édite dans OneDrive, puis :
-robocopy "$env:USERPROFILE\OneDrive\claude creation\snake-backend" C:\dev\snake-backend /E /XD node_modules .git /XF .env snake.db secrets.local.ps1 *.local.ps1
-cd C:\dev\snake-backend
+Le flag `P` (« pinned locally but not synced ») dit à OneDrive de ne pas toucher au dossier `.git`. Les fichiers sources (.js, .html, .env…) continuent de se syncer normalement entre les deux PC.
+
+**Workflow quotidien (depuis le dossier OneDrive) :**
+
+```powershell
+cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend"
 git add -A
 git commit -m "..."
 git push origin main
+```
+
+**Si une corruption `.git` survient quand même :**
+
+```powershell
+# Reclone propre dans OneDrive (garde les fichiers non-git)
+git clone https://github.com/SnowDiablo/snake-backend.git C:\tmp\snake-fresh
+robocopy C:\tmp\snake-fresh "$env:USERPROFILE\OneDrive\claude creation\snake-backend" /E /XD node_modules /XF .env snake.db
+# Puis ré-appliquer l'exclusion OneDrive sur .git
+attrib +P "$env:USERPROFILE\OneDrive\claude creation\snake-backend\.git" /S /D
 ```
 
 ### Déploiement
@@ -316,7 +330,7 @@ Ne JAMAIS `DROP TABLE` en prod sans backup `/api/admin/backup`.
    Voir §6. Ne PAS re-introduire `Math.floor` avant les multipliers.
 
 3. **OneDrive + git**
-   Voir §4. `.git/objects` corrompu → reclone hors-OneDrive.
+   Le dossier `.git` doit être exclu de la sync OneDrive (flag `attrib +P`). Voir §4.
 
 4. **Boost cache TTL**
    Modifier un NFT boost côté chain → appeler `/api/boost/refresh` sinon cache stale 5 min.

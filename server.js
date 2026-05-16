@@ -4002,6 +4002,12 @@ function cleanupClaimedSessions() {
 }
 setInterval(cleanupClaimedSessions, 10 * 60 * 1000).unref?.(); // toutes les 10 min
 
+// ─── HoleCraft multiplayer game ───────────────────────────────────────────────
+app.get('/hole', (req, res) => {
+  res.sendFile(path.join(__dirname, 'hole-game.html'));
+});
+app.get('/holecraft', (req, res) => res.redirect('/hole'));
+
 const server = app.listen(PORT, () => {
   console.log(`🐍 SnakeCoin backend running on port ${PORT}`);
   console.log(`💼 Contract $SNAKE : ${CONTRACT_ADDRESS || '⚠️ NON CONFIGURÉ'}`);
@@ -4036,6 +4042,10 @@ const server = app.listen(PORT, () => {
   if (ADMIN_TOKEN)         console.log('🔐 Admin token configured');
   console.log(`🛡️  Wallet proof (EIP-191) : ${REQUIRE_WALLET_PROOF ? 'ENFORCE' : 'warn-only (set REQUIRE_WALLET_PROOF=1 to enforce)'}`);
 });
+
+// Attach HoleCraft WebSocket game server (socket.io on /hole-ws)
+const { initHoleGame } = require('./hole-server');
+initHoleGame(server);
 
 // ─── Global error handlers + graceful shutdown (task #96) ────────────────────
 // Sans ça, une promise reject non-catch ou une exception dans un setInterval

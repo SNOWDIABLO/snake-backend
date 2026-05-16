@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>HoleCraft — Multiplayer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#050508;font-family:'Segoe UI',system-ui,sans-serif;color:#e0e0ff}
+
+/* ── MENU ── */
+#screen-menu{
+  position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:20px;background:radial-gradient(ellipse at 50% 40%,#0d0d2b 0%,#050508 70%);
+  z-index:100;
+}
+.logo{font-size:clamp(2rem,8vw,4rem);font-weight:900;letter-spacing:2px;
+  background:linear-gradient(135deg,#4ECDC4,#45B7D1,#DDA0DD);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  text-shadow:none;filter:drop-shadow(0 0 18px #4ECDC4aa)}
+.logo span{-webkit-text-fill-color:#FFD700;filter:drop-shadow(0 0 14px #FFD700)}
+.tagline{font-size:clamp(.8rem,3vw,1rem);color:#6b7aff;letter-spacing:3px;text-transform:uppercase;margin-top:-10px}
+#nameInput{
+  width:min(320px,85vw);padding:14px 20px;font-size:1.1rem;border:2px solid #4ECDC4;
+  background:#0d0d2b;color:#e0e0ff;border-radius:12px;outline:none;text-align:center;
+  box-shadow:0 0 20px #4ECDC433;transition:border-color .2s,box-shadow .2s;
+}
+#nameInput::placeholder{color:#4a5568}
+#nameInput:focus{border-color:#45B7D1;box-shadow:0 0 30px #45B7D155}
+.btn-play{
+  padding:16px 48px;font-size:1.2rem;font-weight:700;border:none;cursor:pointer;
+  border-radius:14px;background:linear-gradient(135deg,#4ECDC4,#45B7D1);
+  color:#050508;letter-spacing:1px;box-shadow:0 0 25px #4ECDC466;
+  transition:transform .15s,box-shadow .15s;
+}
+.btn-play:hover{transform:translateY(-2px);box-shadow:0 0 35px #4ECDC499}
+.btn-play:active{transform:translateY(0)}
+.controls-hint{font-size:.8rem;color:#3a4060;margin-top:8px;text-align:center;line-height:1.8}
+
+/* ── WAITING ── */
+#screen-wait{
+  position:fixed;inset:0;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:18px;background:#050508;z-index:100;
+}
+.wait-title{font-size:1.4rem;font-weight:700;color:#4ECDC4}
+.wait-dots span{display:inline-block;width:12px;height:12px;border-radius:50%;
+  background:#4ECDC4;margin:0 4px;animation:bounce .8s infinite alternate}
+.wait-dots span:nth-child(2){animation-delay:.2s;background:#45B7D1}
+.wait-dots span:nth-child(3){animation-delay:.4s;background:#DDA0DD}
+@keyframes bounce{to{transform:translateY(-12px);opacity:.4}}
+.player-list{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:400px}
+.player-pill{padding:6px 14px;border-radius:20px;font-size:.85rem;font-weight:600;
+  border:1px solid currentColor;opacity:.9}
+.wait-count{color:#6b7aff;font-size:.9rem}
+.countdown-msg{font-size:1.1rem;color:#FFD700;font-weight:700;min-height:1.6rem}
+
+/* ── GAME ── */
+#screen-game{position:fixed;inset:0;display:none}
+#canvas{display:block;width:100%;height:100%;cursor:none}
+#hud{position:absolute;inset:0;pointer-events:none}
+
+/* Timer */
+#timer{
+  position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  font-size:1.8rem;font-weight:900;color:#fff;
+  text-shadow:0 0 12px #4ECDC4;background:rgba(5,5,20,.7);
+  padding:6px 20px;border-radius:10px;border:1px solid #4ECDC444;
+  min-width:80px;text-align:center;
+}
+
+/* My score */
+#myscore{
+  position:absolute;top:14px;left:14px;
+  background:rgba(5,5,20,.7);border:1px solid #FFD70044;border-radius:10px;
+  padding:8px 14px;font-size:.85rem;line-height:1.5;
+}
+#myscore .lbl{color:#6b7aff;font-size:.7rem;text-transform:uppercase;letter-spacing:1px}
+#myscore .val{font-size:1.3rem;font-weight:700;color:#FFD700}
+#myscore .szval{font-size:.85rem;color:#96E6A1}
+
+/* Leaderboard */
+#lb{
+  position:absolute;top:14px;right:14px;
+  background:rgba(5,5,20,.75);border:1px solid #4ECDC433;border-radius:10px;
+  padding:10px 14px;min-width:160px;max-width:200px;
+}
+#lb .lb-title{font-size:.65rem;color:#6b7aff;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.lb-row{display:flex;align-items:center;gap:6px;font-size:.78rem;padding:2px 0}
+.lb-rank{color:#6b7aff;font-weight:700;width:14px}
+.lb-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.lb-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#c8d0ff}
+.lb-pts{color:#FFD700;font-weight:700}
+.lb-me{background:rgba(78,205,196,.08);border-radius:4px}
+
+/* Minimap */
+#minimap{
+  position:absolute;bottom:14px;right:14px;
+  border-radius:8px;border:1px solid #4ECDC444;overflow:hidden;
+  background:rgba(5,5,20,.8);
+}
+
+/* Status toast */
+#toast{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(5,5,20,.9);border:1px solid #FFD700;border-radius:12px;
+  padding:14px 28px;font-size:1.1rem;font-weight:700;color:#FFD700;
+  text-align:center;display:none;z-index:10;
+}
+
+/* Joystick (mobile) */
+#joystick-zone{
+  position:absolute;bottom:0;left:0;right:0;height:45%;
+  pointer-events:auto;display:none;
+}
+#joystick-base{
+  position:absolute;border-radius:50%;background:rgba(78,205,196,.08);
+  border:2px solid rgba(78,205,196,.3);display:none;
+}
+#joystick-knob{
+  position:absolute;border-radius:50%;background:radial-gradient(#4ECDC4,#45B7D1);
+  box-shadow:0 0 16px #4ECDC466;transform:translate(-50%,-50%);display:none;
+}
+
+/* ── GAME OVER ── */
+#screen-over{
+  position:fixed;inset:0;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:16px;
+  background:rgba(5,5,8,.92);backdrop-filter:blur(8px);z-index:200;
+}
+.over-title{font-size:2rem;font-weight:900;
+  background:linear-gradient(135deg,#FFD700,#FF8C69);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.results-table{width:min(380px,90vw);border-collapse:collapse}
+.results-table th{color:#6b7aff;font-size:.72rem;text-transform:uppercase;
+  letter-spacing:1px;padding:6px 10px;border-bottom:1px solid #4ECDC433}
+.results-table td{padding:8px 10px;font-size:.9rem;border-bottom:1px solid #ffffff0a}
+.results-table tr:first-child td{background:rgba(255,215,0,.06)}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:50%;font-weight:700;font-size:.8rem}
+.rank-1{background:#FFD700;color:#050508}
+.rank-2{background:#C0C0C0;color:#050508}
+.rank-3{background:#CD7F32;color:#fff}
+.color-swatch{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.you-badge{font-size:.6rem;color:#4ECDC4;font-weight:700;margin-left:4px;
+  background:rgba(78,205,196,.1);border-radius:4px;padding:1px 4px}
+.over-msg{font-size:.85rem;color:#6b7aff}
+.btn-again{
+  padding:12px 36px;font-size:1rem;font-weight:700;border:none;cursor:pointer;
+  border-radius:12px;background:linear-gradient(135deg,#4ECDC4,#45B7D1);
+  color:#050508;box-shadow:0 0 20px #4ECDC466;transition:transform .15s;
+}
+.btn-again:hover{transform:translateY(-2px)}
+
+/* Mobile safe area */
+@supports(padding-bottom:env(safe-area-inset-bottom)){
+  #minimap{bottom:calc(14px + env(safe-area-inset-bottom))}
+  #joystick-zone{height:calc(45% + env(safe-area-inset-bottom))}
+}
+@media(pointer:coarse){
+  #joystick-zone{display:block}
+  #canvas{cursor:default}
+}
+</style>
+</head>
+<body>
+
+<!-- ─── MENU ─────────────────────────────────────────────────────────────────── -->
+<div id="screen-menu">
+  <div class="logo">Hole<span>Craft</span>.io</div>
+  <div class="tagline">Multiplayer · Online</div>
+  <input id="nameInput" type="text" maxlength="16" placeholder="Ton pseudo…" autocomplete="off" autocorrect="off" spellcheck="false">
+  <button class="btn-play" id="btnPlay">JOUER</button>
+  <div class="controls-hint">
+    🖥️ Déplace ta souris pour diriger ton trou<br>
+    📱 Touche l'écran pour te déplacer<br>
+    🕳️ Avale tout — deviens le plus grand trou !
+  </div>
+</div>
+
+<!-- ─── WAITING ───────────────────────────────────────────────────────────────── -->
+<div id="screen-wait">
+  <div class="wait-title">Recherche de joueurs…</div>
+  <div class="wait-dots"><span></span><span></span><span></span></div>
+  <div class="wait-count" id="waitCount"></div>
+  <div class="player-list" id="playerList"></div>
+  <div class="countdown-msg" id="countdownMsg"></div>
+</div>
+
+<!-- ─── GAME ──────────────────────────────────────────────────────────────────── -->
+<div id="screen-game">
+  <canvas id="canvas"></canvas>
+  <div id="hud">
+    <div id="timer">2:00</div>
+    <div id="myscore">
+      <div class="lbl">Score</div>
+      <div class="val" id="myScoreVal">0</div>
+      <div class="szval" id="mySizeVal">Taille ×1.0</div>
+    </div>
+    <div id="lb">
+      <div class="lb-title">Classement</div>
+      <div id="lbRows"></div>
+    </div>
+    <canvas id="minimap" width="120" height="120"></canvas>
+    <div id="toast"></div>
+    <!-- Mobile joystick -->
+    <div id="joystick-zone"></div>
+    <div id="joystick-base"></div>
+    <div id="joystick-knob"></div>
+  </div>
+</div>
+
+<!-- ─── GAME OVER ─────────────────────────────────────────────────────────────── -->
+<div id="screen-over">
+  <div class="over-title" id="overTitle">Partie terminée !</div>
+  <div class="over-msg" id="overMsg"></div>
+  <table class="results-table">
+    <thead><tr><th>#</th><th>Joueur</th><th>Score</th></tr></thead>
+    <tbody id="resultRows"></tbody>
+  </table>
+  <button class="btn-again" id="btnAgain">REJOUER</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+'use strict';
+// ─── Config ───────────────────────────────────────────────────────────────────
+const BACKEND = (()=>{
+  const h = window.location.hostname;
+  if(h==='localhost'||h==='127.0.0.1') return window.location.origin;
+  return window.location.origin; // same origin — Railway
+})();
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const S = {
+  pid:     null,
+  world:   4000,
+  // server-authoritative players/objects
+  players: new Map(),    // id -> {id,x,y,r,score,alive,color,name}
+  objects: new Map(),    // id -> {id,x,y,r,color,type,sizeReq}
+  timeLeft: 120,
+  lb:      [],
+  // rendering
+  camX:    0, camY: 0,
+  angle:   0,   // hole spin angle
+  particles: [],// consume effects
+  toasts:  [],  // floating score text
+  lastFrame: 0,
+  gameActive: false,
+};
+
+// ─── Socket.io ────────────────────────────────────────────────────────────────
+const socket = io(BACKEND, { path: '/hole-ws', transports: ['websocket','polling'] });
+
+// ─── UI helpers ──────────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const screens = { menu:'screen-menu', wait:'screen-wait', game:'screen-game', over:'screen-over' };
+function show(name){ Object.values(screens).forEach(id=>{ $(id).style.display='none'; }); $(screens[name]).style.display='flex'; }
+
+show('menu');
+
+function showToast(msg, dur=2200){
+  const t=$('toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(t._tid); t._tid=setTimeout(()=>t.style.display='none', dur);
+}
+
+function fmtTime(s){ const m=Math.floor(s/60),sec=s%60; return `${m}:${sec.toString().padStart(2,'0')}`; }
+
+// ─── Menu ────────────────────────────────────────────────────────────────────
+$('btnPlay').addEventListener('click', joinGame);
+$('nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') joinGame(); });
+$('btnAgain').addEventListener('click', ()=>{ show('menu'); });
+
+function joinGame(){
+  const name = $('nameInput').value.trim() || 'Joueur';
+  socket.emit('join', { name });
+  show('wait');
+  $('waitCount').textContent = '';
+  $('playerList').innerHTML  = '';
+  $('countdownMsg').textContent = '';
+}
+
+// ─── Socket events ────────────────────────────────────────────────────────────
+socket.on('joined', data => {
+  S.pid   = data.pid;
+  S.world = data.world;
+  S.players.clear();
+  S.objects.clear();
+  data.players.forEach(p => S.players.set(p.id, {...p}));
+  data.objects.forEach(o => S.objects.set(o.id, {...o}));
+  updateWaitScreen(data.players);
+});
+
+socket.on('pJoin', ({ player }) => {
+  S.players.set(player.id, {...player});
+  updateWaitScreen([...S.players.values()]);
+});
+
+socket.on('pLeave', ({ id }) => {
+  S.players.delete(id);
+  updateWaitScreen([...S.players.values()]);
+});
+
+socket.on('start', ({ t }) => {
+  S.timeLeft    = t;
+  S.gameActive  = true;
+  S.particles   = [];
+  S.toasts      = [];
+  show('game');
+  resizeCanvas();
+  requestAnimationFrame(renderLoop);
+  showToast('C\'est parti ! 🕳️', 2000);
+});
+
+socket.on('S', state => {
+  // Update players
+  state.p.forEach(sp => {
+    const p = S.players.get(sp.id);
+    if(p){ Object.assign(p, sp); }
+    else{ S.players.set(sp.id, {...sp}); }
+  });
+  // Remove consumed objects
+  if(state.c) state.c.forEach(({id, by})=>{
+    const obj = S.objects.get(id);
+    if(obj){ spawnConsumeParticles(obj.x, obj.y, obj.color); }
+    S.objects.delete(id);
+    // Score pop
+    if(by===S.pid && obj){
+      S.toasts.push({ x:obj.x, y:obj.y, text:`+${obj.pts}`, life:1.0, color:obj.color });
+    }
+  });
+  // New objects spawned
+  if(state.n) state.n.forEach(o => S.objects.set(o.id, {...o}));
+  // Eliminated
+  if(state.e) state.e.forEach(({id, by})=>{
+    if(id===S.pid) showToast('Tu as été avalé… Respawn dans 3s !', 3200);
+    if(by===S.pid){
+      const eaten = S.players.get(id);
+      if(eaten) showToast(`Tu as avalé ${eaten.name} ! +200 🔥`, 2500);
+    }
+  });
+  S.timeLeft = state.t;
+  S.lb       = state.lb || S.lb;
+
+  // Update HUD
+  const me = S.players.get(S.pid);
+  if(me){
+    $('myScoreVal').textContent = me.score.toLocaleString();
+    $('mySizeVal').textContent  = `Taille ×${me.size.toFixed(1)}`;
+  }
+  $('timer').textContent = fmtTime(S.timeLeft);
+  renderLeaderboard(S.lb);
+});
+
+socket.on('over', ({ results }) => {
+  S.gameActive = false;
+  showResults(results);
+});
+
+// ─── Waiting screen ───────────────────────────────────────────────────────────
+let _cdInterval = null;
+function updateWaitScreen(players){
+  $('waitCount').textContent = `${players.length} joueur${players.length>1?'s':''} connecté${players.length>1?'s':''}`;
+  $('playerList').innerHTML = players.map(p=>
+    `<div class="player-pill" style="color:${p.color};border-color:${p.color}30">${p.name}</div>`
+  ).join('');
+}
+
+socket.on('start', ()=>{ if(_cdInterval){ clearInterval(_cdInterval); _cdInterval=null; } });
+
+// Show countdown before start
+socket.on('joined', data => {
+  if(data.players.length >= data.minToStart){
+    let cd=3; $('countdownMsg').textContent=`Démarrage dans ${cd}…`;
+    _cdInterval = setInterval(()=>{
+      cd--;
+      if(cd<=0){ clearInterval(_cdInterval); _cdInterval=null; $('countdownMsg').textContent=''; }
+      else $('countdownMsg').textContent=`Démarrage dans ${cd}…`;
+    },1000);
+  }
+});
+socket.on('pJoin', ()=>{
+  const ps=[...S.players.values()];
+  if(ps.length>=2 && !_cdInterval){
+    let cd=3; $('countdownMsg').textContent=`Démarrage dans ${cd}…`;
+    _cdInterval=setInterval(()=>{ cd--; if(cd<=0){clearInterval(_cdInterval);_cdInterval=null;$('countdownMsg').textContent='';} else $('countdownMsg').textContent=`Démarrage dans ${cd}…`; },1000);
+  }
+});
+
+// ─── Results screen ───────────────────────────────────────────────────────────
+function showResults(results){
+  const me = results.find(r=>r.id===S.pid);
+  $('overTitle').textContent = me?.rank===1 ? '🏆 VICTOIRE !' : 'Partie terminée !';
+  $('overMsg').textContent   = me ? `Tu termines ${me.rank}${me.rank===1?'er':'ème'} avec ${me.score.toLocaleString()} pts` : '';
+  $('resultRows').innerHTML  = results.map(r=>`
+    <tr>
+      <td><span class="rank-badge rank-${Math.min(r.rank,4)}">${r.rank}</span></td>
+      <td>
+        <span class="color-swatch" style="background:${r.color}"></span>
+        ${escHtml(r.name)}
+        ${r.id===S.pid?'<span class="you-badge">TOI</span>':''}
+      </td>
+      <td>${r.score.toLocaleString()}</td>
+    </tr>`).join('');
+  setTimeout(()=>show('over'), 400);
+}
+function escHtml(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ─── Leaderboard HUD ──────────────────────────────────────────────────────────
+function renderLeaderboard(lb){
+  $('lbRows').innerHTML = lb.slice(0,8).map(r=>`
+    <div class="lb-row ${r.id===S.pid?'lb-me':''}">
+      <span class="lb-rank">${r.rank}</span>
+      <span class="lb-dot" style="background:${r.color}"></span>
+      <span class="lb-name">${escHtml(r.name)}</span>
+      <span class="lb-pts">${r.score.toLocaleString()}</span>
+    </div>`).join('');
+}
+
+// ─── Canvas / rendering ───────────────────────────────────────────────────────
+const canvas   = $('canvas');
+const ctx      = canvas.getContext('2d');
+const mmCanvas = $('minimap');
+const mmCtx    = mmCanvas.getContext('2d');
+
+function resizeCanvas(){
+  canvas.width  = window.innerWidth  * devicePixelRatio;
+  canvas.height = window.innerHeight * devicePixelRatio;
+  canvas.style.width  = window.innerWidth  + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Particle pool
+function spawnConsumeParticles(wx, wy, color){
+  const N=6;
+  for(let i=0;i<N;i++){
+    const angle=Math.random()*Math.PI*2;
+    const speed=40+Math.random()*60;
+    S.particles.push({ x:wx, y:wy, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed-30,
+      color, life:1.0, r:3+Math.random()*4 });
+  }
+}
+
+// Main render loop
+function renderLoop(ts){
+  if(!S.gameActive){ return; }
+  const dt = Math.min((ts - S.lastFrame)/1000, 0.1);
+  S.lastFrame = ts;
+  S.angle += dt * 1.2;
+
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const vw = window.innerWidth, vh = window.innerHeight;
+
+  // Camera: follow my player
+  const me = S.players.get(S.pid);
+  if(me){
+    S.camX = me.x - vw/2;
+    S.camY = me.y - vh/2;
+  }
+  const cx = S.camX, cy = S.camY;
+
+  // ── Background ──────────────────────────────────────────────────────────────
+  ctx.fillStyle = '#06060f';
+  ctx.fillRect(0, 0, vw, vh);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(78,205,196,0.04)';
+  ctx.lineWidth = 1;
+  const gSize = 80;
+  const gOX = ((-cx) % gSize + gSize) % gSize;
+  const gOY = ((-cy) % gSize + gSize) % gSize;
+  for(let x=gOX-gSize;x<vw+gSize;x+=gSize){ ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,vh);ctx.stroke(); }
+  for(let y=gOY-gSize;y<vh+gSize;y+=gSize){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(vw,y);ctx.stroke(); }
+
+  // World border glow
+  drawWorldBorder(ctx, cx, cy, vw, vh);
+
+  // ── Objects ─────────────────────────────────────────────────────────────────
+  for(const obj of S.objects.values()){
+    const sx = obj.x - cx, sy = obj.y - cy;
+    if(sx < -100 || sx > vw+100 || sy < -100 || sy > vh+100) continue;
+    drawObject(ctx, sx, sy, obj);
+  }
+
+  // ── Particles ───────────────────────────────────────────────────────────────
+  for(let i=S.particles.length-1;i>=0;i--){
+    const p = S.particles[i];
+    p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 60*dt;
+    p.life -= dt*1.8;
+    if(p.life<=0){ S.particles.splice(i,1); continue; }
+    const sx=p.x-cx, sy=p.y-cy;
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle   = p.color;
+    ctx.shadowColor = p.color; ctx.shadowBlur=6;
+    ctx.beginPath(); ctx.arc(sx,sy,p.r*p.life,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0; ctx.globalAlpha=1;
+  }
+
+  // ── Other players ───────────────────────────────────────────────────────────
+  for(const p of S.players.values()){
+    if(p.id===S.pid) continue;
+    const sx=p.x-cx, sy=p.y-cy;
+    if(sx<-200||sx>vw+200||sy<-200||sy>vh+200) continue;
+    drawHole(ctx, sx, sy, p.r, p.color, p.alive, S.angle+(p.id.charCodeAt(0)*0.4));
+    if(p.alive) drawNameTag(ctx, sx, sy, p.r, p.name, p.color);
+  }
+
+  // ── My player ───────────────────────────────────────────────────────────────
+  if(me){
+    const sx=me.x-cx, sy=me.y-cy;
+    drawHole(ctx, sx, sy, me.r, me.color, me.alive, S.angle);
+    if(me.alive) drawNameTag(ctx, sx, sy, me.r, 'Toi', me.color, true);
+  }
+
+  // ── Floating score toasts ────────────────────────────────────────────────────
+  for(let i=S.toasts.length-1;i>=0;i--){
+    const t=S.toasts[i];
+    t.y -= 28*dt; t.life-=dt*1.4;
+    if(t.life<=0){ S.toasts.splice(i,1); continue; }
+    const sx=t.x-cx, sy=t.y-cy;
+    ctx.globalAlpha=Math.min(1,t.life*2);
+    ctx.fillStyle=t.color; ctx.font='bold 16px system-ui';
+    ctx.textAlign='center'; ctx.shadowColor=t.color; ctx.shadowBlur=8;
+    ctx.fillText(t.text, sx, sy);
+    ctx.shadowBlur=0; ctx.globalAlpha=1;
+  }
+
+  ctx.restore();
+
+  // ── Minimap ──────────────────────────────────────────────────────────────────
+  drawMinimap();
+
+  requestAnimationFrame(renderLoop);
+}
+
+// ─── Draw functions ───────────────────────────────────────────────────────────
+function drawHole(ctx, sx, sy, r, color, alive, angle){
+  if(!alive){
+    // Ghost: just a faint outline
+    ctx.globalAlpha=0.25;
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+    return;
+  }
+  // Shadow
+  const sh=ctx.createRadialGradient(sx,sy,0,sx,sy,r*2.2);
+  sh.addColorStop(0,'rgba(0,0,0,0.6)');
+  sh.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sh; ctx.beginPath(); ctx.arc(sx,sy,r*2.2,0,Math.PI*2); ctx.fill();
+
+  // Void
+  const grad=ctx.createRadialGradient(sx,sy+r*0.1,0,sx,sy,r);
+  grad.addColorStop(0,'#000000');
+  grad.addColorStop(0.6,'#02020a');
+  grad.addColorStop(1,'#06060f');
+  ctx.fillStyle=grad; ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+
+  // Inner depth ring
+  ctx.strokeStyle='rgba(78,205,196,0.06)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(sx,sy,r*0.5,0,Math.PI*2); ctx.stroke();
+
+  // Spinning neon rim
+  ctx.save();
+  ctx.strokeStyle=color; ctx.lineWidth=3;
+  ctx.shadowColor=color; ctx.shadowBlur=14;
+  ctx.setLineDash([r*0.45, r*0.22]);
+  ctx.lineDashOffset = -angle * r * 0.35;
+  ctx.beginPath(); ctx.arc(sx,sy,r+2,0,Math.PI*2); ctx.stroke();
+
+  // Outer soft glow ring
+  ctx.shadowBlur=20; ctx.lineWidth=1.5; ctx.globalAlpha=0.35;
+  ctx.setLineDash([]); ctx.lineDashOffset=0;
+  ctx.beginPath(); ctx.arc(sx,sy,r+6,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+}
+
+function drawNameTag(ctx, sx, sy, r, name, color, isMe=false){
+  const y = sy - r - 10;
+  ctx.font = `${isMe?'bold ':''}12px system-ui`;
+  ctx.textAlign = 'center';
+  const tw = ctx.measureText(name).width;
+  // background pill
+  ctx.fillStyle='rgba(5,5,20,0.7)';
+  ctx.beginPath();
+  ctx.roundRect(sx-tw/2-6, y-13, tw+12, 18, 5);
+  ctx.fill();
+  // text
+  ctx.fillStyle = isMe ? '#ffffff' : color;
+  ctx.shadowColor = color; ctx.shadowBlur = isMe?8:4;
+  ctx.fillText(name, sx, y);
+  ctx.shadowBlur=0;
+}
+
+function drawObject(ctx, sx, sy, obj){
+  ctx.save();
+  ctx.fillStyle  = obj.color;
+  ctx.strokeStyle= obj.color;
+  ctx.shadowColor= obj.color;
+  ctx.shadowBlur = 6;
+
+  switch(obj.type){
+    case 'coin':{
+      ctx.beginPath(); ctx.arc(sx,sy,obj.r,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=.5; ctx.strokeStyle='#FFF9C4'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(sx,sy,obj.r,0,Math.PI*2); ctx.stroke();
+      break;
+    }
+    case 'plant':{
+      ctx.beginPath(); ctx.arc(sx,sy,obj.r*.85,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#81C784'; ctx.shadowBlur=3;
+      ctx.beginPath(); ctx.arc(sx-obj.r*.4,sy-obj.r*.5,obj.r*.55,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx+obj.r*.4,sy-obj.r*.5,obj.r*.55,0,Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'tree':{
+      // trunk
+      ctx.fillStyle='#6D4C41'; ctx.shadowBlur=2;
+      ctx.fillRect(sx-obj.r*.18,sy-obj.r*.2,obj.r*.36,obj.r*.8);
+      // foliage
+      ctx.fillStyle=obj.color; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.arc(sx,sy-obj.r*.4,obj.r*.75,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#4CAF50';
+      ctx.beginPath(); ctx.arc(sx-obj.r*.3,sy-obj.r*.65,obj.r*.5,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx+obj.r*.3,sy-obj.r*.65,obj.r*.5,0,Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'hydrant':{
+      ctx.fillStyle='#D32F2F';
+      ctx.fillRect(sx-obj.r*.45,sy-obj.r*.3,obj.r*.9,obj.r*.6);
+      ctx.fillRect(sx-obj.r*.3,sy-obj.r*.7,obj.r*.6,obj.r*.45);
+      ctx.fillStyle='#FFCDD2';
+      ctx.fillRect(sx-obj.r*.12,sy-obj.r*.85,obj.r*.24,obj.r*.2);
+      break;
+    }
+    case 'bench':{
+      ctx.fillStyle='#8D6E63';
+      ctx.fillRect(sx-obj.r*.7,sy-obj.r*.25,obj.r*1.4,obj.r*.3);
+      ctx.fillStyle='#6D4C41';
+      ctx.fillRect(sx-obj.r*.65,sy-obj.r*.25,obj.r*.12,obj.r*.55);
+      ctx.fillRect(sx+obj.r*.53,sy-obj.r*.25,obj.r*.12,obj.r*.55);
+      break;
+    }
+    case 'lamppost':{
+      ctx.fillStyle='#546E7A'; ctx.fillRect(sx-obj.r*.12,sy-obj.r*.9,obj.r*.24,obj.r*1.5);
+      ctx.fillStyle=obj.color; ctx.shadowBlur=16;
+      ctx.beginPath(); ctx.arc(sx,sy-obj.r*.8,obj.r*.35,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=.2; ctx.beginPath(); ctx.arc(sx,sy-obj.r*.8,obj.r,0,Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'car':{
+      // body
+      ctx.fillStyle=obj.color;
+      ctx.beginPath(); ctx.roundRect(sx-obj.r*.9,sy-obj.r*.45,obj.r*1.8,obj.r*.9,obj.r*.15); ctx.fill();
+      // roof
+      ctx.fillStyle=adjustColor(obj.color,.7);
+      ctx.beginPath(); ctx.roundRect(sx-obj.r*.55,sy-obj.r*.8,obj.r*1.1,obj.r*.4,obj.r*.1); ctx.fill();
+      // windows
+      ctx.fillStyle='#B3E5FC90'; ctx.shadowBlur=2;
+      ctx.fillRect(sx-obj.r*.45,sy-obj.r*.76,obj.r*.38,obj.r*.3);
+      ctx.fillRect(sx+obj.r*.08,sy-obj.r*.76,obj.r*.38,obj.r*.3);
+      // wheels
+      ctx.fillStyle='#212121'; ctx.shadowBlur=0;
+      ctx.beginPath(); ctx.arc(sx-obj.r*.55,sy+obj.r*.45,obj.r*.22,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx+obj.r*.55,sy+obj.r*.45,obj.r*.22,0,Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'truck':{
+      ctx.fillStyle=obj.color;
+      ctx.beginPath(); ctx.roundRect(sx-obj.r*.95,sy-obj.r*.5,obj.r*1.9,obj.r,obj.r*.12); ctx.fill();
+      ctx.fillStyle=adjustColor(obj.color,.75);
+      ctx.beginPath(); ctx.roundRect(sx+obj.r*.2,sy-obj.r*.9,obj.r*.7,obj.r*.44,obj.r*.08); ctx.fill();
+      ctx.fillStyle='#B3E5FC90'; ctx.shadowBlur=2;
+      ctx.fillRect(sx+obj.r*.26,sy-obj.r*.85,obj.r*.55,obj.r*.32);
+      ctx.fillStyle='#212121'; ctx.shadowBlur=0;
+      ctx.beginPath(); ctx.arc(sx-obj.r*.6,sy+obj.r*.5,obj.r*.24,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx+obj.r*.6,sy+obj.r*.5,obj.r*.24,0,Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'building':{
+      ctx.fillStyle=obj.color;
+      ctx.beginPath(); ctx.roundRect(sx-obj.r*.68,sy-obj.r,obj.r*1.36,obj.r*2,obj.r*.05); ctx.fill();
+      // windows grid
+      ctx.fillStyle='#FFF59D'; ctx.shadowBlur=4;
+      const cols=3, rows=4;
+      const ww=obj.r*.22, wh=obj.r*.2;
+      const startX=sx-obj.r*.5, startY=sy-obj.r*.82;
+      for(let c=0;c<cols;c++) for(let r=0;r<rows;r++){
+        if(Math.random()>.3) ctx.fillRect(startX+c*(ww+obj.r*.1), startY+r*(wh+obj.r*.1), ww, wh);
+      }
+      break;
+    }
+    default:{
+      ctx.beginPath(); ctx.arc(sx,sy,obj.r,0,Math.PI*2); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function adjustColor(hex, factor){
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgb(${~~(r*factor)},${~~(g*factor)},${~~(b*factor)})`;
+}
+
+function drawWorldBorder(ctx, cx, cy, vw, vh){
+  const margin=10;
+  const borders=[
+    {x1:-cx-margin,y1:-cy-margin,x2:S.world-cx+margin,y2:-cy-margin},
+    {x1:S.world-cx+margin,y1:-cy-margin,x2:S.world-cx+margin,y2:S.world-cy+margin},
+    {x1:S.world-cx+margin,y1:S.world-cy+margin,x2:-cx-margin,y2:S.world-cy+margin},
+    {x1:-cx-margin,y1:S.world-cy+margin,x2:-cx-margin,y2:-cy-margin},
+  ];
+  ctx.save();
+  ctx.strokeStyle='#4ECDC4'; ctx.lineWidth=3;
+  ctx.shadowColor='#4ECDC4'; ctx.shadowBlur=12;
+  ctx.setLineDash([20,10]);
+  ctx.beginPath();
+  ctx.rect(-cx-margin,-cy-margin,S.world+margin*2,S.world+margin*2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawMinimap(){
+  const mw=120, mh=120;
+  mmCtx.clearRect(0,0,mw,mh);
+  mmCtx.fillStyle='rgba(6,6,15,0.9)'; mmCtx.fillRect(0,0,mw,mh);
+  const scl=mw/S.world;
+
+  // Objects (dots)
+  for(const obj of S.objects.values()){
+    mmCtx.fillStyle=obj.color+'66';
+    mmCtx.fillRect(obj.x*scl-1,obj.y*scl-1,2,2);
+  }
+
+  // Players
+  for(const p of S.players.values()){
+    const mx=p.x*scl, my=p.y*scl;
+    if(!p.alive) continue;
+    mmCtx.fillStyle = p.id===S.pid ? '#ffffff' : p.color;
+    mmCtx.beginPath(); mmCtx.arc(mx,my, p.id===S.pid?3:2,0,Math.PI*2); mmCtx.fill();
+    if(p.id===S.pid){
+      mmCtx.strokeStyle='#ffffff44'; mmCtx.lineWidth=1;
+      mmCtx.beginPath(); mmCtx.arc(mx,my,5,0,Math.PI*2); mmCtx.stroke();
+    }
+  }
+
+  // View rect
+  const me=S.players.get(S.pid);
+  if(me){
+    const vx=(S.camX)*scl, vy=(S.camY)*scl;
+    const vw2=window.innerWidth*scl, vh2=window.innerHeight*scl;
+    mmCtx.strokeStyle='rgba(255,255,255,0.2)'; mmCtx.lineWidth=1;
+    mmCtx.strokeRect(vx,vy,vw2,vh2);
+  }
+}
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+// Desktop: mouse move
+let _mouseWX=null, _mouseWY=null;
+canvas.addEventListener('mousemove', e=>{
+  if(!S.gameActive) return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left), my=(e.clientY-rect.top);
+  _mouseWX = mx + S.camX;
+  _mouseWY = my + S.camY;
+  socket.emit('I',{tx:_mouseWX,ty:_mouseWY});
+});
+
+// Throttle input sends (16ms = 60fps max)
+let _lastInputSend=0;
+function sendInput(wx,wy){
+  const now=Date.now();
+  if(now-_lastInputSend<16) return;
+  _lastInputSend=now;
+  socket.emit('I',{tx:wx,ty:wy});
+}
+
+// ── Mobile joystick ──────────────────────────────────────────────────────────
+const jZone  = $('joystick-zone');
+const jBase  = $('joystick-base');
+const jKnob  = $('joystick-knob');
+const J_R    = 60; // joystick radius
+let _jActive = false, _jCX=0, _jCY=0;
+
+jZone.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  _jActive=true; _jCX=t.clientX; _jCY=t.clientY;
+  jBase.style.cssText=`display:block;width:${J_R*2}px;height:${J_R*2}px;left:${_jCX-J_R}px;top:${_jCY-J_R}px`;
+  jKnob.style.cssText=`display:block;width:${J_R*.7}px;height:${J_R*.7}px;left:${_jCX}px;top:${_jCY}px`;
+},{passive:false});
+
+jZone.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(!_jActive) return;
+  const t=e.touches[0];
+  const dx=t.clientX-_jCX, dy=t.clientY-_jCY;
+  const d=Math.hypot(dx,dy);
+  const clamped=Math.min(d,J_R);
+  const nx=dx/d||0, ny=dy/d||0;
+  jKnob.style.left=((_jCX+nx*clamped))+'px';
+  jKnob.style.top =((_jCY+ny*clamped))+'px';
+
+  const me=S.players.get(S.pid);
+  if(me&&S.gameActive){
+    const speed=300;
+    const wx=me.x+(nx*speed), wy=me.y+(ny*speed);
+    sendInput(wx,wy);
+  }
+},{passive:false});
+
+function endJoy(){
+  _jActive=false;
+  jBase.style.display='none'; jKnob.style.display='none';
+  socket.emit('I',{tx:null,ty:null});
+}
+jZone.addEventListener('touchend',  endJoy);
+jZone.addEventListener('touchcancel',endJoy);
+
+// Also allow tap-to-move anywhere when not on joystick (desktop-like on tablet)
+canvas.addEventListener('touchmove', e=>{
+  if(e.touches.length===1 && !_jActive){
+    e.preventDefault();
+    const t=e.touches[0];
+    const rect=canvas.getBoundingClientRect();
+    sendInput(t.clientX-rect.left+S.camX, t.clientY-rect.top+S.camY);
+  }
+},{passive:false});
+
+// roundRect polyfill for older iOS
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    this.beginPath();
+    this.moveTo(x+r,y);
+    this.lineTo(x+w-r,y);this.arcTo(x+w,y,x+w,y+r,r);
+    this.lineTo(x+w,y+h-r);this.arcTo(x+w,y+h,x+w-r,y+h,r);
+    this.lineTo(x+r,y+h);this.arcTo(x,y+h,x,y+h-r,r);
+    this.lineTo(x,y+r);this.arcTo(x,y,x+r,y,r);
+    this.closePath();
+  };
+}
+
+// Disable scroll bounce on iOS
+document.body.addEventListener('touchmove',e=>{if(e.cancelable)e.preventDefault();},{passive:false});
+</script>
+</body>
+</html>

@@ -46,3 +46,5 @@ desktop.ini
 contracts/artifacts/
 contracts/cache/
 contracts/typechain-types/
+
+*.bak

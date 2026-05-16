@@ -3,7 +3,7 @@
 ## 1. SSH into VPS
 
 ```bash
-ssh root@<VPS_IP>
+ssh root@65.75.209.135
 ```
 
 ## 2. Install Node 20 + PM2 (Debian/Ubuntu)
@@ -19,8 +19,8 @@ npm i -g pm2
 From your local machine (PowerShell):
 
 ```powershell
-cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend"
-scp -r discord-bot root@<VPS_IP>:/opt/snakecoin-bot
+cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend"
+scp -r discord-bot root@65.75.209.135:/opt/snakecoin-bot
 ```
 
 Or clone via git if you commit it.

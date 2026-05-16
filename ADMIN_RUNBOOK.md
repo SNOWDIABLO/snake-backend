@@ -40,7 +40,7 @@
                                      ▼                              │
                          ┌─────────────────────────┐                │
                          │  VPS Linux              │────────────────┘
-                         │  <VPS_IP> (root)   │   (signer wallet)
+                         │  65.75.209.135 (root)   │   (signer wallet)
                          │  pm2 : snakecoin-bot    │
                          │  Discord + Twitch       │
                          │  /opt/snakecoin-bot/    │
@@ -61,9 +61,9 @@
 
 | Service | URL / Host | User | Note |
 |---|---|---|---|
-| **VPS Linux** | `<VPS_IP>` | `root` | Via SSH key (`~/.ssh/snake_vps`) |
+| **VPS Linux** | `65.75.209.135` | `root` | Via SSH key (`~/.ssh/snake_vps`) |
 | **Domaine** | `snowdiablo.xyz` | — | DNS géré chez le registrar |
-| **Railway** | `snake-backend-production-e5e8.up.railway.app` | `<admin_email>` | Dashboard: https://railway.com |
+| **Railway** | `snake-backend-production-e5e8.up.railway.app` | `snowdiablovevo@gmail.com` | Dashboard: https://railway.com |
 | **WebHostOp** | FTP via GitHub Actions | — | Secret dans `repo settings` |
 | **GitHub** | github.com/SnowDiablo/snake-backend | `SnowDiablo` | Repo public (vitrine) |
 
@@ -80,7 +80,7 @@
 - **VPS** : `/opt/snakecoin-bot/.env` (Discord/Twitch tokens)
 - **Railway** : Dashboard → Variables (backend secrets, SIGNER_PK, ALCHEMY_KEY)
 - **Local Windows** : `snake-backend\.env` (dev only — `.gitignore`-é)
-- **Alchemy API** : dashboard.alchemy.com (compte `<admin_email>`)
+- **Alchemy API** : dashboard.alchemy.com (compte `snowdiablovevo@gmail.com`)
 - **ADMIN_TOKEN** : rotation recommandée tous les 90j → update sur Railway + local
 
 ---
@@ -90,9 +90,9 @@
 ### Connexion
 
 ```bash
-ssh root@<VPS_IP>
+ssh root@65.75.209.135
 # ou si key SSH nommée différemment :
-ssh -i ~/.ssh/snake_vps root@<VPS_IP>
+ssh -i ~/.ssh/snake_vps root@65.75.209.135
 ```
 
 ### Monitoring système
@@ -185,7 +185,7 @@ pm2 set pm2-logrotate:retain 7
 
 **Depuis Windows PowerShell :**
 ```powershell
-cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\discord-bot-snacke"
+cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\discord-bot-snacke"
 .\deploy.ps1
 ```
 
@@ -221,7 +221,7 @@ node register-commands.js
 
 ### Dashboard Railway
 
-1. https://railway.com → login avec `<admin_email>`
+1. https://railway.com → login avec `snowdiablovevo@gmail.com`
 2. Projet `snake-backend` → service `production-e5e8`
 3. Onglets utiles :
    - **Deployments** : historique des builds, logs de build
@@ -282,7 +282,7 @@ SELECT * FROM nft_drops ORDER BY created_at DESC LIMIT 10;
 ### Forcer un redéploiement frontend
 
 ```powershell
-cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git"
+cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git"
 git commit --allow-empty -m "Trigger redeploy"
 git push origin main
 ```
@@ -431,8 +431,8 @@ Invoke-RestMethod "$base/api/admin/twitch/status" -Headers @{Authorization="Bear
 
 ```powershell
 # Edits dans snake-backend\ puis :
-$src = "$env:USERPROFILE\OneDrive\claude creation\snake-backend"
-$dst = "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git"
+$src = "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend"
+$dst = "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git"
 Copy-Item "$src\index.html" "$dst\index.html" -Force
 # (copier aussi les autres fichiers modifiés)
 
@@ -455,11 +455,11 @@ Push sur repo privé → Railway redeploy auto.
 
 ```powershell
 # Option A : déploiement automatisé
-cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\discord-bot-snacke"
+cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\discord-bot-snacke"
 .\deploy.ps1
 
 # Option B : manuel via SSH
-ssh root@<VPS_IP>
+ssh root@65.75.209.135
 cd /opt/discord-bot-snake
 git pull
 npm install --production
@@ -531,7 +531,7 @@ pm2 restart snakecoin-bot --update-env
 ### 🔴 Bot Discord ne répond plus
 
 ```bash
-ssh root@<VPS_IP>
+ssh root@65.75.209.135
 pm2 status
 pm2 logs snakecoin-bot --err --lines 100
 
@@ -618,10 +618,10 @@ Déjà arrivé (task #41 + #48). Diagnostic :
 
 ### Comptes & services
 
-- **GitHub** : `SnowDiablo` / `<admin_email>`
-- **Railway** : `<admin_email>`
-- **Alchemy** : `<admin_email>`
-- **Discord dev portal** : `<admin_email>`
+- **GitHub** : `SnowDiablo` / `snowdiablovevo@gmail.com`
+- **Railway** : `snowdiablovevo@gmail.com`
+- **Alchemy** : `snowdiablovevo@gmail.com`
+- **Discord dev portal** : `snowdiablovevo@gmail.com`
 - **Twitch** : `snowdiablo`
 - **Bluesky** : handle selon `BSKY_HANDLE` dans Railway
 
@@ -674,4 +674,4 @@ Fichiers à conserver chiffrés sur clé USB :
 
 **Dernière mise à jour** : 2026-04-19
 **Version** : 1.0
-**Mainteneur** : SnowDiablo (`<admin_email>`)
+**Mainteneur** : SnowDiablo (`snowdiablovevo@gmail.com`)

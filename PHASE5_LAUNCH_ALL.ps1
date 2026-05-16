@@ -8,10 +8,10 @@
 #    $env:DISCORD_WEBHOOK = "https://discord.com/api/webhooks/.../..."
 #
 #  Usage :
-#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_ALL.ps1"           # live (asks final confirm)
-#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_ALL.ps1" -DryRun   # preview only
-#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_ALL.ps1" -SkipEveryone   # same but no Discord @everyone
-#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_ALL.ps1" -YoloGo   # skip final confirm prompt
+#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_ALL.ps1"           # live (asks final confirm)
+#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_ALL.ps1" -DryRun   # preview only
+#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_ALL.ps1" -SkipEveryone   # same but no Discord @everyone
+#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_ALL.ps1" -YoloGo   # skip final confirm prompt
 # ============================================================
 
 param(
@@ -23,7 +23,7 @@ param(
 )
 
 $ErrorActionPreference = 'Continue'   # don't die on non-critical stderr
-$root = "$env:USERPROFILE\OneDrive\claude creation\snake-backend"
+$root = "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend"
 $bsky = Join-Path $root "PHASE5_LAUNCH_BSKY.ps1"
 $disc = Join-Path $root "PHASE5_LAUNCH_DISCORD.ps1"
 
@@ -172,7 +172,7 @@ if ($bskyExit -ne 0) {
     Write-Host ""
     Write-Host "Bluesky step exited non-zero ($bskyExit). Aborting before Discord." -ForegroundColor Red
     Write-Host "Fix the issue, then run only the Discord script :"
-    Write-Host '  & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1"'
+    Write-Host '  & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1"'
     exit $bskyExit
 }
 

@@ -68,7 +68,7 @@ Backend multi-games (déjà shipped Phase 4) segmente les sessions/leaderboards 
 1. **Push** — exécuter `PHASE5_SHIP.ps1` depuis PowerShell (hors OneDrive) :
    ```powershell
    cd C:\dev\snake-backend
-   & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_SHIP.ps1"
+   & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_SHIP.ps1"
    ```
 2. **Smoke tests** post-deploy (script les affiche)
 3. **E2E test** : connect wallet → joue 1 partie de chaque jeu → vérifier `SELECT game, COUNT(*) FROM sessions GROUP BY game` côté DB

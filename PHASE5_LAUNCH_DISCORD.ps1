@@ -9,14 +9,14 @@
 #
 #  Usage :
 #    $env:DISCORD_WEBHOOK = "https://discord.com/api/webhooks/..."
-#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1"
-#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1" -DryRun
-#    & "$env:USERPROFILE\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1" -WebhookUrl "https://discord.com/api/webhooks/..."
+#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1"
+#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1" -DryRun
+#    & "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\PHASE5_LAUNCH_DISCORD.ps1" -WebhookUrl "https://discord.com/api/webhooks/..."
 # ============================================================
 
 param(
     [string]$WebhookUrl,
-    [string]$PayloadPath = "$env:USERPROFILE\OneDrive\claude creation\snake-backend\LAUNCH_WAVE_ARCADE.discord.json",
+    [string]$PayloadPath = "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\LAUNCH_WAVE_ARCADE.discord.json",
     [switch]$DryRun,
     [switch]$SkipEveryone    # strip @everyone mention (safe mode)
 )

@@ -7,14 +7,14 @@ Ce fichier = le **minimum vital** à exécuter pour finir #66 et #65.
 ## 1. Git push (le kit deploy)
 
 ```powershell
-cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend-git"
+cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend-git"
 
 # Copier les fichiers du kit hardhat
 New-Item -ItemType Directory -Path "contracts" -Force | Out-Null
 New-Item -ItemType Directory -Path "contracts\src" -Force | Out-Null
 New-Item -ItemType Directory -Path "contracts\scripts" -Force | Out-Null
 
-$SRC = "$env:USERPROFILE\OneDrive\claude creation\snake-backend\contracts"
+$SRC = "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\contracts"
 Copy-Item "$SRC\hardhat.config.js" ".\contracts\" -Force
 Copy-Item "$SRC\package.json" ".\contracts\" -Force
 Copy-Item "$SRC\.gitignore" ".\contracts\" -Force
@@ -35,7 +35,7 @@ git push origin main
 ## 2. #66 · DEPLOY SnakeBoostNFT mainnet
 
 ```powershell
-cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\contracts"
+cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\contracts"
 
 # 1. Install (1 fois seulement, ~2min)
 npm install
@@ -76,7 +76,7 @@ Invoke-RestMethod "$API/api/boost/catalog" | ConvertTo-Json -Depth 4
 ### 3.1 · Pricing simulation
 
 ```powershell
-cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\contracts"
+cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\contracts"
 # Ajuste SNAKE_IN_LP / POL_IN_LP dans scripts/price-calc.js selon ton plan
 node scripts/price-calc.js
 ```
@@ -101,7 +101,7 @@ node scripts/price-calc.js
 ### 3.4 · Renounce ownership $SNAKE
 
 ```powershell
-cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\contracts"
+cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\contracts"
 npm run renounce:polygon
 # Tape "RENOUNCE" quand demandé
 ```
@@ -137,7 +137,7 @@ Copy-paste depuis `LAUNCH_ANNOUNCE.md` sur :
 ## 4. Post-launch cleanup
 
 ```powershell
-cd "$env:USERPROFILE\OneDrive\claude creation\snake-backend\contracts"
+cd "C:\Users\Alien Ware\OneDrive\claude creation\snake-backend\contracts"
 # 1. Purger clé privée locale
 Remove-Item ".env" -Force
 

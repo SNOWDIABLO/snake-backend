@@ -3987,6 +3987,144 @@ async function signerBalanceTick() {
 setTimeout(() => { signerBalanceTick().catch(() => {}); }, 60 * 1000).unref?.();
 setInterval(() => { signerBalanceTick().catch(() => {}); }, SIGNER_CHECK_H * 3600 * 1000).unref?.();
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  SECURITY MONITORING (task #135) — détection drain / mint sauvage en temps réel
+// ═══════════════════════════════════════════════════════════════════════════
+// Surveille 3 métriques on-chain toutes les SECMON_INTERVAL_S secondes :
+//   1. signer_pol_balance — alerte si drop >= SECMON_SIGNER_DRAIN_POL en un tick
+//      → indique un drain / clé compromise.
+//   2. lp_fund_snake — alerte sur TOUT changement (LP Fund ne doit jamais bouger
+//      sauf ops manuelle planifiée).
+//   3. snake_total_supply — alerte si croissance >= SECMON_SUPPLY_DELTA_SNAKE en
+//      un tick → indique un mint exploit (cap normal /session = 50 $SNAKE).
+//
+// État persisté en DB (security_watch) → survit Railway redeploy.
+// Webhook Discord dédié (SECMON_WEBHOOK) ou fallback DISCORD_WEBHOOK.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS security_watch (
+    key             TEXT PRIMARY KEY,
+    last_value      TEXT NOT NULL,
+    last_checked_at INTEGER NOT NULL,
+    alert_count     INTEGER NOT NULL DEFAULT 0
+  );
+`);
+
+const SECMON_ENABLED            = process.env.SECMON_ENABLED !== '0';
+const SECMON_INTERVAL_S         = parseInt(process.env.SECMON_INTERVAL_S || '60', 10);
+const SECMON_SIGNER_DRAIN_POL   = parseFloat(process.env.SECMON_SIGNER_DRAIN_POL || '2');
+const SECMON_SUPPLY_DELTA_SNAKE = parseFloat(process.env.SECMON_SUPPLY_DELTA_SNAKE || '100');
+const SECMON_LP_FUND_ADDR       = process.env.SECMON_LP_FUND_ADDR || '0xc1D4Fe31F4C0526848E4B427FDfBA519f36C166E';
+const SECMON_WEBHOOK            = process.env.SECMON_WEBHOOK || process.env.DISCORD_WEBHOOK || '';
+
+const _getSecWatch  = db.prepare('SELECT last_value FROM security_watch WHERE key = ?');
+const _setSecWatch  = db.prepare(`
+  INSERT INTO security_watch (key, last_value, last_checked_at, alert_count) VALUES (?, ?, ?, 0)
+  ON CONFLICT(key) DO UPDATE SET last_value = excluded.last_value, last_checked_at = excluded.last_checked_at
+`);
+const _bumpSecAlert = db.prepare('UPDATE security_watch SET alert_count = alert_count + 1 WHERE key = ?');
+
+async function secMonAlert(title, fields, severity) {
+  const color = severity === 'critical' ? 0xff0000 : severity === 'high' ? 0xff6600 : 0xffcc00;
+  console.warn(`🚨 [SECMON] ${title}`, fields);
+  if (!SECMON_WEBHOOK) return;
+  try {
+    await fetch(SECMON_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `🚨 **SECURITY ALERT** — ${title}`,
+        embeds: [{
+          title,
+          color,
+          fields: Object.entries(fields).map(([name, value]) => ({ name, value: String(value), inline: true })),
+          timestamp: new Date().toISOString(),
+        }],
+      }),
+    });
+  } catch (e) { console.warn('[SECMON] webhook fail:', e.message); }
+}
+
+async function securityMonitorTick() {
+  if (!SECMON_ENABLED) return;
+  const p = getProvider();
+  if (!p) return;
+  const now = Math.floor(Date.now() / 1000);
+
+  try {
+    // 1. Signer POL balance — drain detection
+    const sigBal = await p.getBalance(wallet.address);
+    const sigPol = parseFloat(ethers.formatEther(sigBal));
+    const lastSig = _getSecWatch.get('signer_pol_balance');
+    if (lastSig) {
+      const lastPol = parseFloat(ethers.formatEther(BigInt(lastSig.last_value)));
+      const delta = lastPol - sigPol;
+      if (delta >= SECMON_SIGNER_DRAIN_POL) {
+        await secMonAlert('SIGNER POL DRAIN DETECTED', {
+          'Wallet':     wallet.address,
+          'Avant':      `${lastPol.toFixed(4)} POL`,
+          'Maintenant': `${sigPol.toFixed(4)} POL`,
+          'Drain':      `-${delta.toFixed(4)} POL en ${SECMON_INTERVAL_S}s`,
+          'Action':     'Polygonscan + rotation signer si compromise',
+        }, 'critical');
+        _bumpSecAlert.run('signer_pol_balance');
+      }
+    }
+    _setSecWatch.run('signer_pol_balance', sigBal.toString(), now);
+
+    // 2. LP Fund SNAKE balance — any change alerts
+    if (CONTRACT_ADDRESS && SECMON_LP_FUND_ADDR) {
+      const paddedAddr = SECMON_LP_FUND_ADDR.toLowerCase().replace('0x', '').padStart(64, '0');
+      const result = await p.call({ to: CONTRACT_ADDRESS, data: '0x70a08231' + paddedAddr });
+      const lpBal = BigInt(result);
+      const lpSnake = parseFloat(ethers.formatEther(lpBal));
+      const lastLp = _getSecWatch.get('lp_fund_snake');
+      if (lastLp && lastLp.last_value !== lpBal.toString()) {
+        const lastSnake = parseFloat(ethers.formatEther(BigInt(lastLp.last_value)));
+        await secMonAlert('LP FUND BALANCE CHANGED', {
+          'Wallet':     SECMON_LP_FUND_ADDR,
+          'Avant':      `${lastSnake.toFixed(2)} SNAKE`,
+          'Maintenant': `${lpSnake.toFixed(2)} SNAKE`,
+          'Delta':      `${(lpSnake - lastSnake).toFixed(2)} SNAKE`,
+          'Action':     'LP Fund ne doit pas bouger sauf ops manuelle. Vérifier maintenant.',
+        }, 'critical');
+        _bumpSecAlert.run('lp_fund_snake');
+      }
+      _setSecWatch.run('lp_fund_snake', lpBal.toString(), now);
+    }
+
+    // 3. SNAKE total supply — mint exploit detection
+    if (CONTRACT_ADDRESS) {
+      const result = await p.call({ to: CONTRACT_ADDRESS, data: '0x18160ddd' });
+      const supply = BigInt(result);
+      const supplySnake = parseFloat(ethers.formatEther(supply));
+      const lastSup = _getSecWatch.get('snake_total_supply');
+      if (lastSup) {
+        const lastSnake = parseFloat(ethers.formatEther(BigInt(lastSup.last_value)));
+        const growth = supplySnake - lastSnake;
+        if (growth >= SECMON_SUPPLY_DELTA_SNAKE) {
+          await secMonAlert('ABNORMAL SNAKE MINT', {
+            'Avant':      `${lastSnake.toFixed(2)} SNAKE`,
+            'Maintenant': `${supplySnake.toFixed(2)} SNAKE`,
+            'Mint':       `+${growth.toFixed(2)} SNAKE en ${SECMON_INTERVAL_S}s`,
+            'Threshold':  `${SECMON_SUPPLY_DELTA_SNAKE} SNAKE`,
+            'Action':     'Polygonscan : qui a minté + tx hash. Rotation signer si exploit.',
+          }, 'critical');
+          _bumpSecAlert.run('snake_total_supply');
+        }
+      }
+      _setSecWatch.run('snake_total_supply', supply.toString(), now);
+    }
+  } catch (e) {
+    console.warn('[SECMON] tick err:', e.message);
+  }
+}
+
+// Tick initial 30s après start (laisser le RPC chauffer), puis chaque SECMON_INTERVAL_S
+if (SECMON_ENABLED) {
+  setTimeout(() => { securityMonitorTick().catch(() => {}); }, 30 * 1000).unref?.();
+  setInterval(() => { securityMonitorTick().catch(() => {}); }, SECMON_INTERVAL_S * 1000).unref?.();
+}
+
 // ─── Cleanup sessions consommées (fix race condition /api/claim) ──────────
 // Les sessions claimées (claim_nonce != NULL) sont gardées 1h pour permettre
 // un retry si le mint on-chain a revert. Après 1h on les purge pour ne pas
@@ -4035,6 +4173,11 @@ const server = app.listen(PORT, () => {
   if (PUBLIC_FEED_WEBHOOK) console.log('📢 Public feed webhook enabled (#snake-feed)');
   if (ADMIN_TOKEN)         console.log('🔐 Admin token configured');
   console.log(`🛡️  Wallet proof (EIP-191) : ${REQUIRE_WALLET_PROOF ? 'ENFORCE' : 'warn-only (set REQUIRE_WALLET_PROOF=1 to enforce)'}`);
+  if (SECMON_ENABLED) {
+    console.log(`🚨 Security monitor : ENABLED (every ${SECMON_INTERVAL_S}s · drain≥${SECMON_SIGNER_DRAIN_POL} POL · supply Δ≥${SECMON_SUPPLY_DELTA_SNAKE} SNAKE · webhook ${SECMON_WEBHOOK ? 'configured' : '⚠️ MISSING'})`);
+  } else {
+    console.log('🚨 Security monitor : disabled (set SECMON_ENABLED=1)');
+  }
 });
 
 // ─── Global error handlers + graceful shutdown (task #96) ────────────────────

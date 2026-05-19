@@ -15,7 +15,7 @@ const CFG = {
   GUILD_ID:           process.env.DISCORD_GUILD_ID,
   CHANNEL_ID:         process.env.DISCORD_CHANNEL_ID,
   HOLDER_ROLE_ID:     process.env.DISCORD_HOLDER_ROLE_ID || null,
-  BACKEND_URL:        process.env.BACKEND_URL || 'https://snake-backend-production-e5e8.up.railway.app',
+  BACKEND_URL:        process.env.BACKEND_URL || 'https://api.snowdiablo.xyz',
   POLYGON_RPC:        process.env.POLYGON_RPC || 'https://polygon-rpc.com',
   CONTRACT_ADDRESS:   process.env.CONTRACT_ADDRESS,
   HOLDER_THRESHOLD:   parseFloat(process.env.HOLDER_THRESHOLD || '1000'),

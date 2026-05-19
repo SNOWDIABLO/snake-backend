@@ -609,7 +609,7 @@
 
 <script>
   // Live stats pull from backend (non-blocking, silent fail)
-  const API = 'https://snake-backend-production-e5e8.up.railway.app';
+  const API = 'https://api.snowdiablo.xyz';
   async function loadStats() {
     try {
       const r = await fetch(API + '/api/stats', { cache: 'no-store' });

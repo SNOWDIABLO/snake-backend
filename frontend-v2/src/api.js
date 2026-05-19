@@ -3,7 +3,7 @@
    Shared fetch helper for Railway backend.
    =================================================================== */
 
-export const BACKEND_URL = 'https://snake-backend-production-e5e8.up.railway.app';
+export const BACKEND_URL = 'https://api.snowdiablo.xyz';
 
 class ApiError extends Error {
   constructor(message, status, body) {

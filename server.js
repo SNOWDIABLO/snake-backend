@@ -2100,7 +2100,8 @@ app.post('/api/boost/refresh', publicLimiter, async (req, res) => {
 });
 
 // GET /api/boost/inventory/:address — liste les tokenIds détenus + metadata
-// Best-effort : nécessite que le contract supporte tokenOfOwnerByIndex (ERC721Enumerable).
+// Fast path: ERC721Enumerable.tokenOfOwnerByIndex. Fallback: scan BoostMinted events
+// (indexed by wallet) si le contract n'implémente pas Enumerable.
 app.get('/api/boost/inventory/:address', publicLimiter, async (req, res) => {
   const address = (req.params.address || '').toLowerCase();
   if (!ethers.isAddress(address)) {
@@ -2113,24 +2114,64 @@ app.get('/api/boost/inventory/:address', publicLimiter, async (req, res) => {
   const TIER_NAMES = { 0: 'None', 1: 'Basic', 2: 'Pro', 3: 'Elite', 4: 'Seasonal' };
   try {
     const bal = Number(await contract.balanceOf(address));
+    if (bal === 0) {
+      return res.json({ address, available: true, balance: 0, tokens: [] });
+    }
+
     const tokens = [];
+    const seen = new Set();
     const MAX = Math.min(bal, 50); // safety cap
+
+    // Fast path: ERC721Enumerable
+    let enumerableOk = true;
     for (let i = 0; i < MAX; i++) {
       try {
         const tokenId = await contract.tokenOfOwnerByIndex(address, i);
         const meta = await contract.tokenMeta(tokenId);
+        const tidStr = tokenId.toString();
+        if (seen.has(tidStr)) continue;
+        seen.add(tidStr);
         tokens.push({
-          token_id:     tokenId.toString(),
-          tier:         Number(meta[0]),
-          tier_name:    TIER_NAMES[Number(meta[0])] || 'Unknown',
-          seasonal_id:  Number(meta[1]),
-          minted_at:    Number(meta[2]),
+          token_id:    tidStr,
+          tier:        Number(meta[0]),
+          tier_name:   TIER_NAMES[Number(meta[0])] || 'Unknown',
+          seasonal_id: Number(meta[1]),
+          minted_at:   Number(meta[2]),
         });
       } catch (e) {
-        // Enumerable pas dispo ? break loop
+        // Enumerable pas dispo dès le premier appel → fallback events
+        if (i === 0) enumerableOk = false;
         break;
       }
     }
+
+    // Fallback: scan BoostMinted events filtrés par wallet (indexed)
+    if (!enumerableOk && tokens.length < bal) {
+      try {
+        const filter = contract.filters.BoostMinted(address);
+        const events = await contract.queryFilter(filter, 0, 'latest');
+        for (const ev of events) {
+          if (tokens.length >= bal) break;
+          const tokenId = ev.args.tokenId;
+          const tidStr = tokenId.toString();
+          if (seen.has(tidStr)) continue;
+          try {
+            const meta = await contract.tokenMeta(tokenId);
+            seen.add(tidStr);
+            tokens.push({
+              token_id:    tidStr,
+              tier:        Number(meta[0]),
+              tier_name:   TIER_NAMES[Number(meta[0])] || 'Unknown',
+              seasonal_id: Number(meta[1]),
+              minted_at:   Number(meta[2]),
+            });
+          } catch (metaErr) { /* token meta unreachable, skip */ }
+        }
+      } catch (scanErr) {
+        console.warn('[BOOST INVENTORY] event scan failed:', scanErr.message);
+      }
+    }
+
     res.json({ address, available: true, balance: bal, tokens });
   } catch (e) {
     console.error('[BOOST INVENTORY] error:', e.message);

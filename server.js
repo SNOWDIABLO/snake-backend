@@ -627,6 +627,7 @@ const BOOST_NFT_ABI = [
   'function currentSeasonalId() view returns (uint32)',
   'function getMaticUsdPrice() view returns (uint256)',
   'function balanceOf(address owner) view returns (uint256)',
+  'function ownerOf(uint256 tokenId) view returns (address)',
   'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
   'function tokenMeta(uint256 tokenId) view returns (uint8 tier, uint32 seasonalId, uint64 mintedAt)',
   'event BoostMinted(address indexed wallet, uint256 indexed tokenId, uint8 tier, uint32 seasonalId, uint16 multiplierBps, uint8 paymentMode)',
@@ -2100,8 +2101,9 @@ app.post('/api/boost/refresh', publicLimiter, async (req, res) => {
 });
 
 // GET /api/boost/inventory/:address — liste les tokenIds détenus + metadata
-// Fast path: ERC721Enumerable.tokenOfOwnerByIndex. Fallback: scan BoostMinted events
-// (indexed by wallet) si le contract n'implémente pas Enumerable.
+// Strategy: (1) try ERC721Enumerable fast path. (2) Fallback to BoostMinted
+// event scan over last ~5M blocks (≈4 months on Polygon). (3) Last resort:
+// brute-force ownerOf scan for low tokenIds (only when sum(tiers.minted) < 200).
 app.get('/api/boost/inventory/:address', publicLimiter, async (req, res) => {
   const address = (req.params.address || '').toLowerCase();
   if (!ethers.isAddress(address)) {
@@ -2112,63 +2114,113 @@ app.get('/api/boost/inventory/:address', publicLimiter, async (req, res) => {
     return res.json({ address, available: false, tokens: [] });
   }
   const TIER_NAMES = { 0: 'None', 1: 'Basic', 2: 'Pro', 3: 'Elite', 4: 'Seasonal' };
+
+  async function pushTokenById(tokenId) {
+    const tidStr = tokenId.toString();
+    if (seen.has(tidStr)) return false;
+    try {
+      const meta = await contract.tokenMeta(tokenId);
+      seen.add(tidStr);
+      tokens.push({
+        token_id:    tidStr,
+        tier:        Number(meta[0]),
+        tier_name:   TIER_NAMES[Number(meta[0])] || 'Unknown',
+        seasonal_id: Number(meta[1]),
+        minted_at:   Number(meta[2]),
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+
+  const tokens = [];
+  const seen = new Set();
+
   try {
     const bal = Number(await contract.balanceOf(address));
     if (bal === 0) {
       return res.json({ address, available: true, balance: 0, tokens: [] });
     }
+    console.log(`[BOOST INV] ${address} bal=${bal} — resolving tokens...`);
 
-    const tokens = [];
-    const seen = new Set();
-    const MAX = Math.min(bal, 50); // safety cap
+    const MAX = Math.min(bal, 50);
 
-    // Fast path: ERC721Enumerable
+    // ── Strategy 1: ERC721Enumerable ───────────────────────────────────────
     let enumerableOk = true;
     for (let i = 0; i < MAX; i++) {
       try {
         const tokenId = await contract.tokenOfOwnerByIndex(address, i);
-        const meta = await contract.tokenMeta(tokenId);
-        const tidStr = tokenId.toString();
-        if (seen.has(tidStr)) continue;
-        seen.add(tidStr);
-        tokens.push({
-          token_id:    tidStr,
-          tier:        Number(meta[0]),
-          tier_name:   TIER_NAMES[Number(meta[0])] || 'Unknown',
-          seasonal_id: Number(meta[1]),
-          minted_at:   Number(meta[2]),
-        });
+        await pushTokenById(tokenId);
       } catch (e) {
-        // Enumerable pas dispo dès le premier appel → fallback events
-        if (i === 0) enumerableOk = false;
+        if (i === 0) {
+          enumerableOk = false;
+          console.log(`[BOOST INV] strategy 1 (Enumerable) not supported: ${e.message?.slice(0, 80)}`);
+        }
         break;
       }
     }
+    if (enumerableOk) console.log(`[BOOST INV] strategy 1 ok, found ${tokens.length}`);
 
-    // Fallback: scan BoostMinted events filtrés par wallet (indexed)
-    if (!enumerableOk && tokens.length < bal) {
+    // ── Strategy 2: event scan (BoostMinted indexed by wallet) ─────────────
+    if (tokens.length < bal) {
       try {
+        const provider = getProvider();
+        const latestBlock = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, latestBlock - 5_000_000); // ≈4 months
+        console.log(`[BOOST INV] strategy 2 (events) scanning blocks ${fromBlock}..latest`);
         const filter = contract.filters.BoostMinted(address);
-        const events = await contract.queryFilter(filter, 0, 'latest');
+        const events = await contract.queryFilter(filter, fromBlock, 'latest');
+        console.log(`[BOOST INV] strategy 2 found ${events.length} BoostMinted events`);
         for (const ev of events) {
           if (tokens.length >= bal) break;
-          const tokenId = ev.args.tokenId;
-          const tidStr = tokenId.toString();
-          if (seen.has(tidStr)) continue;
+          // Verify still owned (in case of transfer-out post-mint)
           try {
-            const meta = await contract.tokenMeta(tokenId);
-            seen.add(tidStr);
-            tokens.push({
-              token_id:    tidStr,
-              tier:        Number(meta[0]),
-              tier_name:   TIER_NAMES[Number(meta[0])] || 'Unknown',
-              seasonal_id: Number(meta[1]),
-              minted_at:   Number(meta[2]),
-            });
-          } catch (metaErr) { /* token meta unreachable, skip */ }
+            const stillOwner = await contract.ownerOf(ev.args.tokenId);
+            if (stillOwner.toLowerCase() !== address) continue;
+          } catch (ownErr) { continue; }
+          await pushTokenById(ev.args.tokenId);
         }
       } catch (scanErr) {
-        console.warn('[BOOST INVENTORY] event scan failed:', scanErr.message);
+        console.warn(`[BOOST INV] strategy 2 failed: ${scanErr.message?.slice(0, 120)}`);
+      }
+    }
+
+    // ── Strategy 3: brute-force ownerOf scan (small-supply only) ───────────
+    if (tokens.length < bal) {
+      try {
+        let totalMinted = 0;
+        for (let t = 1; t <= 3; t++) {
+          try {
+            const tierData = await contract.tiers(t);
+            totalMinted += Number(tierData[4]); // minted is index 4
+          } catch (e) {}
+        }
+        // Seasonal: try current + 5 fallback ids
+        try {
+          const seasonalId = Number(await contract.currentSeasonalId());
+          for (let s = Math.max(1, seasonalId - 5); s <= seasonalId; s++) {
+            try {
+              const sData = await contract.seasonal(s);
+              totalMinted += Number(sData[6]); // minted is index 6 for seasonal
+            } catch (e) {}
+          }
+        } catch (e) {}
+        const upperBound = totalMinted + 10; // safety margin
+        console.log(`[BOOST INV] strategy 3 (brute ownerOf) scanning tokenIds 1..${upperBound}`);
+        if (upperBound < 200) {
+          for (let tid = 1; tid <= upperBound && tokens.length < bal; tid++) {
+            try {
+              const owner = await contract.ownerOf(tid);
+              if (owner.toLowerCase() === address) {
+                await pushTokenById(tid);
+              }
+            } catch (e) { /* not minted or burned */ }
+          }
+          console.log(`[BOOST INV] strategy 3 done, total tokens=${tokens.length}`);
+        } else {
+          console.log(`[BOOST INV] strategy 3 skipped (upperBound=${upperBound} too large)`);
+        }
+      } catch (bruteErr) {
+        console.warn(`[BOOST INV] strategy 3 failed: ${bruteErr.message?.slice(0, 120)}`);
       }
     }
 

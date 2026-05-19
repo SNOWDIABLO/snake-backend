@@ -12,13 +12,15 @@
 | Backend     | Node.js 18 + Express + `better-sqlite3` + `ethers@6`                 |
 | Frontend    | Vanilla JS + `ethers@6` (UMD) + WalletConnect v2 (EthereumProvider)  |
 | Contrats    | Solidity 0.8.x, Hardhat (dossier `contracts/`)                       |
-| Hébergement | Backend → Railway (auto-deploy sur `git push main`)                  |
+| Hébergement | Backend → VPS Ubuntu 22.04 (PM2 + nginx), `https://api.snowdiablo.xyz` |
 |             | Frontend → WebHostOp FTP via GitHub Actions (`.github/workflows/`)   |
-| Monitoring  | PM2 local + Uptime Kuma + webhooks Discord                           |
-| Réseau      | Polygon PoS (chainId 137), RPC public `polygon-bor-rpc.publicnode.com` |
+| Monitoring  | PM2 (root daemon) + Uptime Kuma + webhooks Discord                   |
+| Réseau      | Polygon PoS (chainId 137), RPC `https://polygon.drpc.org`            |
 
-**Base de données** : SQLite (fichier `snake.db` sur volume persistant Railway `/data/snake.db`).
+**Base de données** : SQLite (fichier `/var/www/snake-backend/data/snake.db` sur le VPS).
 Colonnes `reward`, `total_claimed`, `daily_claims.total` = `REAL` (décimales) — PAS `INTEGER`.
+
+> ⚠️ **Migration 2026-05-19** : projet migré de Railway free tier (volumes coupés) vers VPS perso `65.75.209.135` (même host que `snowdiablo.xyz`). DB Railway non-récupérable → fresh empty start. NFT/tokens onchain intacts.
 
 ---
 
@@ -104,20 +106,31 @@ git push origin main
 
 ### Déploiement
 
-| Cible    | Trigger                                   | Observations                      |
-|----------|-------------------------------------------|-----------------------------------|
-| Backend  | `git push main` → Railway auto            | Healthcheck : `GET /health`       |
-| Frontend | `git push main` → GitHub Actions → FTP    | `.github/workflows/deploy-ftp.yml`|
+| Cible    | Trigger                                                         | Observations                       |
+|----------|-----------------------------------------------------------------|------------------------------------|
+| Backend  | `git push main` → SSH VPS → `git pull && pm2 restart`           | Healthcheck : `GET /health`        |
+| Frontend | `git push main` → GitHub Actions → FTP                          | `.github/workflows/deploy-ftp.yml` |
+
+**Workflow backend deploy** (depuis le mirror) :
+
+```bash
+# 1. Push depuis le mirror C:\dev\snake-backend (après robocopy depuis OneDrive)
+git push origin main
+
+# 2. SSH VPS et pull + restart
+ssh root@65.75.209.135
+cd /var/www/snake-backend && git pull && pm2 restart snake-backend
+# Ajouter --update-env si .env a changé : pm2 restart snake-backend --update-env
+```
 
 Smoke test post-deploy :
 
 ```powershell
-# ⚠️ URL Railway réelle = snake-backend-production-e5e8.up.railway.app (suffixe auto-généré)
-iwr https://snake-backend-production-e5e8.up.railway.app/health -UseBasicParsing | % Content
+iwr https://api.snowdiablo.xyz/health -UseBasicParsing | % Content
 iwr https://snowdiablo.xyz/ -UseBasicParsing | % StatusCode   # attend 200
 ```
 
-Hardcodé dans `index.html` ligne 1838 (`BACKEND_URL`) et `hall-of-fame.html` ligne 404 (`API`). Si l'URL change côté Railway → patch les deux fichiers avant push.
+URL backend hardcodée dans : `index.html` (`BACKEND_URL`), `hall-of-fame.html` (`API`), `admin.html`, `hub-preview.html`, `discord-bot-snacke/bot.js`, `frontend-v2/src/api.js`. Si l'URL change → patch tous + redeploy frontend FTP.
 
 ---
 
@@ -130,10 +143,13 @@ SIGNER_PK=0x...                              # private key wallet signer (gardé
 CONTRACT_ADDRESS=0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1
 NFT_CONTRACT_ADDRESS=0xda4167D97caAa90DAf5510bcE338a90134BBdfA9
 BOOST_NFT_ADDRESS=0x0a507FeAD82014674a0160CEf04570F19334E52C
-RPC_URL=https://polygon-bor-rpc.publicnode.com
-DB_PATH=/data/snake.db                       # volume Railway, sinon ./snake.db
+POLYGON_RPC=https://polygon.drpc.org         # ou RPC_URL selon version code
+DB_PATH=/var/www/snake-backend/data/snake.db # VPS (ex-Railway `/data/snake.db`)
+PORT=3500                                    # port 3000 utilisé par Next.js snowdiablo.xyz
 ADMIN_TOKEN=<long random>                    # pour /api/admin/*
 ```
+
+> ⚠️ **`dotenv` doit être chargé** via `node_args: '-r dotenv/config'` dans `ecosystem.config.js` (PM2). Railway injectait les vars automatiquement ; sur VPS sans dotenv, toutes les vars sont `undefined` → crash `SIGNER_PK manquant`.
 
 Features toggles :
 
@@ -294,15 +310,15 @@ Ne JAMAIS `DROP TABLE` en prod sans backup `/api/admin/backup`.
 ## 9. Sécurité & anti-cheat
 
 - **Signer privkey** (`SIGNER_PK`) : seul secret critique. S'il leak → attaquant peut mint infini.
-  → Rotation : déployer nouveau wallet, appeler `setSigner()` sur les 3 contrats, update `.env` Railway.
+  → Rotation : déployer nouveau wallet, appeler `setSigner()` sur les 3 contrats, update `.env` VPS + `pm2 restart snake-backend --update-env`.
 - **EIP-191 wallet proof** (`REQUIRE_WALLET_PROOF=1`) : force signMessage avant `/api/claim` — anti-griefing.
-- **Nonces persistés en DB** (table `proof_nonces`) : replay attack impossible même après Railway redeploy.
+- **Nonces persistés en DB** (table `proof_nonces`) : replay attack impossible même après VPS redeploy.
 - **Anti-cheat server-side** :
   - `score_per_second > MAX_PTS_PER_SEC` → session reject
   - `session_duration < MIN_SESSION_SEC` → bot detected
   - `session_gap < MIN_SESSION_GAP` par wallet → spam reject
 - **Rate limits** : `limiter` (actions write) + `publicLimiter` (reads) + `proofLimiter` (challenges).
-- **`trust proxy = 1`** (Railway a 1 reverse proxy devant). Ne PAS mettre `true` (spoofable).
+- **`trust proxy = 1`** (nginx en reverse proxy devant). Ne PAS mettre `true` (spoofable).
 
 ---
 
@@ -330,8 +346,8 @@ Ne JAMAIS `DROP TABLE` en prod sans backup `/api/admin/backup`.
 7. **`ethers@6`**
    `parseEther` retourne `bigint`, pas `BigNumber`. Jamais `.add()`/`.mul()`, use `+` et `*`.
 
-8. **Railway redeploy**
-   Sur chaque push main → restart complet. Toute var en RAM (Maps, caches in-memory) est wipée. → persiste en DB ou Redis.
+8. **VPS PM2 redeploy**
+   `pm2 restart snake-backend` → restart complet du process. Toute var en RAM (Maps, caches in-memory) est wipée → persiste en DB. Ajouter `--update-env` si tu as modifié le `.env`.
 
 9. **CORS**
    Frontend `snowdiablo.xyz` hardcodé dans `server.js`. Ajouter nouveau domaine → éditer la liste `allowedOrigins`.
@@ -339,17 +355,26 @@ Ne JAMAIS `DROP TABLE` en prod sans backup `/api/admin/backup`.
 10. **NFT Trophy auto-mint**
     Déclenché par `/api/admin/seasons/close`. Le signer paye tout le gas → check balance ≥ 2 POL avant close.
 
+11. **dotenv requis**
+    Sans `dotenv` et `-r dotenv/config` dans `node_args` PM2, le `.env` n'est PAS chargé sur VPS (Railway l'injectait automatiquement). `package.json` doit avoir `dotenv` en dep.
+
+12. **PowerShell `Out-File -Encoding utf8` ajoute un BOM**
+    Si tu écris un `.env` depuis Windows, utilise `[System.IO.File]::WriteAllText(..., utf8-no-bom)` ou `dos2unix` sur le VPS. Un BOM en tête fait que `dotenv` lit `﻿ADMIN_TOKEN` au lieu de `ADMIN_TOKEN` et ignore la première variable.
+
+13. **SnakeBoostNFT n'implémente PAS ERC721Enumerable**
+    `tokenOfOwnerByIndex` revert → l'endpoint `/api/boost/inventory` utilise un fallback en 3 stratégies (Enumerable → events `BoostMinted` → brute-force `ownerOf`). Voir `server.js` ~ ligne 2102.
+
 ---
 
 ## 11. Monitoring
 
 | Outil          | Check                                              |
 |----------------|----------------------------------------------------|
-| Uptime Kuma    | `GET /health` toutes les 60s                       |
+| Uptime Kuma    | `GET https://api.snowdiablo.xyz/health` 60s        |
 | Discord webhook| Alert si signer balance < 2 POL                    |
-| PM2 (local)    | `pm2 logs snake-backend` + `pm2 monit`             |
+| PM2 (VPS root) | `pm2 logs snake-backend` + `pm2 monit`             |
 | Polygonscan    | Watchlist signer wallet — mint frequency           |
-| Railway logs   | `railway logs --service snake-backend --follow`    |
+| VPS SSH        | `ssh root@65.75.209.135` + `pm2 status`            |
 
 Signer balance check :
 
@@ -381,7 +406,7 @@ $pol  = [decimal]([System.Numerics.BigInteger]::Parse("0"+$hex.Substring(2), 'Al
 ## 13. Contacts + liens
 
 - Game : https://snowdiablo.xyz
-- Backend : https://snake-backend-production-e5e8.up.railway.app
+- Backend : https://api.snowdiablo.xyz (VPS 65.75.209.135 depuis 2026-05-19)
 - GitHub : https://github.com/SnowDiablo/snake-backend
 - Twitter : https://twitter.com/SnowDiablo
 - Twitch : https://twitch.tv/snowdiablo
@@ -399,7 +424,9 @@ $pol  = [decimal]([System.Numerics.BigInteger]::Parse("0"+$hex.Substring(2), 'Al
 - `DEPLOY_DEX_LIQUIDITY.md` — procédure listing futur
 - `REDDIT_POSTS.md` — posts Reddit prêts
 - `TWITCH_BOT_SETUP.md` / `BLUESKY_SETUP.md` — bots sociaux
+- `VPS_MIGRATION.md` — migration Railway → VPS (2026-05-19)
+- `deploy/` — `vps-setup.sh`, `nginx-snake-api.conf`, `ecosystem.config.js`, helper PS scripts
 
 ---
 
-_Dernière maj : 2026-04-21 — launch day._
+_Dernière maj : 2026-05-19 — migration Railway → VPS (api.snowdiablo.xyz), fix `/api/boost/inventory` (3-strategy resolver), dotenv ajouté._

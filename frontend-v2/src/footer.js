@@ -7,25 +7,27 @@ const SNAKE_ADDR = '0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1';
 
 const FOOTER_CSS = `
 .sd-footer {
-  margin-top: var(--sp-16);
+  margin-top: var(--sp-12);
   padding: var(--sp-10) 0 var(--sp-8);
-  border-top: 1px solid var(--border);
-  background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.3));
+  border-top: 1px solid var(--line);
+  background: var(--bg-1);
   color: var(--text-dim);
   font-size: 0.85rem;
+  font-family: var(--ff-mono);
 }
 .sd-footer-inner {
-  max-width: 1280px; margin: 0 auto; padding: 0 var(--sp-6);
+  max-width: 1320px; margin: 0 auto; padding: 0 var(--sp-6);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--sp-8);
 }
 .sd-footer-col h4 {
-  font-size: 0.75rem; font-weight: 800; letter-spacing: 2px;
+  font-size: 0.72rem; font-weight: 800; letter-spacing: 1.5px;
   color: var(--neon-green);
   margin-bottom: var(--sp-3);
   text-transform: uppercase;
 }
+.sd-footer-col h4::before { content: '// '; color: var(--text-faint); }
 .sd-footer-col a {
   display: block; padding: 4px 0;
   color: var(--text-dim);
@@ -33,19 +35,19 @@ const FOOTER_CSS = `
 }
 .sd-footer-col a:hover { color: var(--neon-green); }
 .sd-footer-bottom {
-  max-width: 1280px; margin: var(--sp-8) auto 0; padding: var(--sp-6) var(--sp-6) 0;
-  border-top: 1px solid var(--border);
+  max-width: 1320px; margin: var(--sp-8) auto 0; padding: var(--sp-6) var(--sp-6) 0;
+  border-top: 1px solid var(--line);
   display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-3);
-  font-size: 0.75rem; color: var(--text-faint);
+  font-size: 0.72rem; color: var(--text-faint);
 }
 .sd-contract-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 2px 10px;
+  padding: 3px 10px;
   font-family: var(--ff-mono);
   font-size: 0.7rem;
   background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
   color: var(--text-dim);
 }
 .sd-contract-pill code { color: var(--neon-green); }

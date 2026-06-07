@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+
 /* ===================================================================
-   SnowDiablo Arcade — Cosmic Dark Theme
+   SnowDiablo Arcade — Terminal Dark Theme (2026 redesign)
    Shared across all games. Import in every page root.
    =================================================================== */
 
@@ -14,6 +16,12 @@
   /* Borders */
   --border:         #22223a;
   --border-hover:   #00ff8855;
+
+  /* Terminal additions (2026) */
+  --line:           #1b2236;
+  --line-2:         #283353;
+  --grid:           #0c101c;
+  --amber:          #ffb437;
 
   /* Text */
   --text:           #e8e8f0;
@@ -78,35 +86,41 @@ html, body {
 body {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse at 20% 0%, rgba(0, 255, 136, 0.07), transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(0, 204, 255, 0.06), transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(255, 51, 136, 0.03), transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% -10%, rgba(0, 255, 136, 0.06), transparent 60%),
     var(--bg-0);
   overflow-x: hidden;
   position: relative;
 }
 
-/* Starfield background (pure CSS, no JS) */
+/* Technical grid background (terminal — replaces starfield) */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.6;
+  opacity: 0.5;
   background-image:
-    radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(1px 1px at 75% 80%, rgba(255,255,255,0.4), transparent),
-    radial-gradient(1px 1px at 90% 15%, rgba(255,255,255,0.3), transparent),
-    radial-gradient(2px 2px at 40% 90%, rgba(0,255,136,0.3), transparent),
-    radial-gradient(1px 1px at 60% 50%, rgba(0,204,255,0.4), transparent);
-  background-size: 400px 400px, 300px 300px, 500px 500px, 350px 350px, 250px 250px;
-  animation: starfield 120s linear infinite;
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 46px 46px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 35%, transparent 80%);
+          mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 35%, transparent 80%);
 }
 
-@keyframes starfield {
-  0%   { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; }
-  100% { background-position: 400px 400px, -300px 300px, 500px -500px, -350px 350px, 250px -250px; }
+/* Subtle CRT scanlines */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.13) 0, rgba(0,0,0,0.13) 1px, transparent 2px, transparent 3px);
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+}
+@media (prefers-reduced-motion: reduce) {
+  body::after { display: none; }
 }
 
 a { color: inherit; text-decoration: none; }

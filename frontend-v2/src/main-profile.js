@@ -8,9 +8,13 @@ import { initHeader } from './header.js';
 import { initFooter } from './footer.js';
 import { api } from './api.js';
 import { isConnected, getAddress, onWalletChange, autoRestore } from './wallet.js';
+import { initI18n } from './i18n.js';
 
-initHeader('hdr');
-initFooter('ftr');
+(async () => {
+  await initI18n('common');
+  initHeader('hdr');
+  initFooter('ftr');
+})();
 
 const root = document.getElementById('profile-root');
 

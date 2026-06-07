@@ -7,9 +7,13 @@ import './leaderboard-style.css';
 import { initHeader } from './header.js';
 import { initFooter } from './footer.js';
 import { api } from './api.js';
+import { initI18n } from './i18n.js';
 
-initHeader('hdr');
-initFooter('ftr');
+(async () => {
+  await initI18n('common');
+  initHeader('hdr');
+  initFooter('ftr');
+})();
 
 const tbody  = document.getElementById('lb-body');
 const filter = document.getElementById('lb-filter');

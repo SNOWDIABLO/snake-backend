@@ -54,46 +54,49 @@ function currentKey() {
 const HEADER_CSS = `
 .sd-header {
   position: sticky; top: 0; z-index: 100;
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  background: rgba(5, 5, 10, 0.75);
-  border-bottom: 1px solid var(--border);
+  background: rgba(4, 5, 10, 0.82);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--ff-mono);
 }
 .sd-header-inner {
-  max-width: 1280px; margin: 0 auto;
+  max-width: 1320px; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between;
-  padding: var(--sp-4) var(--sp-6);
-  gap: var(--sp-6);
+  padding: var(--sp-3) var(--sp-6);
+  gap: var(--sp-5);
 }
 .sd-logo {
-  font-weight: 900; font-size: 1.15rem; letter-spacing: 2px;
-  background: var(--gradient-main);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-weight: 800; font-size: 1rem; letter-spacing: 0.5px;
+  color: var(--text);
   white-space: nowrap;
-  display: flex; align-items: center; gap: var(--sp-2);
+  display: flex; align-items: center; gap: 9px;
 }
-.sd-logo::before { content: '◆'; color: var(--neon-green); -webkit-text-fill-color: var(--neon-green); }
+.sd-logo::before {
+  content: ''; width: 14px; height: 14px;
+  background: var(--neon-green); box-shadow: 0 0 14px rgba(0,255,136,.4);
+  flex: none;
+}
 .sd-nav {
-  display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center;
+  display: flex; gap: var(--sp-1); flex-wrap: wrap; align-items: center;
 }
 .sd-nav a {
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem; font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 3px;
+  font-size: 0.8rem; font-weight: 600;
   color: var(--text-dim);
   border: 1px solid transparent;
   transition: all 0.15s var(--ease-out);
   display: inline-flex; align-items: center; gap: 6px;
 }
-.sd-nav a:hover { color: var(--text); border-color: var(--border); }
+.sd-nav a:hover { color: var(--neon-green); }
 .sd-nav a.active {
   color: var(--neon-green);
-  border-color: rgba(0, 255, 136, 0.4);
-  background: rgba(0, 255, 136, 0.08);
+  border-color: var(--line-2);
+  background: rgba(0, 255, 136, 0.06);
 }
 .sd-nav .mini-badge {
-  font-size: 0.55rem; padding: 1px 6px; border-radius: 10px;
-  background: rgba(0,255,136,0.15); color: var(--neon-green);
+  font-size: 0.55rem; padding: 1px 6px; border-radius: 3px;
+  background: rgba(0,255,136,0.12); color: var(--neon-green);
   border: 1px solid rgba(0,255,136,0.4);
   letter-spacing: 1px; font-weight: 800;
 }
@@ -102,9 +105,9 @@ const HEADER_CSS = `
 .sd-lang-btn {
   padding: var(--sp-2) var(--sp-3);
   font-size: 0.8rem; font-weight: 600;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg-2);
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -113,9 +116,9 @@ const HEADER_CSS = `
 .sd-lang-btn:hover { color: var(--neon-green); border-color: var(--neon-green); }
 .sd-lang-menu {
   position: absolute; right: 0; top: calc(100% + 6px);
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
   padding: var(--sp-2);
   min-width: 160px;
   max-height: 320px; overflow-y: auto;
@@ -130,25 +133,24 @@ const HEADER_CSS = `
   color: var(--text-dim);
   background: transparent;
   border: 0;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
 }
-.sd-lang-menu button:hover { background: var(--bg-2); color: var(--neon-green); }
+.sd-lang-menu button:hover { background: var(--bg-3); color: var(--neon-green); }
 .sd-lang-menu button.active { color: var(--neon-green); font-weight: 700; }
 .sd-wallet-btn {
   display: inline-flex; align-items: center; gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-4);
-  font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  color: var(--text);
+  padding: 7px var(--sp-4);
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.5px;
+  border: 1px solid var(--neon-green);
+  border-radius: 3px;
+  background: rgba(0,255,136,0.05);
+  color: var(--neon-green);
   transition: all 0.2s var(--ease-out);
   white-space: nowrap;
 }
 .sd-wallet-btn:hover {
-  border-color: var(--neon-green);
-  color: var(--neon-green);
+  background: rgba(0,255,136,0.13);
   box-shadow: 0 0 16px rgba(0, 255, 136, 0.2);
 }
 .sd-wallet-btn.connected {
@@ -160,7 +162,7 @@ const HEADER_CSS = `
 /* Modal */
 .sd-modal-backdrop {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.78);
   backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center;
   padding: var(--sp-4);
@@ -168,21 +170,22 @@ const HEADER_CSS = `
 }
 @keyframes sd-fade { from { opacity: 0; } to { opacity: 1; } }
 .sd-modal {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-sm);
   padding: var(--sp-8);
   max-width: 400px; width: 100%;
   box-shadow: var(--shadow-card), 0 0 48px rgba(0, 255, 136, 0.08);
+  font-family: var(--ff-mono);
 }
-.sd-modal h3 { font-size: 1.1rem; margin-bottom: var(--sp-4); color: var(--neon-green); letter-spacing: 1px; }
+.sd-modal h3 { font-size: 1.05rem; margin-bottom: var(--sp-4); color: var(--neon-green); letter-spacing: 1px; }
 .sd-modal .choices { display: flex; flex-direction: column; gap: var(--sp-3); }
 .sd-modal .choice {
   display: flex; align-items: center; justify-content: space-between;
   padding: var(--sp-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--bg-1);
   transition: all 0.15s;
   font-size: 0.9rem; font-weight: 600;
 }

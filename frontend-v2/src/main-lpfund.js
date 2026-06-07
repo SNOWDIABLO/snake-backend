@@ -7,9 +7,13 @@ import './theme.css';
 import './lpfund-style.css';
 import { initHeader } from './header.js';
 import { initFooter } from './footer.js';
+import { initI18n } from './i18n.js';
 
-initHeader('hdr');
-initFooter('ftr');
+(async () => {
+  await initI18n('common');
+  initHeader('hdr');
+  initFooter('ftr');
+})();
 
 const LP_WALLET   = '0xc1D4Fe31F4C0526848E4B427FDfBA519f36C166E';
 const SNAKE_ADDR  = '0x25e5Af25f5D8d87Df779f5eeA32dc7478663e9a1';

@@ -21,10 +21,10 @@ function detect() {
 export async function initI18n(ns = 'common') {
   _lang = detect();
   try {
-    const res = await fetch(`/locales/${_lang}/${ns}.json`);
+    const res = await fetch(`/locales/${_lang}/${ns}.json`, { cache: 'no-cache' });
     if (res.ok) _strings = await res.json();
     else if (_lang !== DEFAULT_LANG) {
-      const fb = await fetch(`/locales/${DEFAULT_LANG}/${ns}.json`);
+      const fb = await fetch(`/locales/${DEFAULT_LANG}/${ns}.json`, { cache: 'no-cache' });
       if (fb.ok) _strings = await fb.json();
     }
   } catch (err) {

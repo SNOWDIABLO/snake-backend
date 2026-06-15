@@ -323,6 +323,18 @@
     .tier b{ color:var(--amber) }
 
     @media(prefers-reduced-motion:reduce){ .t-tag .led,.t-h1 .caret,.st.live::before{ animation:none } }
+
+    /* ==== Arcade animated-bg : glass overrides so the shader glows through ==== */
+    .t-panel-feed,.t-gcard,.t-pnl,.ecell{ background:rgba(12,12,22,.5)!important; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-color:rgba(255,255,255,.1)!important }
+    .t-stats{ background:rgba(10,10,18,.4)!important; backdrop-filter:blur(14px) }
+    .t-stat{ border-color:rgba(255,255,255,.08) }
+    .t-btn{ background:rgba(255,255,255,.05)!important; backdrop-filter:blur(10px); border-color:rgba(255,255,255,.14)!important }
+    .t-btn:hover{ border-color:var(--neon-green)!important }
+    .t-btn-go{ background:linear-gradient(110deg,var(--neon-green),var(--neon-cyan))!important; color:#03110b!important; border:none!important; box-shadow:0 8px 30px rgba(0,212,255,.35) }
+    .t-btn-go:hover{ box-shadow:0 14px 46px rgba(0,255,157,.5); color:#03110b!important }
+    .t-h1 em{ background:linear-gradient(110deg,var(--neon-green),var(--neon-cyan) 50%,var(--neon-purple)); -webkit-background-clip:text; background-clip:text; color:transparent; background-size:220% auto; animation:abgShine 6s linear infinite }
+    @keyframes abgShine{ to{ background-position:220% center } }
+    .t-gcard:hover{ border-color:rgba(0,255,157,.5)!important; box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 40px rgba(0,255,157,.12) }
   </style>
 
   <script type="module" src="/src/main-hub.js"></script>

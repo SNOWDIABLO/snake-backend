@@ -15,6 +15,7 @@ import {
   getAddress
 } from './wallet.js';
 import { t, getLang, setLang, SUPPORTED_LANGS } from './i18n.js';
+import { initArcadeBG } from './arcade-bg.js';
 
 const NAV = [
   { href: '/',              labelKey: 'nav.hub',         key: 'hub' },
@@ -334,6 +335,8 @@ function openDisconnectModal() {
 }
 
 export function initHeader(mountId = 'hdr') {
+  const LITE = ['snake','pong','flappy','invaders','breakout','minesweeper','2048'];
+  initArcadeBG(LITE.includes(currentKey()) ? 'lite' : 'full');
   injectCSS();
   render(mountId);
   autoRestore().catch(() => {});
